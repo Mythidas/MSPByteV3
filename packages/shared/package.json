@@ -1,0 +1,35 @@
+{
+  "name": "@workspace/shared",
+  "version": "0.0.1",
+  "type": "module",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    "./types/*": [
+      "./src/types/*"
+    ],
+    "./lib/*": [
+      "./src/lib/*"
+    ],
+    "./config/*": [
+      "./src/config/*"
+    ]
+  },
+  "files": [
+    "dist",
+    "src",
+    "package.json",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/minimatch": "^6.0.0",
+    "@workspace/ts-config": "workspace:*",
+    "tsc-alias": "^1.8.16",
+    "typescript": "^5.7.3"
+  }
+}
