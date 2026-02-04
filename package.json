@@ -17,7 +17,9 @@
   },
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
-    "@workspace/ts-config": "workspace:*"
+    "@workspace/ts-config": "workspace:*",
+    "prettier": "^3.8.1",
+    "prettier-plugin-svelte": "^3.4.1"
   },
   "dependencies": {
     "@supabase/postgrest-js": "^2.93.3",

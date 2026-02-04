@@ -1,20 +1,77 @@
-import { supabase } from "$lib/supabase";
-import type { Handle } from "@sveltejs/kit";
-import { ORM } from "@workspace/shared/lib/utils/orm";
+// src/hooks.server.ts
+import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY } from '$env/static/public';
+import { createServerClient } from '@supabase/ssr';
+import { redirect, type Handle } from '@sveltejs/kit';
+import { ORM } from '@workspace/shared/lib/utils/orm';
 
 export const handle: Handle = async ({ event, resolve }) => {
-  event.locals.orm = new ORM(supabase);
-  event.locals.session = {
-    id: "ea3b7111-febe-47a2-b471-43873e6d39e7",
-    tenant_id: 1,
-    role_id: 1,
-    first_name: "Blake",
-    last_name: "Prejean",
-    email: "blake@mspbyte.pro",
-    preferences: "{}",
-    created_at: "2026-02-02 21:40:35.256847+00",
-    updated_at: "2026-02-02 21:40:35.256847+00",
+  event.locals.supabase = createServerClient(
+    PUBLIC_SUPABASE_URL,
+    PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY,
+    {
+      cookies: {
+        getAll() {
+          return event.cookies.getAll(); // ← native SvelteKit method
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            event.cookies.set(name, value, {
+              ...options,
+              path: '/', // ensure consistent path (important!)
+            });
+          });
+        },
+      },
+    }
+  );
+
+  event.locals.getSession = async () => {
+    const {
+      data: { session },
+    } = await event.locals.supabase.auth.getSession();
+
+    if (!session) return null;
+
+    return session;
   };
+
+  const session = await event.locals.getSession();
+  if (session) {
+    const { data: profile, error } = await event.locals.supabase
+      .from('users')
+      .select(
+        'id, tenant_id, role_id, first_name, last_name, email, preferences, created_at, updated_at'
+      )
+      .eq('id', session.user.id)
+      .single();
+    console.log(error);
+
+    if (!error && profile) {
+      event.locals.user = profile;
+    } else {
+      // Profile missing → treat as not fully onboarded / force logout or redirect to onboarding
+      // For now we just don't attach it
+      console.warn('No public.users row found for authenticated user', session.user.id);
+    }
+  }
+
+  event.locals.orm = new ORM(event.locals.supabase);
+
+  const pathname = event.url.pathname;
+  const isAuthRoute = pathname.startsWith('/auth');
+
+  if (session) {
+    // Already signed in → prevent access to login/signup/etc pages
+    if (isAuthRoute) {
+      throw redirect(303, '/');
+    }
+  } else {
+    // Not signed in → force login for all non-auth routes
+    if (!isAuthRoute) {
+      throw redirect(303, '/auth/login');
+    }
+  }
+
   const response = await resolve(event);
   return response;
 };

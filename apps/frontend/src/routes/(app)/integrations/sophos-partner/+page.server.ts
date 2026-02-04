@@ -147,7 +147,7 @@ export const actions: Actions = {
       const { error } = await locals.orm.upsert("public", "integrations", [
         {
           id: "sophos-partner",
-          tenant_id: locals.session.tenant_id,
+          tenant_id: locals.user?.tenant_id,
           config: configData,
           updated_at: new Date().toISOString(),
         },
@@ -171,7 +171,9 @@ export const actions: Actions = {
     try {
       // DB Query: Delete integration
       const { error } = await locals.orm.delete("public", "integrations", (q) =>
-        q.eq("id", "sophos-partner").eq("tenant_id", locals.session.tenant_id),
+        q
+          .eq("id", "sophos-partner")
+          .eq("tenant_id", locals.user?.tenant_id || 0),
       );
 
       if (error) {
