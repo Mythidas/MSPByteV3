@@ -1,8 +1,8 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 
-import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import type { ORM } from "@workspace/shared/lib/utils/orm";
-import type { Tables } from "@workspace/shared/types/database";
+import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
+import type { ORM } from '@workspace/shared/lib/utils/orm';
+import type { Tables } from '@workspace/shared/types/database';
 
 // for information about these interfaces
 declare global {
@@ -11,8 +11,8 @@ declare global {
     interface Locals {
       orm: ORM;
       supabase: SupabaseClient;
-      user: Tables<"public", "users"> | null;
-      getSession: () => Promise<Session | null>;
+      user: Tables<'public', 'users'> | null;
+      getSession: () => Promise<User | null>;
     }
     // interface PageData {}
     // interface PageState {}

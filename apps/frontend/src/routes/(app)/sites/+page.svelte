@@ -1,8 +1,13 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type TableView, type RowAction } from "$lib/components/data-table";
-  import type { Tables } from "@workspace/shared/types/database";
+  import {
+    DataTable,
+    type DataTableColumn,
+    type TableView,
+    type RowAction,
+  } from '$lib/components/data-table';
+  import type { Tables } from '@workspace/shared/types/database';
 
-  type Site = Tables<"public", "sites">;
+  type Site = Tables<'public', 'sites'>;
 
   const { data } = $props();
 
@@ -13,60 +18,63 @@
   // Define columns with all features
   const columns: DataTableColumn<Site>[] = $derived([
     {
-      key: "id",
-      title: "ID",
+      key: 'id',
+      title: 'ID',
       sortable: true,
-      width: "80px",
+      width: '80px',
       filter: {
-        type: "number",
-        operators: ["eq", "gt", "lt"],
+        type: 'number',
+        operators: ['eq', 'gt', 'lt'],
       },
     },
     {
-      key: "name",
-      title: "Site Name",
+      key: 'name',
+      title: 'Site Name',
       sortable: true,
       searchable: true,
       filter: {
-        type: "text",
-        operators: ["ilike", "eq"],
-        placeholder: "Search name...",
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search name...',
       },
     },
     {
-      key: "created_at",
-      title: "Created",
+      key: 'created_at',
+      title: 'Created',
       sortable: true,
       filter: {
-        type: "date",
-        operators: ["eq", "gt", "lt"],
+        type: 'date',
+        operators: ['eq', 'gt', 'lt'],
       },
       cell: createdAtCell,
     },
   ]);
 
   // Predefined views
-  const views: TableView[] = [
-    {
-      id: "recent",
-      label: "Recently Created",
-      filters: [{ field: "created_at", operator: "gt", value: "2024-01-01" }],
-    },
-  ];
+  // const views: TableView[] = [
+  //   {
+  //     id: 'recent',
+  //     label: 'Recently Created',
+  //     filters: [{ field: 'created_at', operator: 'gt', value: '2024-01-01' }],
+  //   },
+  // ];
 
   // Bulk actions
   const rowActions: RowAction<Site>[] = [
     {
-      label: "Delete",
-      variant: "destructive",
+      label: 'Delete',
+      variant: 'destructive',
       onclick: async (rows) => {
-        console.log("Delete:", rows.map(r => r.id));
+        console.log(
+          'Delete:',
+          rows.map((r) => r.id)
+        );
       },
     },
   ];
 
   function handleRowClick(row: Site) {
-    console.log("Clicked:", row);
+    console.log('Clicked:', row);
   }
 </script>
 
@@ -81,8 +89,6 @@
     schema="public"
     table="sites"
     {columns}
-    modifyQuery={(q) => q.eq("tenant_id", data.tenant_id)}
-    {views}
     {rowActions}
     enableRowSelection={true}
     enableGlobalSearch={true}

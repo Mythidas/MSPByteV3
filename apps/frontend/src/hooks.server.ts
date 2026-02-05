@@ -27,12 +27,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   event.locals.getSession = async () => {
     const {
-      data: { session },
-    } = await event.locals.supabase.auth.getSession();
+      data: { user },
+    } = await event.locals.supabase.auth.getUser();
 
-    if (!session) return null;
+    if (!user) return null;
 
-    return session;
+    return user;
   };
 
   const session = await event.locals.getSession();
@@ -42,16 +42,15 @@ export const handle: Handle = async ({ event, resolve }) => {
       .select(
         'id, tenant_id, role_id, first_name, last_name, email, preferences, created_at, updated_at'
       )
-      .eq('id', session.user.id)
+      .eq('id', session.id)
       .single();
-    console.log(error);
 
     if (!error && profile) {
       event.locals.user = profile;
     } else {
       // Profile missing → treat as not fully onboarded / force logout or redirect to onboarding
       // For now we just don't attach it
-      console.warn('No public.users row found for authenticated user', session.user.id);
+      console.warn('No public.users row found for authenticated user', session.id);
     }
   }
 
