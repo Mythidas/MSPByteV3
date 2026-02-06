@@ -3,8 +3,8 @@ import type {
   TableOrView,
   Tables,
   FilterOperations,
-} from "@workspace/shared/types/database";
-import type { Component, Snippet } from "svelte";
+} from '@workspace/shared/types/database';
+import type { Component, Snippet } from 'svelte';
 
 export type FilterOperator = FilterOperations;
 
@@ -17,7 +17,7 @@ export interface TableFilter {
 
 export interface FilterConfig {
   label?: string;
-  type: "text" | "select" | "date" | "number" | "boolean";
+  type: 'text' | 'select' | 'date' | 'number' | 'boolean';
   operators: FilterOperator[];
   defaultOperator?: FilterOperator;
   options?: { label: string; value: any }[];
@@ -42,15 +42,15 @@ export interface TableView {
   label: string;
   description?: string;
   icon?: Component;
-  filters: Omit<TableFilter, "id">[];
+  filters: Omit<TableFilter, 'id'>[];
   isDefault?: boolean;
 }
 
 export interface RowAction<TData> {
   label: string;
   icon?: Snippet;
-  onclick: (rows: TData[]) => void | Promise<void>;
-  variant?: "default" | "destructive" | "outline" | "secondary" | "ghost";
+  onclick: (rows: TData[], fetchData: () => Promise<void>) => void | Promise<void>;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost';
   disabled?: (rows: TData[]) => boolean;
 }
 
@@ -87,7 +87,7 @@ export interface DataTableState {
   globalSearch: string;
   filters: TableFilter[];
   activeViewId?: string;
-  sorting: Record<string, "asc" | "desc">;
+  sorting: Record<string, 'asc' | 'desc'>;
   selectedRows: Set<string>;
   visibleColumns: Set<string>;
 }

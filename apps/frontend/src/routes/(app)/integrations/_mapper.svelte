@@ -1,18 +1,19 @@
 <script lang="ts">
-  import SearchBar from "$lib/components/search-bar.svelte";
-  import Badge from "$lib/components/ui/badge/badge.svelte";
-  import Separator from "$lib/components/ui/separator/separator.svelte";
-  import * as Dialog from "$lib/components/ui/dialog/index.js";
-  import Button from "$lib/components/ui/button/button.svelte";
-  import Input from "$lib/components/ui/input/input.svelte";
-  import Label from "$lib/components/ui/label/label.svelte";
-  import MultiSelect from "$lib/components/multi-select.svelte";
-  import type { Tables } from "@workspace/shared/types/database";
-  import { Plus } from "lucide-svelte";
-  import { ORM } from "@workspace/shared/lib/utils/orm";
-  import { supabase } from "$lib/supabase";
-  import { toast } from "svelte-sonner";
-  import { stringCompare } from "$lib/utils/compare";
+  import SearchBar from '$lib/components/search-bar.svelte';
+  import Badge from '$lib/components/ui/badge/badge.svelte';
+  import Separator from '$lib/components/ui/separator/separator.svelte';
+  import * as Dialog from '$lib/components/ui/dialog/index.js';
+  import Button from '$lib/components/ui/button/button.svelte';
+  import Input from '$lib/components/ui/input/input.svelte';
+  import Label from '$lib/components/ui/label/label.svelte';
+  import MultiSelect from '$lib/components/multi-select.svelte';
+  import type { Tables } from '@workspace/shared/types/database';
+  import { Plus } from 'lucide-svelte';
+  import { ORM } from '@workspace/shared/lib/utils/orm';
+  import { supabase } from '$lib/supabase';
+  import { toast } from 'svelte-sonner';
+  import { stringCompare } from '$lib/utils/compare';
+  import Checkbox from '$lib/components/ui/checkbox/checkbox.svelte';
 
   let {
     id,
@@ -21,23 +22,24 @@
     links = $bindable(),
   }: {
     id: string;
-    sites: Tables<"public", "sites">[];
+    sites: Tables<'public', 'sites'>[];
     tenants: { id: string; name: string }[];
-    links: Tables<"public", "site_to_integration">[];
+    links: Tables<'public', 'site_to_integration'>[];
   } = $props();
 
   type PendingCreate = {
-    type: "create";
+    type: 'create';
     siteId: string;
     siteName: string;
     tenantIds: string[];
   };
 
-  let search = $state("");
-  let filter = $state("all");
+  let search = $state('');
+  let filter = $state('all');
   let newSiteDialog = $state(false);
-  let newSiteName = $state("");
+  let newSiteName = $state('');
   let newSiteTenants = $state<string[]>([]);
+  let importAllSites = $state(false);
   let isSaving = $state(false);
 
   // Pending creates for new sites (separate from selection changes)
@@ -48,10 +50,8 @@
     const map = new Map<string, string[]>();
     for (const site of sites) {
       // Skip temporary sites
-      if (site.id.toString().startsWith("new-")) continue;
-      const tenantIds = links
-        .filter((l) => l.site_id === site.id)
-        .map((l) => l.external_id);
+      if (site.id.toString().startsWith('new-')) continue;
+      const tenantIds = links.filter((l) => l.site_id === site.id).map((l) => l.external_id);
       map.set(site.id.toString(), tenantIds);
     }
     return map;
@@ -77,7 +77,7 @@
   // Check if a site has pending changes
   function hasPendingChange(siteId: string): boolean {
     // New sites always have pending changes
-    if (siteId.startsWith("new-")) return true;
+    if (siteId.startsWith('new-')) return true;
 
     const original = originalMappings.get(siteId) || [];
     const current = getSelection(siteId);
@@ -89,20 +89,18 @@
   }
 
   // Get the type of pending change for a site
-  function getPendingChangeType(
-    siteId: string
-  ): "link" | "unlink" | "modify" | "create" | null {
+  function getPendingChangeType(siteId: string): 'link' | 'unlink' | 'modify' | 'create' | null {
     // New sites are "create" type
-    if (siteId.startsWith("new-")) return "create";
+    if (siteId.startsWith('new-')) return 'create';
 
     if (!hasPendingChange(siteId)) return null;
 
     const original = originalMappings.get(siteId) || [];
     const current = getSelection(siteId);
 
-    if (original.length === 0 && current.length > 0) return "link";
-    if (original.length > 0 && current.length === 0) return "unlink";
-    return "modify";
+    if (original.length === 0 && current.length > 0) return 'link';
+    if (original.length > 0 && current.length === 0) return 'unlink';
+    return 'modify';
   }
 
   function getUsedTenants() {
@@ -112,7 +110,7 @@
       const sid = site.id.toString();
 
       // For new sites, get from pending creates
-      if (sid.startsWith("new-")) {
+      if (sid.startsWith('new-')) {
         const pending = pendingCreates.get(sid);
         if (pending) {
           pending.tenantIds.forEach((tid) => usedByOthers.add(String(tid)));
@@ -133,9 +131,7 @@
 
     // Get current site's selection so we can always include them
     const currentSiteSelection = new Set(
-      siteId.startsWith("new-")
-        ? pendingCreates.get(siteId)?.tenantIds || []
-        : getSelection(siteId)
+      siteId.startsWith('new-') ? pendingCreates.get(siteId)?.tenantIds || [] : getSelection(siteId)
     );
 
     for (const site of sites) {
@@ -143,7 +139,7 @@
       if (sid === siteId) continue;
 
       // For new sites, get from pending creates
-      if (sid.startsWith("new-")) {
+      if (sid.startsWith('new-')) {
         const pending = pendingCreates.get(sid);
         if (pending) {
           pending.tenantIds.forEach((tid) => usedByOthers.add(String(tid)));
@@ -168,7 +164,7 @@
   let siteList = $derived.by(() => {
     return sites.map((site) => {
       const siteId = site.id.toString();
-      const isNew = siteId.startsWith("new-");
+      const isNew = siteId.startsWith('new-');
       const pendingType = getPendingChangeType(siteId);
 
       return {
@@ -185,22 +181,26 @@
     const usedTenants = getUsedTenants();
     const lowerSearch = search.toLowerCase();
 
-    console.log(usedTenants)
     return siteList
-      .filter((s) => s.name.toLowerCase().includes(lowerSearch) || 
-        (tenants.some((t) => usedTenants.has(String(t.id)) 
-          && t.name.toLowerCase().includes(lowerSearch) 
-          && originalMappings.get(s.siteId)?.includes(String(t.id))))
-        )
+      .filter(
+        (s) =>
+          s.name.toLowerCase().includes(lowerSearch) ||
+          tenants.some(
+            (t) =>
+              usedTenants.has(String(t.id)) &&
+              t.name.toLowerCase().includes(lowerSearch) &&
+              originalMappings.get(s.siteId)?.includes(String(t.id))
+          )
+      )
       .filter((s) => {
-        if (filter === "all") return true;
+        if (filter === 'all') return true;
         const currentSelection = s.isNew
           ? pendingCreates.get(s.siteId)?.tenantIds || []
           : getSelection(s.siteId);
         const isLinked = currentSelection.length > 0;
-        return filter === "linked" ? isLinked : !isLinked;
+        return filter === 'linked' ? isLinked : !isLinked;
       })
-      .sort((a, b) => a.name.localeCompare(b.name))
+      .sort((a, b) => a.name.localeCompare(b.name));
   });
 
   let linkedCount = $derived(
@@ -218,7 +218,7 @@
     let count = pendingCreates.size;
     for (const site of sites) {
       const siteId = site.id.toString();
-      if (!siteId.startsWith("new-") && hasPendingChange(siteId)) {
+      if (!siteId.startsWith('new-') && hasPendingChange(siteId)) {
         count++;
       }
     }
@@ -226,9 +226,10 @@
   });
 
   const openCreateSiteDialog = () => {
-    newSiteName = "";
+    newSiteName = '';
     newSiteTenants = [];
     newSiteDialog = true;
+    importAllSites = false;
   };
 
   const handleSiteSelection = (siteId: string, tenantIds: string[]) => {
@@ -244,17 +245,32 @@
   };
 
   const handleCreateSite = () => {
-    if (!newSiteName.trim()) return;
+    if (importAllSites) {
+      const tenants = getAvailableTenants('new');
 
-    // Generate temporary ID for the new site
-    const tempId = `new-${Date.now()}`;
+      for (const t of tenants) {
+        createSiteHelper(t.label, [t.value.toString()]);
+      }
+    } else {
+      if (!newSiteName.trim()) return;
+
+      createSiteHelper(newSiteName.trim(), newSiteTenants);
+    }
+
+    newSiteDialog = false;
+    newSiteName = '';
+    newSiteTenants = [];
+  };
+
+  const createSiteHelper = (siteName: string, tenantIds: string[]) => {
+    const tempId = `new-${crypto.randomUUID()}`;
 
     // Add to pending creates
     pendingCreates.set(tempId, {
-      type: "create",
+      type: 'create',
       siteId: tempId,
-      siteName: newSiteName.trim(),
-      tenantIds: [...newSiteTenants],
+      siteName: siteName.trim(),
+      tenantIds: [...tenantIds],
     });
     pendingCreates = new Map(pendingCreates);
 
@@ -263,20 +279,15 @@
       ...sites,
       {
         id: tempId as unknown as number,
-        name: newSiteName.trim(),
+        name: siteName.trim(),
         tenant_id: 1,
         created_at: new Date().toISOString(),
-      } as Tables<"public", "sites">,
+      } as Tables<'public', 'sites'>,
     ];
-
-    // Close dialog and reset
-    newSiteDialog = false;
-    newSiteName = "";
-    newSiteTenants = [];
   };
 
   const cancelPendingChange = (siteId: string) => {
-    if (siteId.startsWith("new-")) {
+    if (siteId.startsWith('new-')) {
       // Remove the temporary site
       pendingCreates.delete(siteId);
       pendingCreates = new Map(pendingCreates);
@@ -293,118 +304,120 @@
 
     isSaving = true;
     const toastId = toast.loading(
-      `Saving ${pendingCount} mapping${pendingCount > 1 ? "s" : ""}...`
+      `Saving ${pendingCount} mapping${pendingCount > 1 ? 's' : ''}...`
     );
 
     try {
       const orm = new ORM(supabase);
-      let successCount = 0;
 
-      // Process pending creates (new sites)
-      for (const [tempId, create] of pendingCreates) {
-        try {
-          // Create new site
-          const { data: newSite } = await orm.insert("public", "sites", [
-            { tenant_id: 1, name: create.siteName },
-          ]);
+      // Collect pending creates into ordered arrays for a single bulk insert
+      const createEntries = [...pendingCreates.entries()];
+      const allNewSiteRows = createEntries.map(([, create]) => ({
+        tenant_id: 1,
+        name: create.siteName,
+      }));
 
-          if (newSite && newSite[0]) {
-            // Create links to integration tenants
-            if (create.tenantIds.length > 0) {
-              const linkInserts = create.tenantIds.map((tenantId) => ({
-                tenant_id: 1,
-                site_id: newSite[0].id,
-                integration_id: id,
-                external_id: tenantId,
-              }));
-
-              const { data: newLinks } = await orm.insert(
-                "public",
-                "site_to_integration",
-                linkInserts
-              );
-
-              if (newLinks) {
-                links = [...links, ...newLinks];
-              }
-            }
-
-            // Update local state - replace temp site with real one
-            sites = sites.map((s) =>
-              s.id.toString() === tempId ? newSite[0] : s
-            );
-            successCount++;
-          }
-        } catch (err) {
-          console.error(`Error creating site ${create.siteName}:`, err);
-          toast.error(`Failed to create site ${create.siteName}`);
-        }
-      }
-
-      // Process existing site changes
-      for (const site of sites) {
+      // Collect existing sites with pending changes
+      const changedExisting = sites.filter((site) => {
         const siteId = site.id.toString();
-        if (siteId.startsWith("new-")) continue; // Skip temp sites, handled above
-        if (!hasPendingChange(siteId)) continue;
+        return !siteId.startsWith('new-') && hasPendingChange(siteId);
+      });
 
-        try {
-          const current = getSelection(siteId);
+      // --- Step 1: Batch insert all new sites (1 API call) ---
+      let createdSites: Tables<'public', 'sites'>[] = [];
+      if (allNewSiteRows.length > 0) {
+        const { data } = await orm.insert('public', 'sites', allNewSiteRows);
+        createdSites = data ?? [];
+      }
 
-          // Get existing link IDs for this site
-          const existingLinkIds = links
-            .filter((l) => l.site_id === site.id)
-            .map((l) => l.id);
-
-          // Delete existing links
-          if (existingLinkIds.length > 0) {
-            for (const linkId of existingLinkIds) {
-              await orm.delete("public", "site_to_integration", (q) =>
-                q.eq("id", linkId)
-              );
-            }
-            links = links.filter((l) => !existingLinkIds.includes(l.id));
-          }
-
-          // Create new links if any
-          if (current.length > 0) {
-            const linkInserts = current.map((tenantId) => ({
-              tenant_id: 1,
-              site_id: site.id,
-              integration_id: id,
-              external_id: tenantId,
-            }));
-
-            const { data: newLinks } = await orm.insert(
-              "public",
-              "site_to_integration",
-              linkInserts
-            );
-
-            if (newLinks) {
-              links = [...links, ...newLinks];
-            }
-          }
-
-          successCount++;
-        } catch (err) {
-          console.error(`Error updating mappings for site ${site.name}:`, err);
-          toast.error(`Failed to update mappings for ${site.name}`);
+      // Build tempId → real site map (insert preserves order)
+      const tempToReal = new Map<string, Tables<'public', 'sites'>>();
+      for (let i = 0; i < createEntries.length; i++) {
+        if (createdSites[i]) {
+          tempToReal.set(createEntries[i][0], createdSites[i]);
         }
       }
 
-      // Clear all pending state after successful save
+      // --- Step 2: Batch delete all stale links (1 API call) ---
+      const allLinkIdsToDelete: number[] = [];
+      for (const site of changedExisting) {
+        const existingLinkIds = links.filter((l) => l.site_id === site.id).map((l) => l.id);
+        allLinkIdsToDelete.push(...existingLinkIds);
+      }
+
+      if (allLinkIdsToDelete.length > 0) {
+        await orm.delete('public', 'site_to_integration', (q) =>
+          q.in('id', allLinkIdsToDelete)
+        );
+      }
+
+      // --- Step 3: Batch insert all new links (1 API call) ---
+      const allNewLinks: {
+        tenant_id: number;
+        site_id: number;
+        integration_id: string;
+        external_id: string;
+      }[] = [];
+
+      // Links for newly created sites
+      for (const [tempId, create] of createEntries) {
+        const realSite = tempToReal.get(tempId);
+        if (!realSite || create.tenantIds.length === 0) continue;
+        for (const tenantId of create.tenantIds) {
+          allNewLinks.push({
+            tenant_id: 1,
+            site_id: realSite.id,
+            integration_id: id,
+            external_id: tenantId,
+          });
+        }
+      }
+
+      // Links for existing changed sites
+      for (const site of changedExisting) {
+        const current = getSelection(site.id.toString());
+        for (const tenantId of current) {
+          allNewLinks.push({
+            tenant_id: 1,
+            site_id: site.id,
+            integration_id: id,
+            external_id: tenantId,
+          });
+        }
+      }
+
+      let insertedLinks: Tables<'public', 'site_to_integration'>[] = [];
+      if (allNewLinks.length > 0) {
+        const { data } = await orm.insert('public', 'site_to_integration', allNewLinks);
+        insertedLinks = data ?? [];
+      }
+
+      // --- Step 4: Update local state ---
+      // Replace temp sites with real sites
+      if (tempToReal.size > 0) {
+        sites = sites.map((s) => {
+          const real = tempToReal.get(s.id.toString());
+          return real ?? s;
+        });
+      }
+
+      // Update links: remove deleted, add new
+      const deletedSet = new Set(allLinkIdsToDelete);
+      links = [...links.filter((l) => !deletedSet.has(l.id)), ...insertedLinks];
+
+      // Clear pending state
       pendingCreates.clear();
       pendingCreates = new Map(pendingCreates);
       currentSelections.clear();
       currentSelections = new Map(currentSelections);
 
-      toast.success(
-        `Successfully saved ${successCount} mapping${successCount > 1 ? "s" : ""}`,
-        { id: toastId }
-      );
+      const successCount = tempToReal.size + changedExisting.length;
+      toast.success(`Successfully saved ${successCount} mapping${successCount > 1 ? 's' : ''}`, {
+        id: toastId,
+      });
     } catch (error) {
-      console.error("Error saving mappings:", error);
-      toast.error("Failed to save mappings. Please try again.", { id: toastId });
+      console.error('Error saving mappings:', error);
+      toast.error('Failed to save mappings. Please try again.', { id: toastId });
     } finally {
       isSaving = false;
     }
@@ -415,7 +428,7 @@
     // Prefill site name with first selected tenant's name if name is empty
     if (tenantIds.length > 0 && newSiteName.length === 0) {
       const firstTenant = tenants.find((t) => t.id.toString() === tenantIds[0]);
-      console.log(firstTenant, newSiteName)
+      console.log(firstTenant, newSiteName);
       if (firstTenant) {
         newSiteName = firstTenant.name;
       }
@@ -428,7 +441,7 @@
 
     for (const site of sites) {
       const siteId = site.id.toString();
-      if (siteId.startsWith("new-")) continue;
+      if (siteId.startsWith('new-')) continue;
 
       // Skip sites that already have a selection
       if (getSelection(siteId).length > 0) continue;
@@ -461,22 +474,22 @@
     <SearchBar bind:value={search} />
     <div class="flex gap-2">
       <Badge
-        onclick={() => (filter = "all")}
+        onclick={() => (filter = 'all')}
         class="hover:cursor-pointer hover:bg-accent transition-colors"
-        variant={filter === "all" ? "default" : "outline"}
+        variant={filter === 'all' ? 'default' : 'outline'}
       >
         Total: {sites.length}
       </Badge>
       <Badge
-        onclick={() => (filter = "linked")}
+        onclick={() => (filter = 'linked')}
         class="hover:cursor-pointer hover:bg-accent transition-colors"
-        variant={filter === "linked" ? "default" : "outline"}
+        variant={filter === 'linked' ? 'default' : 'outline'}
       >
         Linked: {linkedCount}
       </Badge>
       <Badge
-        onclick={() => (filter = "unlinked")}
-        variant={filter === "unlinked" ? "destructive" : "outline"}
+        onclick={() => (filter = 'unlinked')}
+        variant={filter === 'unlinked' ? 'destructive' : 'outline'}
         class="hover:cursor-pointer hover:bg-accent transition-colors"
       >
         Unlinked: {unlinkedCount}
@@ -494,9 +507,7 @@
       <Plus class="w-4 h-4 mr-2" />
       Create New Site
     </Button>
-    <Button onclick={autoMatch} variant="outline">
-      Auto-Match
-    </Button>
+    <Button onclick={autoMatch} variant="outline">Auto-Match</Button>
   </div>
 
   <Separator />
@@ -526,24 +537,22 @@
           {/if}
           <div class="flex flex-1 min-w-0">
             <MultiSelect
-            options={getAvailableTenants(site.siteId)}
-            selected={currentSelection}
-            placeholder="Select tenants..."
-            searchPlaceholder="Search tenants..."
-            onchange={(newSelection) =>
-              site.isNew
-              ? handleNewSiteSelection(site.siteId, newSelection)
-              : handleSiteSelection(site.siteId, newSelection)}
-          />
+              options={getAvailableTenants(site.siteId)}
+              selected={currentSelection}
+              placeholder="Select tenants..."
+              searchPlaceholder="Search tenants..."
+              onchange={(newSelection) =>
+                site.isNew
+                  ? handleNewSiteSelection(site.siteId, newSelection)
+                  : handleSiteSelection(site.siteId, newSelection)}
+            />
+          </div>
         </div>
-      </div>
       </div>
     {/each}
 
     {#if filtered.length === 0}
-      <div class="flex items-center justify-center h-32 text-muted-foreground">
-        No sites found
-      </div>
+      <div class="flex items-center justify-center h-32 text-muted-foreground">No sites found</div>
     {/if}
   </div>
 
@@ -553,7 +562,7 @@
     class="w-full"
     size="lg"
   >
-    {isSaving ? "Saving..." : `Save Mappings ${pendingCount > 0 ? `(${pendingCount})` : ""}`}
+    {isSaving ? 'Saving...' : `Save Mappings ${pendingCount > 0 ? `(${pendingCount})` : ''}`}
   </Button>
 </div>
 
@@ -566,26 +575,34 @@
       </Dialog.Description>
     </Dialog.Header>
     <div class="flex flex-col gap-4 py-4">
-      <div class="flex flex-col gap-2">
-        <Label for="siteName">Site Name</Label>
-        <Input
-          id="siteName"
-          bind:value={newSiteName}
-          placeholder="Enter site name"
-          onkeydown={(e) => {
-            if (e.key === "Enter" && newSiteName.trim()) handleCreateSite();
-          }}
-        />
-      </div>
-      <div class="flex flex-col gap-2">
-        <Label>Link to Tenants (Optional)</Label>
-        <MultiSelect
-          options={getAvailableTenants("new")}
-          selected={newSiteTenants}
-          placeholder="Select tenants..."
-          searchPlaceholder="Search tenants..."
-          onchange={handleNewSiteTenantChange}
-        />
+      {#if !importAllSites}
+        <div class="flex flex-col gap-2">
+          <Label for="siteName">Site Name</Label>
+          <Input
+            id="siteName"
+            bind:value={newSiteName}
+            placeholder="Enter site name"
+            onkeydown={(e) => {
+              if (e.key === 'Enter' && newSiteName.trim()) handleCreateSite();
+            }}
+          />
+        </div>
+        <div class="flex flex-col gap-2">
+          <Label>Link to Tenants (Optional)</Label>
+          <MultiSelect
+            options={getAvailableTenants('new')}
+            selected={newSiteTenants}
+            placeholder="Select tenants..."
+            searchPlaceholder="Search tenants..."
+            onchange={handleNewSiteTenantChange}
+          />
+        </div>
+      {:else}
+        <span class="text-amber-500">This will create all available tenants as sites</span>
+      {/if}
+      <div class="flex gap-2">
+        <Checkbox id="all-sites" bind:checked={importAllSites} />
+        <Label for="all-sites">Import All Sites?</Label>
       </div>
     </div>
     <Dialog.Footer>
@@ -593,14 +610,14 @@
         variant="outline"
         onclick={() => {
           newSiteDialog = false;
-          newSiteName = "";
+          newSiteName = '';
           newSiteTenants = [];
         }}
       >
         Cancel
       </Button>
-      <Button onclick={handleCreateSite} disabled={!newSiteName.trim()}>
-        Create Site
+      <Button onclick={handleCreateSite} disabled={!newSiteName.trim() && !importAllSites}>
+        Create Site{importAllSites ? 's' : ''}
       </Button>
     </Dialog.Footer>
   </Dialog.Content>

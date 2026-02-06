@@ -3,8 +3,8 @@ import { AutoTaskConnector } from '@workspace/shared/lib/connectors/AutoTaskConn
 import { CoveConnector } from '@workspace/shared/lib/connectors/CoveConnector';
 import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
 import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
-import type { RequestHandler } from '../../../api/reports/reconcilliation/$types';
 import type { SiteReport, Mismatch, MismatchType, ReconciliationReport } from './types';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ locals }) => {
   const stream = new ReadableStream({
@@ -150,7 +150,7 @@ export const GET: RequestHandler = async ({ locals }) => {
             let backupContractUnits = 0;
 
             for (const contract of contracts.data || []) {
-              const services = await autotask.getContractServices(contract.id);
+              const services = await autotask.getContractServices(contract.id.toString());
 
               for (const serv of services.data || []) {
                 const isDesktop =
@@ -169,12 +169,15 @@ export const GET: RequestHandler = async ({ locals }) => {
 
                 if (serv.isBundle) {
                   const res = await autotask.getContractServiceBundleUnits(
-                    serv.id,
-                    serv.contractID
+                    serv.id.toString(),
+                    serv.contractID.toString()
                   );
                   units.push(...(res.data || []));
                 } else {
-                  const res = await autotask.getContractServiceUnits(serv.id, serv.contractID);
+                  const res = await autotask.getContractServiceUnits(
+                    serv.id.toString(),
+                    serv.contractID.toString()
+                  );
                   units.push(...(res.data || []));
                 }
 

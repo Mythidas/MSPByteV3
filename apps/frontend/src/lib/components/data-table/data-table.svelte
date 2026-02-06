@@ -1,33 +1,28 @@
 <script lang="ts" generics="S extends Schemas, T extends TableOrView<S>">
-  import { page } from "$app/stores";
-  import { goto } from "$app/navigation";
-  import { ORM } from "@workspace/shared/lib/utils/orm";
-  import { supabase } from "$lib/supabase";
+  import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
+  import { ORM } from '@workspace/shared/lib/utils/orm';
+  import { supabase } from '$lib/supabase';
   import type {
     Schemas,
     TableOrView,
     Tables,
     PaginationOptions,
     Filters,
-  } from "@workspace/shared/types/database";
-  import type {
-    DataTableProps,
-    TableFilter,
-    TableView,
-    DataTableColumn,
-  } from "./types";
-  import { cn } from "$lib/utils";
-  import { Checkbox } from "$lib/components/ui/checkbox";
-  import { Button } from "$lib/components/ui/button";
-  import * as Table from "$lib/components/ui/table";
-  import ArrowUpIcon from "@lucide/svelte/icons/arrow-up";
-  import ArrowDownIcon from "@lucide/svelte/icons/arrow-down";
-  import ChevronsUpDownIcon from "@lucide/svelte/icons/chevrons-up-down";
-  import DataTableToolbar from "./data-table-toolbar.svelte";
-  import DataTablePagination from "./data-table-pagination.svelte";
-  import { getNestedValue } from "./utils/nested";
-  import { exportData } from "./utils/export";
-  import { serializeFilters, deserializeFilters, generateFilterId } from "./utils/filters";
+  } from '@workspace/shared/types/database';
+  import type { DataTableProps, TableFilter, TableView, DataTableColumn } from './types';
+  import { cn } from '$lib/utils';
+  import { Checkbox } from '$lib/components/ui/checkbox';
+  import { Button } from '$lib/components/ui/button';
+  import * as Table from '$lib/components/ui/table';
+  import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
+  import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
+  import ChevronsUpDownIcon from '@lucide/svelte/icons/chevrons-up-down';
+  import DataTableToolbar from './data-table-toolbar.svelte';
+  import DataTablePagination from './data-table-pagination.svelte';
+  import { getNestedValue } from './utils/nested';
+  import { exportData } from './utils/export';
+  import { serializeFilters, deserializeFilters, generateFilterId } from './utils/filters';
 
   let {
     schema,
@@ -52,26 +47,26 @@
 
   // Initialize state from URL if enabled
   function getInitialState() {
-    if (enableURLState && typeof window !== "undefined") {
+    if (enableURLState && typeof window !== 'undefined') {
       const url = new URL(window.location.href);
       return {
-        page: parseInt(url.searchParams.get("page") || "0"),
-        pageSize: parseInt(url.searchParams.get("size") || String(defaultPageSize)),
-        globalSearch: url.searchParams.get("search") || "",
-        filters: deserializeFilters(url.searchParams.get("filters") || ""),
-        activeViewId: url.searchParams.get("view") || undefined,
-        sortField: url.searchParams.get("sortField") || undefined,
-        sortDir: (url.searchParams.get("sortDir") as "asc" | "desc") || undefined,
+        page: parseInt(url.searchParams.get('page') || '0'),
+        pageSize: parseInt(url.searchParams.get('size') || String(defaultPageSize)),
+        globalSearch: url.searchParams.get('search') || '',
+        filters: deserializeFilters(url.searchParams.get('filters') || ''),
+        activeViewId: url.searchParams.get('view') || undefined,
+        sortField: url.searchParams.get('sortField') || undefined,
+        sortDir: (url.searchParams.get('sortDir') as 'asc' | 'desc') || undefined,
       };
     }
     return {
       page: 0,
       pageSize: defaultPageSize,
-      globalSearch: "",
+      globalSearch: '',
       filters: [] as TableFilter[],
       activeViewId: views.find((v) => v.isDefault)?.id,
       sortField: undefined as string | undefined,
-      sortDir: undefined as "asc" | "desc" | undefined,
+      sortDir: undefined as 'asc' | 'desc' | undefined,
     };
   }
 
@@ -84,7 +79,7 @@
   let filters = $state<TableFilter[]>(initialState.filters);
   let activeViewId = $state<string | undefined>(initialState.activeViewId);
   let sortField = $state<string | undefined>(initialState.sortField);
-  let sortDir = $state<"asc" | "desc" | undefined>(initialState.sortDir);
+  let sortDir = $state<'asc' | 'desc' | undefined>(initialState.sortDir);
   let selectedRowIds = $state<Set<string>>(new Set());
   let visibleColumnKeys = $state<Set<string> | null>(null);
 
@@ -107,13 +102,11 @@
 
   const allFilters = $derived([...filters, ...viewFilters]);
 
-  const sorting = $derived<Record<string, "asc" | "desc">>(
+  const sorting = $derived<Record<string, 'asc' | 'desc'>>(
     sortField && sortDir ? { [sortField]: sortDir } : {}
   );
 
-  const visibleColumns = $derived(
-    columns.filter((col) => resolvedVisibleColumnKeys.has(col.key))
-  );
+  const visibleColumns = $derived(columns.filter((col) => resolvedVisibleColumnKeys.has(col.key)));
 
   const selectedRows = $derived<Tables<S, T>[]>(
     data.filter((row) => selectedRowIds.has(getRowId(row)))
@@ -141,9 +134,7 @@
     page: currentPage,
     size: pageSize,
     filters: convertFilters(allFilters),
-    globalFields:
-      globalSearchFields ||
-      columns.filter((c) => c.searchable).map((c) => c.key),
+    globalFields: globalSearchFields || columns.filter((c) => c.searchable).map((c) => c.key),
     globalSearch: globalSearch || undefined,
     filterMap,
     sorting,
@@ -169,53 +160,53 @@
       total = response.total;
     }
     if (error) {
-      console.error("DataTable fetch error:", error);
+      console.error('DataTable fetch error:', error);
     }
     loading = false;
   }
 
   // Update URL when state changes
   function updateURL() {
-    if (!enableURLState || typeof window === "undefined") return;
+    if (!enableURLState || typeof window === 'undefined') return;
 
     const url = new URL(window.location.href);
 
     if (currentPage > 0) {
-      url.searchParams.set("page", String(currentPage));
+      url.searchParams.set('page', String(currentPage));
     } else {
-      url.searchParams.delete("page");
+      url.searchParams.delete('page');
     }
 
     if (pageSize !== defaultPageSize) {
-      url.searchParams.set("size", String(pageSize));
+      url.searchParams.set('size', String(pageSize));
     } else {
-      url.searchParams.delete("size");
+      url.searchParams.delete('size');
     }
 
     if (globalSearch) {
-      url.searchParams.set("search", globalSearch);
+      url.searchParams.set('search', globalSearch);
     } else {
-      url.searchParams.delete("search");
+      url.searchParams.delete('search');
     }
 
     if (filters.length > 0) {
-      url.searchParams.set("filters", serializeFilters(filters));
+      url.searchParams.set('filters', serializeFilters(filters));
     } else {
-      url.searchParams.delete("filters");
+      url.searchParams.delete('filters');
     }
 
     if (activeViewId) {
-      url.searchParams.set("view", activeViewId);
+      url.searchParams.set('view', activeViewId);
     } else {
-      url.searchParams.delete("view");
+      url.searchParams.delete('view');
     }
 
     if (sortField && sortDir) {
-      url.searchParams.set("sortField", sortField);
-      url.searchParams.set("sortDir", sortDir);
+      url.searchParams.set('sortField', sortField);
+      url.searchParams.set('sortDir', sortDir);
     } else {
-      url.searchParams.delete("sortField");
-      url.searchParams.delete("sortDir");
+      url.searchParams.delete('sortField');
+      url.searchParams.delete('sortDir');
     }
 
     goto(url.toString(), { replaceState: true, keepFocus: true, noScroll: true });
@@ -279,15 +270,15 @@
 
   function handleSort(columnKey: string) {
     if (sortField === columnKey) {
-      if (sortDir === "asc") {
-        sortDir = "desc";
-      } else if (sortDir === "desc") {
+      if (sortDir === 'asc') {
+        sortDir = 'desc';
+      } else if (sortDir === 'desc') {
         sortField = undefined;
         sortDir = undefined;
       }
     } else {
       sortField = columnKey;
-      sortDir = "asc";
+      sortDir = 'asc';
     }
   }
 
@@ -334,14 +325,14 @@
       onrowclick &&
       !(event.target as HTMLElement).closest('input[type="checkbox"]') &&
       !(event.target as HTMLElement).closest('[data-slot="checkbox"]') &&
-      !(event.target as HTMLElement).closest("button")
+      !(event.target as HTMLElement).closest('button')
     ) {
       onrowclick(row);
     }
   }
 
   // Export handlers
-  async function handleExport(format: "csv" | "xlsx") {
+  async function handleExport(format: 'csv' | 'xlsx') {
     // Fetch all data without pagination
     const orm = new ORM(supabase);
     const { data: response } = await orm.select(schema, table, modifyQuery, {
@@ -380,11 +371,9 @@
 
   <!-- Bulk Actions -->
   {#if selectedRows.length > 0 && rowActions.length > 0}
-    <div
-      class="mb-4 flex items-center gap-2 rounded-md border border-muted bg-muted/50 p-2"
-    >
+    <div class="mb-4 flex items-center gap-2 rounded-md border border-muted bg-muted/50 p-2">
       <span class="text-sm font-medium">
-        {selectedRows.length} row{selectedRows.length !== 1 ? "s" : ""} selected
+        {selectedRows.length} row{selectedRows.length !== 1 ? 's' : ''} selected
         {#if total > selectedRows.length}
           <span class="text-muted-foreground"> of {total} total</span>
         {/if}
@@ -392,9 +381,9 @@
       <div class="flex gap-2">
         {#each rowActions as action}
           <Button
-            variant={action.variant || "outline"}
+            variant={action.variant || 'outline'}
             size="sm"
-            onclick={() => action.onclick(selectedRows)}
+            onclick={() => action.onclick(selectedRows, fetchData)}
             disabled={action.disabled ? action.disabled(selectedRows) : false}
           >
             {#if action.icon}
@@ -427,13 +416,13 @@
                 <button
                   type="button"
                   class={cn(
-                    "flex items-center gap-2 cursor-pointer select-none hover:text-foreground"
+                    'flex items-center gap-2 cursor-pointer select-none hover:text-foreground'
                   )}
                   onclick={() => handleSort(column.key)}
                 >
                   {column.title}
                   {#if sortField === column.key}
-                    {#if sortDir === "asc"}
+                    {#if sortDir === 'asc'}
                       <ArrowUpIcon class="h-4 w-4" />
                     {:else}
                       <ArrowDownIcon class="h-4 w-4" />
@@ -473,8 +462,8 @@
             {@const rowId = getRowId(row)}
             {@const isSelected = selectedRowIds.has(rowId)}
             <Table.Row
-              data-state={isSelected ? "selected" : undefined}
-              class={onrowclick ? "cursor-pointer" : undefined}
+              data-state={isSelected ? 'selected' : undefined}
+              class={onrowclick ? 'cursor-pointer' : undefined}
               onclick={(e) => handleRowClick(row, e)}
             >
               {#if enableRowSelection}
@@ -491,7 +480,7 @@
                   {#if column.cell}
                     {@render column.cell({ row, value })}
                   {:else}
-                    {value ?? ""}
+                    {value ?? ''}
                   {/if}
                 </Table.Cell>
               {/each}

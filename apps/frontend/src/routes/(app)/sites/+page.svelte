@@ -5,11 +5,15 @@
     type TableView,
     type RowAction,
   } from '$lib/components/data-table';
+  import { supabase } from '$lib/supabase.js';
+  import { ORM } from '@workspace/shared/lib/utils/orm.js';
   import type { Tables } from '@workspace/shared/types/database';
+  import { toast } from 'svelte-sonner';
 
   type Site = Tables<'public', 'sites'>;
 
   const { data } = $props();
+  let isDeleting = $state(false);
 
   function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString();
@@ -64,12 +68,32 @@
     {
       label: 'Delete',
       variant: 'destructive',
-      onclick: async (rows) => {
-        console.log(
-          'Delete:',
-          rows.map((r) => r.id)
+      onclick: async (rows, fetchData) => {
+        isDeleting = true;
+        const toastId = toast.loading(
+          `Deleting ${rows.length} site${rows.length > 1 ? 's' : ''}...`
         );
+
+        const orm = new ORM(supabase);
+        const { error } = await orm.delete('public', 'sites', (q) =>
+          q.in(
+            'id',
+            rows.map((r) => r.id)
+          )
+        );
+
+        if (error) {
+          toast.error('Failed to delete sites. Please try again.', { id: toastId });
+        } else {
+          await fetchData();
+          toast.success(`Successfully deleted ${rows.length} site${rows.length > 1 ? 's' : ''}`, {
+            id: toastId,
+          });
+        }
+
+        isDeleting = false;
       },
+      disabled: () => isDeleting,
     },
   ];
 

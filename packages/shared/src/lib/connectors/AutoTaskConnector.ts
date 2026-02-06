@@ -1,16 +1,17 @@
-import { APIResponse, Debug } from "@workspace/shared/lib/utils/debug";
+import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
 import {
   AutoTaskDataSourceConfig,
   AutoTaskCompany,
   AutoTaskSearch,
   AutoTaskResponse,
-} from "@workspace/shared/types/integrations/autotask/index";
+} from '@workspace/shared/types/integrations/autotask/index';
 import {
   AutoTaskContract,
   AutoTaskContractService,
   AutoTaskContractServiceUnit,
   AutoTaskContractServiceBundleUnit,
-} from "@workspace/shared/types/integrations/autotask/contracts";
+  AutoTaskQuoteItem,
+} from '@workspace/shared/types/integrations/autotask/contracts';
 
 export class AutoTaskConnector {
   constructor(private config: AutoTaskDataSourceConfig) {}
@@ -23,13 +24,13 @@ export class AutoTaskConnector {
     try {
       const search: AutoTaskSearch<AutoTaskCompany> = {
         filter: [
-          { field: "isActive", op: "eq", value: true },
-          { field: "companyType", op: "eq", value: 1 },
+          { field: 'isActive', op: 'eq', value: true },
+          { field: 'companyType', op: 'eq', value: 1 },
         ],
       };
 
       const response = await this.getAPIData<AutoTaskCompany>(
-        `${this.config.server}/ATServicesRest/V1.0/Companies/query?search=${JSON.stringify(search)}`,
+        `${this.config.server}/ATServicesRest/V1.0/Companies/query?search=${JSON.stringify(search)}`
       );
 
       if (response.error) {
@@ -41,30 +42,27 @@ export class AutoTaskConnector {
       };
     } catch (err) {
       return Debug.error({
-        module: "AutoTaskConnector",
-        context: "getCompanies",
+        module: 'AutoTaskConnector',
+        context: 'getCompanies',
         message: String(err),
       });
     }
   }
 
-  async getContracts(
-    siteId?: string,
-  ): Promise<APIResponse<AutoTaskContract[]>> {
+  async getContracts(siteId?: string): Promise<APIResponse<AutoTaskContract[]>> {
     try {
       const today = new Date().toISOString();
       const search: AutoTaskSearch<AutoTaskContract> = {
         filter: [
-          { field: "startDate", op: "lte", value: today },
-          { field: "endDate", op: "gte", value: today },
-          { field: "contractType", op: "eq", value: 7 },
+          { field: 'startDate', op: 'lte', value: today },
+          { field: 'endDate', op: 'gte', value: today },
+          { field: 'contractType', op: 'eq', value: 7 },
         ],
       };
-      if (siteId !== undefined)
-        search.filter.push({ field: "companyID", op: "eq", value: siteId });
+      if (siteId !== undefined) search.filter.push({ field: 'companyID', op: 'eq', value: siteId });
 
       const response = await this.getAPIData<AutoTaskContract>(
-        `${this.config.server}/ATServicesRest/V1.0/Contracts/query?search=${JSON.stringify(search)}`,
+        `${this.config.server}/ATServicesRest/V1.0/Contracts/query?search=${JSON.stringify(search)}`
       );
 
       if (response.error) {
@@ -76,32 +74,30 @@ export class AutoTaskConnector {
       };
     } catch (err) {
       return Debug.error({
-        module: "AutoTaskConnector",
-        context: "getContracts",
+        module: 'AutoTaskConnector',
+        context: 'getContracts',
         message: String(err),
       });
     }
   }
 
-  async getContractServices(
-    contractId?: string,
-  ): Promise<APIResponse<AutoTaskContractService[]>> {
+  async getContractServices(contractId?: string): Promise<APIResponse<AutoTaskContractService[]>> {
     try {
       const search: AutoTaskSearch<AutoTaskContractService> = {
         filter: [],
       };
       if (contractId)
         search.filter.push({
-          field: "contractID",
-          op: "eq",
+          field: 'contractID',
+          op: 'eq',
           value: contractId,
         });
 
       const services = await this.getAPIData<AutoTaskContractService>(
-        `${this.config.server}/ATServicesRest/V1.0/ContractServices/query?search=${JSON.stringify(search)}`,
+        `${this.config.server}/ATServicesRest/V1.0/ContractServices/query?search=${JSON.stringify(search)}`
       );
       const serviceBundles = await this.getAPIData<AutoTaskContractService>(
-        `${this.config.server}/ATServicesRest/V1.0/ContractServiceBundles/query?search=${JSON.stringify(search)}`,
+        `${this.config.server}/ATServicesRest/V1.0/ContractServiceBundles/query?search=${JSON.stringify(search)}`
       );
 
       if (services.error || serviceBundles.error) {
@@ -126,8 +122,8 @@ export class AutoTaskConnector {
       };
     } catch (err) {
       return Debug.error({
-        module: "AutoTaskConnector",
-        context: "getContractServices",
+        module: 'AutoTaskConnector',
+        context: 'getContractServices',
         message: String(err),
       });
     }
@@ -135,21 +131,21 @@ export class AutoTaskConnector {
 
   async getContractServiceUnits(
     contractServiceId: string,
-    contractId: string,
+    contractId: string
   ): Promise<APIResponse<AutoTaskContractServiceUnit[]>> {
     try {
       const today = new Date().toISOString();
       const search: AutoTaskSearch<AutoTaskContractServiceUnit> = {
         filter: [
-          { field: "contractID", op: "eq", value: contractId },
-          { field: "contractServiceID", op: "eq", value: contractServiceId },
-          { field: "startDate", op: "lte", value: today },
-          { field: "endDate", op: "gte", value: today },
+          { field: 'contractID', op: 'eq', value: contractId },
+          { field: 'contractServiceID', op: 'eq', value: contractServiceId },
+          { field: 'startDate', op: 'lte', value: today },
+          { field: 'endDate', op: 'gte', value: today },
         ],
       };
 
       const response = await this.getAPIData<AutoTaskContractServiceUnit>(
-        `${this.config.server}/ATServicesRest/V1.0/ContractServiceUnits/query?search=${JSON.stringify(search)}`,
+        `${this.config.server}/ATServicesRest/V1.0/ContractServiceUnits/query?search=${JSON.stringify(search)}`
       );
 
       if (response.error) {
@@ -161,8 +157,8 @@ export class AutoTaskConnector {
       };
     } catch (err) {
       return Debug.error({
-        module: "AutoTaskConnector",
-        context: "getContractServiceUnits",
+        module: 'AutoTaskConnector',
+        context: 'getContractServiceUnits',
         message: String(err),
       });
     }
@@ -170,25 +166,25 @@ export class AutoTaskConnector {
 
   async getContractServiceBundleUnits(
     contractServiceBundleId: string,
-    contractId: string,
+    contractId: string
   ): Promise<APIResponse<AutoTaskContractServiceBundleUnit[]>> {
     try {
       const today = new Date().toISOString();
       const search: AutoTaskSearch<AutoTaskContractServiceBundleUnit> = {
         filter: [
-          { field: "contractID", op: "eq", value: contractId },
+          { field: 'contractID', op: 'eq', value: contractId },
           {
-            field: "contractServiceBundleID",
-            op: "eq",
+            field: 'contractServiceBundleID',
+            op: 'eq',
             value: contractServiceBundleId,
           },
-          { field: "startDate", op: "lte", value: today },
-          { field: "endDate", op: "gte", value: today },
+          { field: 'startDate', op: 'lte', value: today },
+          { field: 'endDate', op: 'gte', value: today },
         ],
       };
 
       const response = await this.getAPIData<AutoTaskContractServiceBundleUnit>(
-        `${this.config.server}/ATServicesRest/V1.0/ContractServiceBundleUnits/query?search=${JSON.stringify(search)}`,
+        `${this.config.server}/ATServicesRest/V1.0/ContractServiceBundleUnits/query?search=${JSON.stringify(search)}`
       );
 
       if (response.error) {
@@ -200,8 +196,34 @@ export class AutoTaskConnector {
       };
     } catch (err) {
       return Debug.error({
-        module: "AutoTaskConnector",
-        context: "getContractServiceBundleUnits",
+        module: 'AutoTaskConnector',
+        context: 'getContractServiceBundleUnits',
+        message: String(err),
+      });
+    }
+  }
+
+  async getQuoteItem(quoteItemID: number): Promise<APIResponse<AutoTaskQuoteItem[]>> {
+    try {
+      const search: AutoTaskSearch<AutoTaskQuoteItem> = {
+        filter: [{ field: 'id', op: 'eq', value: quoteItemID }],
+      };
+
+      const response = await this.getAPIData<AutoTaskQuoteItem>(
+        `${this.config.server}/ATServicesRest/V1.0/QuoteItems/query?search=${JSON.stringify(search)}`
+      );
+
+      if (response.error) {
+        throw response.error.message;
+      }
+
+      return {
+        data: response.data,
+      };
+    } catch (err) {
+      return Debug.error({
+        module: 'AutoTaskConnector',
+        context: 'getQuoteItem',
         message: String(err),
       });
     }
@@ -210,7 +232,7 @@ export class AutoTaskConnector {
   private async getAPIData<T>(url: string): Promise<APIResponse<T[]>> {
     try {
       const response = await fetch(url, {
-        method: "GET",
+        method: 'GET',
         headers: {
           UserName: this.config.clientId,
           Secret: this.config.clientSecret,
@@ -220,20 +242,19 @@ export class AutoTaskConnector {
 
       if (!response.ok) {
         return Debug.error({
-          module: "AutoTaskConnector",
-          context: "getAPIData",
+          module: 'AutoTaskConnector',
+          context: 'getAPIData',
           message: `HTTP ${response.status}: ${response.statusText}`,
         });
       }
 
-      const data: AutoTaskResponse<T> =
-        (await response.json()) as AutoTaskResponse<T>;
+      const data: AutoTaskResponse<T> = (await response.json()) as AutoTaskResponse<T>;
 
       return { data: data.items };
     } catch (err) {
       return Debug.error({
-        module: "AutoTaskConnector",
-        context: "getAPIData",
+        module: 'AutoTaskConnector',
+        context: 'getAPIData',
         message: String(err),
       });
     }

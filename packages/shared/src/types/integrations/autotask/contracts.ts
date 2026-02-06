@@ -1,7 +1,7 @@
-import type { AutoTaskUserDefinedField } from "$lib/types/integrations/autotask";
+import { AutoTaskUserDefinedField } from '@workspace/shared/types/integrations/autotask/index';
 
 export type AutoTaskContract = {
-  id: string;
+  id: number;
 
   billingPreference: number;
 
@@ -56,9 +56,9 @@ export type AutoTaskContract = {
 };
 
 export type AutoTaskContractService = {
-  id: string;
-  contractID: string;
-  serviceID: string;
+  id: number;
+  contractID: number;
+  serviceID: number;
   isBundle: boolean; // Custom
 
   quoteItemID: number;
@@ -76,12 +76,12 @@ export type AutoTaskContractService = {
 };
 
 export type AutoTaskContractServiceUnit = {
-  id: string;
-  serviceID: string;
-  contractID: string;
-  contractServiceID: string;
-  organizationalLevelAssociationID: string;
-  vendorCompanyID: string;
+  id: number;
+  serviceID: number;
+  contractID: number;
+  contractServiceID: number;
+  organizationalLevelAssociationID: number;
+  vendorCompanyID: number;
   soapParentPropertyId: string;
 
   approveAndPostDate: string; // ISO
@@ -95,9 +95,43 @@ export type AutoTaskContractServiceUnit = {
 };
 
 export type AutoTaskContractServiceBundleUnit = {
-  serviceBundleID: string;
-  contractServiceBundleID: string;
-} & Omit<AutoTaskContractServiceUnit, "contractServiceID" | "serviceID">;
+  serviceBundleID: number;
+  contractServiceBundleID: number;
+} & Omit<AutoTaskContractServiceUnit, 'contractServiceID' | 'serviceID'>;
+
+export type AutoTaskQuoteItem = {
+  id: number;
+  averageCost: number;
+  chargeID: number;
+  description: string;
+  expenseID: number;
+  highestCost: number;
+  internalCurrencyLineDiscount: number;
+  internalCurrencyUnitDiscount: number;
+  internalCurrencyUnitPrice: number;
+  isOptional: boolean;
+  isTaxable: boolean;
+  laborID: number;
+  lineDiscount: number;
+  markupRate: number;
+  name: string;
+  percentageDiscount: number;
+  periodType: number;
+  productID: number;
+  quantity: number;
+  quoteID: number;
+  quoteItemType: number;
+  serviceBundleID: number;
+  serviceID: number;
+  shippingID: number;
+  sortOrderID: number;
+  taxCategoryID: number;
+  totalEffectiveTax: number;
+  unitCost: number;
+  unitDiscount: number;
+  unitPrice: number;
+  soapParentPropertyId: AutoTaskSoapProperty;
+};
 
 export type AutoTaskSoapProperty = {
   type: string;
