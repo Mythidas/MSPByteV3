@@ -161,27 +161,6 @@
     </div>
   </div>
 
-  {#if isGenerating}
-    <Card>
-      <CardContent>
-        <div class="space-y-3">
-          <Progress value={progressPercentage} class="w-full" />
-          <div class="flex justify-between text-sm">
-            <span class="text-muted-foreground">
-              Processing: {progress.current} of {progress.total} sites
-            </span>
-            <span class="text-muted-foreground">
-              {Math.round(progressPercentage)}%
-            </span>
-          </div>
-          <p class="text-sm text-muted-foreground truncate">
-            Current: {progress.siteName}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
-  {/if}
-
   {#if error}
     <div class="rounded-lg bg-destructive/10 text-destructive p-4 text-sm flex items-center gap-2">
       <TriangleAlert class="h-4 w-4 shrink-0" />
@@ -189,7 +168,34 @@
     </div>
   {/if}
 
-  {#if reportData}
+  {#if isGenerating}
+    <div class="flex-1 flex items-center justify-center">
+      <Card class="max-w-md w-full bg-primary/5 border-primary/20">
+        <CardHeader>
+          <CardTitle class="text-sm font-medium flex items-center gap-2 text-primary">
+            <LoaderCircle class="h-4 w-4 animate-spin" />
+            Generating Report
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div class="space-y-3">
+            <Progress value={progressPercentage} class="w-full h-2.5" />
+            <div class="flex justify-between text-sm">
+              <span class="text-foreground font-medium">
+                Processing: {progress.current} of {progress.total} sites
+              </span>
+              <span class="text-primary font-semibold">
+                {Math.round(progressPercentage)}%
+              </span>
+            </div>
+            <p class="text-sm text-muted-foreground truncate">
+              Current: {progress.siteName}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  {:else if reportData}
     <div class="grid grid-cols-4 gap-4">
       <Card>
         <CardHeader class="pb-2">
@@ -278,7 +284,7 @@
         </div>
       {/if}
     </div>
-  {:else if !isGenerating}
+  {:else}
     <div class="flex-1 flex items-center justify-center">
       <div class="text-center space-y-4">
         <div class="text-muted-foreground">

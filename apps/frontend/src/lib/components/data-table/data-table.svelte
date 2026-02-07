@@ -10,7 +10,7 @@
     PaginationOptions,
     Filters,
   } from '@workspace/shared/types/database';
-  import type { DataTableProps, TableFilter, TableView, DataTableColumn } from './types';
+  import type { DataTableProps, TableFilter, TableView, DataTableColumn, RowAction } from './types';
   import { cn } from '$lib/utils';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Button } from '$lib/components/ui/button';
@@ -81,6 +81,7 @@
   let sortField = $state<string | undefined>(initialState.sortField);
   let sortDir = $state<'asc' | 'desc' | undefined>(initialState.sortDir);
   let selectedRowIds = $state<Set<string>>(new Set());
+  let allSelected = $state(false);
   let visibleColumnKeys = $state<Set<string> | null>(null);
 
   // Initialize visible columns on first render
@@ -111,6 +112,8 @@
   const selectedRows = $derived<Tables<S, T>[]>(
     data.filter((row) => selectedRowIds.has(getRowId(row)))
   );
+
+  const selectionCount = $derived(allSelected ? total : selectedRows.length);
 
   const allRowsSelected = $derived(
     data.length > 0 && data.every((row) => selectedRowIds.has(getRowId(row)))
@@ -237,35 +240,42 @@
   // Handlers
   function handlePageChange(newPage: number) {
     currentPage = newPage;
+    allSelected = false;
   }
 
   function handlePageSizeChange(newSize: number) {
     pageSize = newSize;
-    currentPage = 0; // Reset to first page
+    currentPage = 0;
+    allSelected = false;
   }
 
   function handleGlobalSearchChange(search: string) {
     globalSearch = search;
-    currentPage = 0; // Reset to first page
+    currentPage = 0;
+    allSelected = false;
   }
 
   function handleAddFilter(filter: TableFilter) {
     filters = [...filters, filter];
     currentPage = 0;
+    allSelected = false;
   }
 
   function handleRemoveFilter(filter: TableFilter) {
     filters = filters.filter((f) => f.id !== filter.id);
+    allSelected = false;
   }
 
   function handleClearFilters() {
     filters = [];
     currentPage = 0;
+    allSelected = false;
   }
 
   function handleViewChange(view?: TableView) {
     activeViewId = view?.id;
     currentPage = 0;
+    allSelected = false;
   }
 
   function handleSort(columnKey: string) {
@@ -300,11 +310,8 @@
       }
       selectedRowIds = newSet;
     } else {
-      const newSet = new Set(selectedRowIds);
-      for (const row of data) {
-        newSet.delete(getRowId(row));
-      }
-      selectedRowIds = newSet;
+      allSelected = false;
+      selectedRowIds = new Set();
     }
   }
 
@@ -314,6 +321,7 @@
     if (checked) {
       newSet.add(rowId);
     } else {
+      allSelected = false;
       newSet.delete(rowId);
     }
     selectedRowIds = newSet;
@@ -344,6 +352,24 @@
       await exportData(response.rows, columns, format, resolvedVisibleColumnKeys);
     }
   }
+
+  async function handleAction(action: RowAction<Tables<S, T>>) {
+    let rows: Tables<S, T>[];
+    if (allSelected) {
+      const orm = new ORM(supabase);
+      const { data: response } = await orm.select(schema, table, modifyQuery, {
+        ...paginationOptions,
+        page: 0,
+        size: total || 10000,
+      });
+      rows = response?.rows ?? [];
+    } else {
+      rows = selectedRows;
+    }
+    await action.onclick(rows, fetchData);
+    allSelected = false;
+    selectedRowIds = new Set();
+  }
 </script>
 
 <div class="flex flex-col flex-1 w-full min-h-0 overflow-hidden gap-2">
@@ -369,40 +395,13 @@
     />
   </div>
 
-  <!-- Bulk Actions -->
-  {#if selectedRows.length > 0 && rowActions.length > 0}
-    <div class="mb-4 flex items-center gap-2 rounded-md border border-muted bg-muted/50 p-2">
-      <span class="text-sm font-medium">
-        {selectedRows.length} row{selectedRows.length !== 1 ? 's' : ''} selected
-        {#if total > selectedRows.length}
-          <span class="text-muted-foreground"> of {total} total</span>
-        {/if}
-      </span>
-      <div class="flex gap-2">
-        {#each rowActions as action}
-          <Button
-            variant={action.variant || 'outline'}
-            size="sm"
-            onclick={() => action.onclick(selectedRows, fetchData)}
-            disabled={action.disabled ? action.disabled(selectedRows) : false}
-          >
-            {#if action.icon}
-              <span class="mr-2">{@render action.icon()}</span>
-            {/if}
-            {action.label}
-          </Button>
-        {/each}
-      </div>
-    </div>
-  {/if}
-
   <!-- Table -->
-  <div class="flex size-full rounded-md border overflow-hidden">
+  <div class="flex size-full rounded-md border overflow-hidden bg-card/10">
     <Table.Root>
       <Table.Header>
         <Table.Row>
           {#if enableRowSelection}
-            <Table.Head class="w-[40px]">
+            <Table.Head class="w-10">
               <Checkbox
                 checked={allRowsSelected}
                 indeterminate={someRowsSelected}
@@ -463,7 +462,7 @@
             {@const isSelected = selectedRowIds.has(rowId)}
             <Table.Row
               data-state={isSelected ? 'selected' : undefined}
-              class={onrowclick ? 'cursor-pointer' : undefined}
+              class={cn(onrowclick ? 'cursor-pointer' : undefined, 'hover:bg-muted/50')}
               onclick={(e) => handleRowClick(row, e)}
             >
               {#if enableRowSelection}
@@ -491,6 +490,48 @@
     </Table.Root>
   </div>
 
+  <!-- Bulk Actions -->
+  {#if selectionCount > 0 && rowActions.length > 0}
+    <div
+      class="flex items-center gap-2 rounded-md border border-muted bg-muted/50 p-2 justify-between"
+    >
+      <span class="text-sm font-medium">
+        {selectionCount} row{selectionCount !== 1 ? 's' : ''} selected
+        {#if allSelected}
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-sm ml-2"
+            onclick={() => { allSelected = false; selectedRowIds = new Set(); }}
+          >Clear selection</Button>
+        {:else if allRowsSelected && total > data.length}
+          <span class="text-muted-foreground mr-2"> of {total} total</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            class="text-sm"
+            onclick={() => { allSelected = true; }}
+          >Select All {total} rows</Button>
+        {/if}
+      </span>
+      <div class="flex gap-2">
+        {#each rowActions as action}
+          <Button
+            variant={action.variant || 'outline'}
+            size="sm"
+            onclick={() => handleAction(action)}
+            disabled={!allSelected && action.disabled ? action.disabled(selectedRows) : false}
+          >
+            {#if action.icon}
+              <span class="mr-2">{@render action.icon()}</span>
+            {/if}
+            {action.label}
+          </Button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
   <!-- Pagination -->
   {#if enablePagination}
     <div class="mt-4">
@@ -498,7 +539,7 @@
         page={currentPage}
         {pageSize}
         {total}
-        selectedCount={selectedRows.length}
+        selectedCount={selectionCount}
         onpagechange={handlePageChange}
         onpagesizechange={handlePageSizeChange}
       />

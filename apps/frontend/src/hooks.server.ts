@@ -3,6 +3,8 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY } from '$e
 import { createServerClient } from '@supabase/ssr';
 import { redirect, type Handle } from '@sveltejs/kit';
 import { ORM } from '@workspace/shared/lib/utils/orm';
+import { hasPermission } from '$lib/utils/permissions';
+import { getRoutePermission } from '$lib/utils/route-permissions';
 
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.supabase = createServerClient(
@@ -47,6 +49,14 @@ export const handle: Handle = async ({ event, resolve }) => {
 
     if (!error && profile) {
       event.locals.user = profile;
+
+      // Fetch role for permission checks
+      const { data: role } = await event.locals.supabase
+        .from('roles')
+        .select('id, name, attributes, description, tenant_id, created_at, updated_at')
+        .eq('id', profile.role_id)
+        .single();
+      event.locals.role = role ?? null;
     } else {
       // Profile missing → treat as not fully onboarded / force logout or redirect to onboarding
       // For now we just don't attach it
@@ -63,6 +73,16 @@ export const handle: Handle = async ({ event, resolve }) => {
     // Already signed in → prevent access to login/signup/etc pages
     if (isAuthRoute) {
       throw redirect(303, '/');
+    }
+
+    // Permission guard
+    const requiredPermission = getRoutePermission(pathname);
+    if (
+      requiredPermission &&
+      !hasPermission(event.locals.role?.attributes as Record<string, unknown>, requiredPermission)
+    ) {
+      const msg = encodeURIComponent('You do not have permission to access this page.');
+      throw redirect(303, `/error?code=403&message=${msg}`);
     }
   } else {
     // Not signed in → force login for all non-auth routes

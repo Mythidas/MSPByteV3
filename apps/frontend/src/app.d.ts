@@ -12,6 +12,7 @@ declare global {
       orm: ORM;
       supabase: SupabaseClient;
       user: Tables<'public', 'users'> | null;
+      role: Tables<'public', 'roles'> | null;
       getSession: () => Promise<User | null>;
     }
     // interface PageData {}

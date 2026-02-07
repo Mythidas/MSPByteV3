@@ -1,19 +1,18 @@
 <script lang="ts">
-  import {
-    DataTable,
-    type DataTableColumn,
-    type TableView,
-    type RowAction,
-  } from '$lib/components/data-table';
+  import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
   import { supabase } from '$lib/supabase.js';
   import { ORM } from '@workspace/shared/lib/utils/orm.js';
   import type { Tables } from '@workspace/shared/types/database';
   import { toast } from 'svelte-sonner';
+  import { hasPermission } from '$lib/utils/permissions';
 
   type Site = Tables<'public', 'sites'>;
 
   const { data } = $props();
   let isDeleting = $state(false);
+  let canWrite = $derived(
+    hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
+  );
 
   function formatDate(dateStr: string): string {
     return new Date(dateStr).toLocaleDateString();
@@ -63,39 +62,44 @@
   //   },
   // ];
 
-  // Bulk actions
-  const rowActions: RowAction<Site>[] = [
-    {
-      label: 'Delete',
-      variant: 'destructive',
-      onclick: async (rows, fetchData) => {
-        isDeleting = true;
-        const toastId = toast.loading(
-          `Deleting ${rows.length} site${rows.length > 1 ? 's' : ''}...`
-        );
+  // Bulk actions (only available with write permission)
+  let rowActions: RowAction<Site>[] = $derived(
+    canWrite
+      ? [
+          {
+            label: 'Delete',
+            variant: 'destructive' as const,
+            onclick: async (rows: Site[], fetchData: () => Promise<void>) => {
+              isDeleting = true;
+              const toastId = toast.loading(
+                `Deleting ${rows.length} site${rows.length > 1 ? 's' : ''}...`
+              );
 
-        const orm = new ORM(supabase);
-        const { error } = await orm.delete('public', 'sites', (q) =>
-          q.in(
-            'id',
-            rows.map((r) => r.id)
-          )
-        );
+              const orm = new ORM(supabase);
+              const { error } = await orm.delete('public', 'sites', (q) =>
+                q.in(
+                  'id',
+                  rows.map((r) => r.id)
+                )
+              );
 
-        if (error) {
-          toast.error('Failed to delete sites. Please try again.', { id: toastId });
-        } else {
-          await fetchData();
-          toast.success(`Successfully deleted ${rows.length} site${rows.length > 1 ? 's' : ''}`, {
-            id: toastId,
-          });
-        }
+              if (error) {
+                toast.error('Failed to delete sites. Please try again.', { id: toastId });
+              } else {
+                await fetchData();
+                toast.success(
+                  `Successfully deleted ${rows.length} site${rows.length > 1 ? 's' : ''}`,
+                  { id: toastId }
+                );
+              }
 
-        isDeleting = false;
-      },
-      disabled: () => isDeleting,
-    },
-  ];
+              isDeleting = false;
+            },
+            disabled: () => isDeleting,
+          },
+        ]
+      : []
+  );
 
   function handleRowClick(row: Site) {
     console.log('Clicked:', row);
@@ -114,7 +118,7 @@
     table="sites"
     {columns}
     {rowActions}
-    enableRowSelection={true}
+    enableRowSelection={canWrite}
     enableGlobalSearch={true}
     enableFilters={true}
     enablePagination={true}

@@ -6,10 +6,24 @@
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import { page } from '$app/state';
   import { cn } from '$lib/utils/index';
+  import { hasPermission, type Permission } from '$lib/utils/permissions';
 
-  let { children } = $props();
+  let { children, data } = $props();
 
   const startsWith = (path: string) => page.url.pathname.startsWith(path);
+
+  const navItems: { href: string; label: string; permission: Permission | null }[] = [
+    { href: '/', label: 'Home', permission: null },
+    { href: '/sites', label: 'Sites', permission: 'Sites.Read' },
+    { href: '/integrations', label: 'Integrations', permission: 'Integrations.Read' },
+    { href: '/reports/reconcilliation', label: 'Reports', permission: 'Reports.Read' },
+  ];
+
+  let attributes = $derived((data.role?.attributes ?? null) as Record<string, unknown> | null);
+
+  let visibleNavItems = $derived(
+    navItems.filter((item) => !item.permission || hasPermission(attributes, item.permission))
+  );
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -29,32 +43,20 @@
   <div class="flex w-full h-fit p-2 bg-background shadow">
     <NavigationMenu.Root>
       <NavigationMenu.List>
-        <NavigationMenu.Item>
-          <NavigationMenu.Link href="/" class={cn(page.url.pathname === '/' && 'bg-accent/50')}>
-            Home
-          </NavigationMenu.Link>
-        </NavigationMenu.Item>
-        <NavigationMenu.Item>
-          <NavigationMenu.Link href="/sites" class={cn(startsWith('/sites') && 'bg-accent/50')}>
-            Sites
-          </NavigationMenu.Link>
-        </NavigationMenu.Item>
-        <NavigationMenu.Item>
-          <NavigationMenu.Link
-            href="/integrations"
-            class={cn(startsWith('/integrations') && 'bg-accent/50')}
-          >
-            Integrations
-          </NavigationMenu.Link>
-        </NavigationMenu.Item>
-        <NavigationMenu.Item>
-          <NavigationMenu.Link
-            href="/reports/reconcilliation"
-            class={cn(startsWith('/reports') && 'bg-accent/50')}
-          >
-            Reports
-          </NavigationMenu.Link>
-        </NavigationMenu.Item>
+        {#each visibleNavItems as item}
+          <NavigationMenu.Item>
+            <NavigationMenu.Link
+              href={item.href}
+              class={cn(
+                item.href === '/'
+                  ? page.url.pathname === '/' && 'bg-accent/50'
+                  : startsWith(item.href) && 'bg-accent/50'
+              )}
+            >
+              {item.label}
+            </NavigationMenu.Link>
+          </NavigationMenu.Item>
+        {/each}
       </NavigationMenu.List>
     </NavigationMenu.Root>
   </div>
