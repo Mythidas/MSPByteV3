@@ -6,24 +6,39 @@
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import { page } from '$app/state';
   import { cn } from '$lib/utils/index';
-  import { hasPermission, type Permission } from '$lib/utils/permissions';
+  import { hasPermission, hasAnyPermission, type Permission } from '$lib/utils/permissions';
 
   let { children, data } = $props();
 
   const startsWith = (path: string) => page.url.pathname.startsWith(path);
 
-  const navItems: { href: string; label: string; permission: Permission | null }[] = [
+  const mainNavItems: { href: string; label: string; permission: Permission | null }[] = [
     { href: '/', label: 'Home', permission: null },
     { href: '/sites', label: 'Sites', permission: 'Sites.Read' },
     { href: '/integrations', label: 'Integrations', permission: 'Integrations.Read' },
     { href: '/reports/reconcilliation', label: 'Reports', permission: 'Reports.Read' },
   ];
 
+  const adminNavItems: { href: string; label: string; permission: Permission }[] = [
+    { href: '/users', label: 'Users', permission: 'Users.Read' },
+    { href: '/roles', label: 'Roles', permission: 'Roles.Read' },
+  ];
+
   let attributes = $derived((data.role?.attributes ?? null) as Record<string, unknown> | null);
 
-  let visibleNavItems = $derived(
-    navItems.filter((item) => !item.permission || hasPermission(attributes, item.permission))
+  let visibleMainItems = $derived(
+    mainNavItems.filter((item) => !item.permission || hasPermission(attributes, item.permission))
   );
+
+  let showAdminDropdown = $derived(
+    hasAnyPermission(attributes, ['Users.Read', 'Roles.Read'])
+  );
+
+  let visibleAdminItems = $derived(
+    adminNavItems.filter((item) => hasPermission(attributes, item.permission))
+  );
+
+  let isAdminActive = $derived(startsWith('/users') || startsWith('/roles'));
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -43,7 +58,7 @@
   <div class="flex w-full h-fit p-2 bg-background shadow">
     <NavigationMenu.Root>
       <NavigationMenu.List>
-        {#each visibleNavItems as item}
+        {#each visibleMainItems as item}
           <NavigationMenu.Item>
             <NavigationMenu.Link
               href={item.href}
@@ -57,6 +72,30 @@
             </NavigationMenu.Link>
           </NavigationMenu.Item>
         {/each}
+        {#if showAdminDropdown}
+          <NavigationMenu.Item>
+            <NavigationMenu.Trigger class={cn(isAdminActive && 'bg-accent/50')}>
+              Admin
+            </NavigationMenu.Trigger>
+            <NavigationMenu.Content>
+              <ul class="flex flex-col gap-1 p-1 w-48">
+                {#each visibleAdminItems as item}
+                  <li>
+                    <NavigationMenu.Link
+                      href={item.href}
+                      class={cn(
+                        'w-full justify-start',
+                        startsWith(item.href) && 'bg-accent/50'
+                      )}
+                    >
+                      {item.label}
+                    </NavigationMenu.Link>
+                  </li>
+                {/each}
+              </ul>
+            </NavigationMenu.Content>
+          </NavigationMenu.Item>
+        {/if}
       </NavigationMenu.List>
     </NavigationMenu.Root>
   </div>

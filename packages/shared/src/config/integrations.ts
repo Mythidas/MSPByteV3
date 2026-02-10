@@ -1,6 +1,6 @@
 export type Integration = {
   name: string;
-  type: "psa" | "rmm" | "recovery" | "security" | "other";
+  type: "psa" | "rmm" | "recovery" | "security" | "identity" | "other";
 };
 
 export const INTEGRATIONS: Record<string, Integration> = {
@@ -19,5 +19,13 @@ export const INTEGRATIONS: Record<string, Integration> = {
   cove: {
     name: "Cove Backups",
     type: "recovery",
+  },
+  "microsoft-365": {
+    name: "Microsoft 365",
+    type: "identity",
+  },
+  halopsa: {
+    name: "HaloPSA",
+    type: "psa",
   },
 };

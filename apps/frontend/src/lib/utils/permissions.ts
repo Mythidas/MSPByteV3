@@ -5,7 +5,24 @@ export type Permission =
   | 'Integrations.Read'
   | 'Integrations.Write'
   | 'Reports.Read'
-  | 'Reports.Write';
+  | 'Reports.Write'
+  | 'Users.Read'
+  | 'Users.Write'
+  | 'Roles.Read'
+  | 'Roles.Write';
+
+export const PERMISSION_CATEGORIES = [
+  { category: 'Sites', permissions: ['Sites.Read', 'Sites.Write'] as Permission[] },
+  { category: 'Integrations', permissions: ['Integrations.Read', 'Integrations.Write'] as Permission[] },
+  { category: 'Reports', permissions: ['Reports.Read', 'Reports.Write'] as Permission[] },
+  { category: 'Users', permissions: ['Users.Read', 'Users.Write'] as Permission[] },
+  { category: 'Roles', permissions: ['Roles.Read', 'Roles.Write'] as Permission[] },
+];
+
+export const ALL_PERMISSIONS: Permission[] = [
+  'Global.Admin',
+  ...PERMISSION_CATEGORIES.flatMap((c) => [...c.permissions]),
+];
 
 type Attributes = Record<string, unknown> | null;
 

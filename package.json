@@ -4,10 +4,13 @@
   "private": "true",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "backend/*"
   ],
   "scripts": {
     "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=@workspace/frontend",
+    "dev:agent": "turbo dev --filter=@workspace/agents",
     "supabase:types": "bunx supabase gen types typescript --project-id bhyazlrcyuvbporjyefx --schema public,views > packages/shared/src/types/schema.ts",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },

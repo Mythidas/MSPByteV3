@@ -4,6 +4,8 @@ const ROUTE_PERMISSIONS: [string, Permission][] = [
   ['/sites', 'Sites.Read'],
   ['/integrations', 'Integrations.Read'],
   ['/reports', 'Reports.Read'],
+  ['/users', 'Users.Read'],
+  ['/roles', 'Roles.Read'],
 ];
 
 export function getRoutePermission(pathname: string): Permission | null {

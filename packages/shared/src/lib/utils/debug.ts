@@ -2,7 +2,7 @@ export type APIError = {
   module: string;
   context: string;
   message: string;
-  time: string;
+  time?: string;
 };
 
 export type APIResponse<T> =
@@ -10,17 +10,15 @@ export type APIResponse<T> =
   | { data?: undefined; error: APIError; meta?: Record<string, any> };
 
 export class Debug {
-  static log(info: Omit<APIError, "time" | "code">) {
+  static log(info: Omit<APIError, 'time' | 'code'>) {
     const time = new Date();
-    console.info(
-      `[${time.toLocaleTimeString()}][${info.module}][${info.context}] ${info.message}`,
-    );
+    console.info(`[${time.toLocaleTimeString()}][${info.module}][${info.context}] ${info.message}`);
   }
 
-  static error(error: Omit<APIError, "time">) {
+  static error(error: Omit<APIError, 'time'>) {
     const time = new Date();
     console.error(
-      `[${time.toLocaleTimeString()}][${error.module}][${error.context}] ${error.message}`,
+      `[${time.toLocaleTimeString()}][${error.module}][${error.context}] ${error.message}`
     );
     return {
       error: {
@@ -35,7 +33,7 @@ export class Debug {
 
     if (status !== 200 && body.error) {
       console.error(
-        `[${time.toLocaleTimeString()}][${body.error.module}][${body.error.context}] ${body.error.message} | ${status}`,
+        `[${time.toLocaleTimeString()}][${body.error.module}][${body.error.context}] ${body.error.message} | ${status}`
       );
     }
 

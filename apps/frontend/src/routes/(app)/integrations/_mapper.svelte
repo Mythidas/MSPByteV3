@@ -17,11 +17,13 @@
 
   let {
     id,
+    tenantId,
     sites = $bindable(),
     tenants,
     links = $bindable(),
   }: {
     id: string;
+    tenantId: string;
     sites: Tables<'public', 'sites'>[];
     tenants: { id: string; name: string }[];
     links: Tables<'public', 'site_to_integration'>[];
@@ -278,9 +280,9 @@
     sites = [
       ...sites,
       {
-        id: tempId as unknown as number,
+        id: tempId,
         name: siteName.trim(),
-        tenant_id: 1,
+        tenant_id: tenantId,
         created_at: new Date().toISOString(),
       } as Tables<'public', 'sites'>,
     ];
@@ -313,7 +315,7 @@
       // Collect pending creates into ordered arrays for a single bulk insert
       const createEntries = [...pendingCreates.entries()];
       const allNewSiteRows = createEntries.map(([, create]) => ({
-        tenant_id: 1,
+        tenant_id: '',
         name: create.siteName,
       }));
 
@@ -339,22 +341,20 @@
       }
 
       // --- Step 2: Batch delete all stale links (1 API call) ---
-      const allLinkIdsToDelete: number[] = [];
+      const allLinkIdsToDelete: string[] = [];
       for (const site of changedExisting) {
         const existingLinkIds = links.filter((l) => l.site_id === site.id).map((l) => l.id);
         allLinkIdsToDelete.push(...existingLinkIds);
       }
 
       if (allLinkIdsToDelete.length > 0) {
-        await orm.delete('public', 'site_to_integration', (q) =>
-          q.in('id', allLinkIdsToDelete)
-        );
+        await orm.delete('public', 'site_to_integration', (q) => q.in('id', allLinkIdsToDelete));
       }
 
       // --- Step 3: Batch insert all new links (1 API call) ---
       const allNewLinks: {
-        tenant_id: number;
-        site_id: number;
+        tenant_id: string;
+        site_id: string;
         integration_id: string;
         external_id: string;
       }[] = [];
@@ -365,7 +365,7 @@
         if (!realSite || create.tenantIds.length === 0) continue;
         for (const tenantId of create.tenantIds) {
           allNewLinks.push({
-            tenant_id: 1,
+            tenant_id: tenantId,
             site_id: realSite.id,
             integration_id: id,
             external_id: tenantId,
@@ -378,7 +378,7 @@
         const current = getSelection(site.id.toString());
         for (const tenantId of current) {
           allNewLinks.push({
-            tenant_id: 1,
+            tenant_id: tenantId,
             site_id: site.id,
             integration_id: id,
             external_id: tenantId,

@@ -1,0 +1,20 @@
+{
+  "extends": "@workspace/ts-config/base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "module": "ES2022",
+    "moduleResolution": "Node", // Use Node for proper .js extension resolution
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": false, // Ensure this is false
+    "paths": {
+      "@/*": ["./src/*"],
+      "@workspace/shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src", "assets"],
+  "exclude": ["node_modules", "dist"]
+}

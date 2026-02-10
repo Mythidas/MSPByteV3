@@ -1,25 +1,21 @@
 // src/routes/(app)/integrations/autotask/+page.server.ts
-import { fail } from "@sveltejs/kit";
-import type { Actions, PageServerLoad } from "./$types";
-import { superValidate, message } from "sveltekit-superforms";
-import { zod4 } from "sveltekit-superforms/adapters";
-import { prepareSensitiveFormData, isMaskedSecret } from "$lib/utils/forms";
-import { DattoRMMConnector } from "@workspace/shared/lib/connectors/DattoRMMConnector";
-import { dattoConfigSchema } from "./_forms";
-import { Encryption } from "$lib/server/encryption";
-import { ORM } from "@workspace/shared/lib/utils/orm";
-import { supabase } from "$lib/supabase";
+import { fail } from '@sveltejs/kit';
+import type { Actions, PageServerLoad } from './$types';
+import { superValidate, message } from 'sveltekit-superforms';
+import { zod4 } from 'sveltekit-superforms/adapters';
+import { prepareSensitiveFormData, isMaskedSecret } from '$lib/utils/forms';
+import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
+import { dattoConfigSchema } from './_forms';
+import { Encryption } from '$lib/server/encryption';
+import { ORM } from '@workspace/shared/lib/utils/orm';
+import { supabase } from '$lib/supabase';
 
 const fetchTenants = async () => {
   const orm = new ORM(supabase);
-  const { data } = await orm.selectSingle("public", "integrations", (q) =>
-    q.eq("id", "dattormm"),
-  );
+  const { data } = await orm.selectSingle('public', 'integrations', (q) => q.eq('id', 'dattormm'));
   if (!data) return { data: [] };
 
-  (data.config as any).apiSecretKey = Encryption.decrypt(
-    (data.config as any).apiSecretKey,
-  );
+  (data.config as any).apiSecretKey = Encryption.decrypt((data.config as any).apiSecretKey);
   const dattormm = new DattoRMMConnector(data.config as any);
   const { data: companies, error } = await dattormm.getSites();
 
@@ -32,24 +28,22 @@ const fetchTenants = async () => {
 
 const fetchLinks = async () => {
   const orm = new ORM(supabase);
-  const { data } = await orm.select("public", "site_to_integration", (q) =>
-    q.eq("integration_id", "dattormm"),
+  const { data } = await orm.select('public', 'site_to_integration', (q) =>
+    q.eq('integration_id', 'dattormm')
   );
   return { data: data?.rows || [] };
 };
 
 export const load: PageServerLoad = async ({ locals }) => {
-  const { data: integration } = await locals.orm.selectSingle(
-    "public",
-    "integrations",
-    (q) => q.eq("id", "dattormm"),
+  const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
+    q.eq('id', 'dattormm')
   );
-  const { data: sites } = await locals.orm.select("public", "sites");
+  const { data: sites } = await locals.orm.select('public', 'sites');
 
   const formDefaults = integration?.config
     ? {
         ...(integration.config as any),
-        apiSecretKey: "••••••••••", // Mask existing secret
+        apiSecretKey: '••••••••••', // Mask existing secret
       }
     : null;
 
@@ -74,33 +68,25 @@ export const actions: Actions = {
 
     try {
       // Get existing config to handle masked secret
-      const { data: integration } = await locals.orm.selectSingle(
-        "public",
-        "integrations",
-        (q) => q.eq("id", "dattormm"),
+      const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
+        q.eq('id', 'dattormm')
       );
 
       // Prepare data, using existing secret if it's still masked
-      const configData = prepareSensitiveFormData(
-        form.data,
-        (integration?.config as any) || null,
-        ["apiSecretKey"],
-      );
+      const configData = prepareSensitiveFormData(form.data, (integration?.config as any) || null, [
+        'apiSecretKey',
+      ]);
 
       const connector = new DattoRMMConnector(configData as any);
       const result = await connector.checkHealth();
 
       if (!result.data) {
-        return message(
-          form,
-          "Connection failed. Please check your credentials.",
-          {
-            status: 400,
-          },
-        );
+        return message(form, 'Connection failed. Please check your credentials.', {
+          status: 400,
+        });
       }
 
-      return message(form, "Connection successful!");
+      return message(form, 'Connection successful!');
     } catch (err) {
       return message(form, `Connection failed: ${String(err)}`, {
         status: 500,
@@ -117,18 +103,14 @@ export const actions: Actions = {
 
     try {
       // Get existing config to handle masked secret
-      const { data: integration } = await locals.orm.selectSingle(
-        "public",
-        "integrations",
-        (q) => q.eq("id", "dattormm"),
+      const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
+        q.eq('id', 'dattormm')
       );
 
       // Prepare data, using existing secret if it's still masked
-      const configData = prepareSensitiveFormData(
-        form.data,
-        (integration?.config as any) || null,
-        ["apiSecretKey"],
-      );
+      const configData = prepareSensitiveFormData(form.data, (integration?.config as any) || null, [
+        'apiSecretKey',
+      ]);
 
       // Test connection before saving
       const connector = new DattoRMMConnector(configData);
@@ -137,16 +119,16 @@ export const actions: Actions = {
       if (!healthCheck.data) {
         return message(
           form,
-          "Cannot save: Connection test failed. Please verify your credentials.",
-          { status: 400 },
+          'Cannot save: Connection test failed. Please verify your credentials.',
+          { status: 400 }
         );
       }
 
       configData.apiSecretKey = Encryption.encrypt(configData.apiSecretKey);
-      const { error } = await locals.orm.upsert("public", "integrations", [
+      const { error } = await locals.orm.upsert('public', 'integrations', [
         {
-          id: "dattormm",
-          tenant_id: locals.session.tenant_id,
+          id: 'dattormm',
+          tenant_id: locals.user?.tenant_id,
           config: configData,
           updated_at: new Date().toISOString(),
         },
@@ -158,7 +140,7 @@ export const actions: Actions = {
         });
       }
 
-      return message(form, "Configuration saved successfully!");
+      return message(form, 'Configuration saved successfully!');
     } catch (err) {
       return message(form, `Failed to save: ${String(err)}`, {
         status: 500,
@@ -169,8 +151,8 @@ export const actions: Actions = {
   delete: async ({ locals }) => {
     try {
       // DB Query: Delete integration
-      const { error } = await locals.orm.delete("public", "integrations", (q) =>
-        q.eq("id", "dattormm").eq("tenant_id", locals.session.tenant_id),
+      const { error } = await locals.orm.delete('public', 'integrations', (q) =>
+        q.eq('id', 'dattormm').eq('tenant_id', locals.user?.tenant_id || '')
       );
 
       if (error) {
