@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from "@workspace/shared/lib/utils/debug";
+import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
 import {
   Schemas,
   TableOrView,
@@ -9,26 +9,23 @@ import {
   Tables,
   TablesInsert,
   TablesUpdate,
-} from "@workspace/shared/types/database";
-import { Database } from "@workspace/shared/types/schema";
-import { SupabaseClient } from "@supabase/supabase-js";
-import { PostgrestFilterBuilder } from "@supabase/postgrest-js";
+} from '@workspace/shared/types/database';
+import { Database } from '@workspace/shared/types/schema';
+import { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 
 type RowType<
   S extends Schemas,
   T extends TableOrView<S>,
-> = T extends keyof Database["public"]["Tables"]
-  ? Database["public"]["Tables"][T]["Row"]
-  : T extends keyof Database["public"]["Views"]
-    ? Database["public"]["Views"][T]["Row"]
+> = T extends keyof Database['public']['Tables']
+  ? Database['public']['Tables'][T]['Row']
+  : T extends keyof Database['public']['Views']
+    ? Database['public']['Views'][T]['Row']
     : never;
 
-type QueryBuilder<
-  S extends Schemas,
-  T extends TableOrView<S>,
-> = PostgrestFilterBuilder<
+type QueryBuilder<S extends Schemas, T extends TableOrView<S>> = PostgrestFilterBuilder<
   any,
-  Database["public"],
+  Database['public'],
   RowType<S, T>,
   RowType<S, T>
 >;
@@ -39,13 +36,13 @@ export class ORM {
   async getCount<S extends Schemas, T extends TableOrView<S>>(
     schema: S,
     table: T,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<number>> {
     try {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .select("*", { count: "exact", head: true }); // head = no rows, just headers/meta
+        .select('*', { count: 'exact', head: true }); // head = no rows, just headers/meta
 
       if (modifyQuery) {
         modifyQuery(query as any);
@@ -61,7 +58,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `count_${String(table)}`,
         message: String(err),
       });
@@ -72,16 +69,15 @@ export class ORM {
     schema: S,
     table: T,
     modifyQuery?: (query: QueryBuilder<S, T>) => void,
-    pagination?: PaginationOptions,
+    pagination?: PaginationOptions
   ): Promise<APIResponse<DataResponse<Tables<S, T>>>> {
-    if (pagination)
-      return this.selectPaginated(schema, table, pagination, modifyQuery);
+    if (pagination) return this.selectPaginated(schema, table, pagination, modifyQuery);
 
     try {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .select("*");
+        .select('*');
 
       if (modifyQuery) {
         modifyQuery(query as any);
@@ -90,10 +86,7 @@ export class ORM {
       let results = [];
 
       while (true) {
-        const { data, error } = await query.range(
-          results.length,
-          results.length + 999,
-        );
+        const { data, error } = await query.range(results.length, results.length + 999);
 
         if (error) throw new Error(error.message);
 
@@ -109,7 +102,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `select_${String(table)}`,
         message: String(err),
       });
@@ -120,7 +113,7 @@ export class ORM {
     schema: S,
     table: T,
     pagination: PaginationOptions,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<DataResponse<Tables<S, T>>>> {
     try {
       const from = pagination.page * pagination.size;
@@ -129,32 +122,22 @@ export class ORM {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .select("*", { count: "exact" }) // includes count in response
+        .select('*', { count: 'exact' }) // includes count in response
         .range(from, to);
 
       if (pagination.filters) {
-        this.paginatedFilters(
-          query as any,
-          pagination.filters,
-          pagination.filterMap,
-        );
+        this.paginatedFilters(query as any, pagination.filters, pagination.filterMap);
       }
 
       if (pagination.globalFields && pagination.globalSearch) {
         const value = `%${pagination.globalSearch}%`;
-        query = query.or(
-          pagination.globalFields
-            .map((col) => `${col}.ilike.${value}`)
-            .join(","),
-        );
+        query = query.or(pagination.globalFields.map((col) => `${col}.ilike.${value}`).join(','));
       }
 
       if (pagination.sorting && Object.entries(pagination.sorting).length) {
         const [key, value] = Object.entries(pagination.sorting)[0];
-        const keyMap = pagination.filterMap
-          ? (pagination.filterMap[key] ?? key)
-          : key;
-        query = query.order(keyMap, { ascending: value === "asc" });
+        const keyMap = pagination.filterMap ? (pagination.filterMap[key] ?? key) : key;
+        query = query.order(keyMap, { ascending: value === 'asc' });
       }
 
       if (modifyQuery) {
@@ -173,7 +156,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `paginated_${String(table)}`,
         message: String(err),
       });
@@ -183,74 +166,72 @@ export class ORM {
   private paginatedFilters<S extends Schemas, T extends TableOrView<S>>(
     query: QueryBuilder<S, T>,
     filters: Filters,
-    map?: Record<string, string>,
+    map?: Record<string, string>
   ): QueryBuilder<S, T> {
     for (let [key, { op, value }] of Object.entries(filters)) {
-      if (value === undefined || value === null || value === "") continue;
+      if (value === undefined || value === null || value === '') continue;
 
       const column = map ? (map[key] ?? key) : key;
 
       switch (op) {
-        case "eq":
-        case "neq":
-        case "is":
-        case "not.neq":
-        case "not.eq":
-        case "not.is":
+        case 'eq':
+        case 'neq':
+        case 'is':
+        case 'not.neq':
+        case 'not.eq':
+        case 'not.is':
           query = query.filter(column as string, op, value);
           break;
-        case "like":
-        case "ilike":
-        case "not.like":
-        case "not.ilike":
+        case 'like':
+        case 'ilike':
+        case 'not.like':
+        case 'not.ilike':
           query = query.filter(column as string, op, `%${value}%`);
           break;
 
-        case "gte":
-        case "lte":
-        case "gt":
-        case "lt":
-        case "not.gte":
-        case "not.lte":
-        case "not.gt":
-        case "not.lt":
+        case 'gte':
+        case 'lte':
+        case 'gt':
+        case 'lt':
+        case 'not.gte':
+        case 'not.lte':
+        case 'not.gt':
+        case 'not.lt':
           // if (key.includes("_at")) {
           //   value = subDays(new Date(), value as number).toISOString();
           // }
           query = query.filter(column as string, op, value);
           break;
 
-        case "ov":
-        case "cd":
-        case "cs":
-        case "not.ov":
-        case "not.cd":
-        case "not.cs":
+        case 'ov':
+        case 'cd':
+        case 'cs':
+        case 'not.ov':
+        case 'not.cd':
+        case 'not.cs':
           if (!Array.isArray(value)) {
             value = `{"${value}"}`;
           } else {
-            value = `{${value.join(",")}}`;
+            value = `{${value.join(',')}}`;
           }
 
           query = query.filter(column as string, op, value);
           break;
 
-        case "in":
-        case "not.in":
+        case 'in':
+        case 'not.in':
           if (!Array.isArray(value)) {
             value = `("${value}")`;
           } else {
-            value = `(${value.join(",")})`;
+            value = `(${value.join(',')})`;
           }
 
           query = query.filter(column as string, op, value);
           break;
 
-        case "bt":
+        case 'bt':
           if (Array.isArray(value)) {
-            query = query
-              .gte(column as any, value[0])
-              .lte(column as any, value[1]);
+            query = query.gte(column as any, value[0]).lte(column as any, value[1]);
           }
           break;
         default:
@@ -264,13 +245,13 @@ export class ORM {
   async selectSingle<S extends Schemas, T extends TableOrView<S>>(
     schema: S,
     table: T,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<Tables<S, T>>> {
     try {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .select("*")
+        .select('*')
         .limit(1);
 
       if (modifyQuery) {
@@ -285,7 +266,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `select_${String(table)}`,
         message: String(err),
       });
@@ -296,7 +277,7 @@ export class ORM {
     schema: S,
     table: T,
     rows: TablesInsert<S, T>[],
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
       let query = this.supabase.schema(schema).from(table as any);
@@ -313,7 +294,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `insert_${String(table)}`,
         message: String(err),
       });
@@ -324,14 +305,14 @@ export class ORM {
     schema: S,
     table: T,
     id: string,
-    row: TablesUpdate<S, T>,
+    row: TablesUpdate<S, T>
   ): Promise<APIResponse<Tables<S, T>>> {
     try {
       const { data, error } = await this.supabase
         .schema(schema)
         .from(table as any)
         .update(row as any)
-        .eq("id", id as any)
+        .eq('id', id as any)
         .select()
         .single();
 
@@ -342,7 +323,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `update_${String(table)}`,
         message: String(err),
       });
@@ -353,7 +334,7 @@ export class ORM {
     schema: S,
     table: T,
     rows: (TablesUpdate<S, T> | TablesInsert<S, T>)[],
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
       let query = this.supabase
@@ -373,7 +354,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `upsert_${String(table)}`,
         message: String(err),
       });
@@ -383,7 +364,7 @@ export class ORM {
   async delete<S extends Schemas, T extends Table<S>>(
     schema: S,
     table: T,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<null>> {
     try {
       let query = this.supabase
@@ -403,7 +384,7 @@ export class ORM {
       };
     } catch (err) {
       return Debug.error({
-        module: "supabase",
+        module: 'supabase',
         context: `delete_${String(table)}`,
         message: String(err),
       });

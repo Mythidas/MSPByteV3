@@ -234,6 +234,7 @@
             {:then mappingData}
               <Mapper
                 id="autotask"
+                tenantId={data.user.tenant_id}
                 sites={data.sites}
                 tenants={mappingData.tenants}
                 links={mappingData.links}

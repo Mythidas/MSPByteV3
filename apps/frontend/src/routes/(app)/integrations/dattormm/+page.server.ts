@@ -8,10 +8,8 @@ import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConn
 import { dattoConfigSchema } from './_forms';
 import { Encryption } from '$lib/server/encryption';
 import { ORM } from '@workspace/shared/lib/utils/orm';
-import { supabase } from '$lib/supabase';
 
-const fetchTenants = async () => {
-  const orm = new ORM(supabase);
+const fetchTenants = async (orm: ORM) => {
   const { data } = await orm.selectSingle('public', 'integrations', (q) => q.eq('id', 'dattormm'));
   if (!data) return { data: [] };
 
@@ -26,8 +24,7 @@ const fetchTenants = async () => {
   return { data: companies.map((c) => ({ id: c.id, name: c.name })) };
 };
 
-const fetchLinks = async () => {
-  const orm = new ORM(supabase);
+const fetchLinks = async (orm: ORM) => {
   const { data } = await orm.select('public', 'site_to_integration', (q) =>
     q.eq('integration_id', 'dattormm')
   );
@@ -53,8 +50,8 @@ export const load: PageServerLoad = async ({ locals }) => {
     integration,
     sites: sites?.rows || [],
     form,
-    tenants: fetchTenants(),
-    siteLinks: fetchLinks(),
+    tenants: fetchTenants(locals.orm),
+    siteLinks: fetchLinks(locals.orm),
   };
 };
 

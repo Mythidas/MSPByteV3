@@ -315,7 +315,7 @@
       // Collect pending creates into ordered arrays for a single bulk insert
       const createEntries = [...pendingCreates.entries()];
       const allNewSiteRows = createEntries.map(([, create]) => ({
-        tenant_id: '',
+        tenant_id: tenantId,
         name: create.siteName,
       }));
 
@@ -363,12 +363,12 @@
       for (const [tempId, create] of createEntries) {
         const realSite = tempToReal.get(tempId);
         if (!realSite || create.tenantIds.length === 0) continue;
-        for (const tenantId of create.tenantIds) {
+        for (const eId of create.tenantIds) {
           allNewLinks.push({
             tenant_id: tenantId,
             site_id: realSite.id,
             integration_id: id,
-            external_id: tenantId,
+            external_id: eId,
           });
         }
       }
@@ -376,12 +376,12 @@
       // Links for existing changed sites
       for (const site of changedExisting) {
         const current = getSelection(site.id.toString());
-        for (const tenantId of current) {
+        for (const eId of current) {
           allNewLinks.push({
             tenant_id: tenantId,
             site_id: site.id,
             integration_id: id,
-            external_id: tenantId,
+            external_id: eId,
           });
         }
       }
