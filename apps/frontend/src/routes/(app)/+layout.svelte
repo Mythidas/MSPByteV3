@@ -2,43 +2,66 @@
   import '../layout.css';
   import favicon from '$lib/assets/favicon.svg';
   import { ModeWatcher } from 'mode-watcher';
-  import * as NavigationMenu from '$lib/components/ui/navigation-menu/index.js';
+  import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
+  import { ChevronDown } from '@lucide/svelte';
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import { page } from '$app/state';
   import { cn } from '$lib/utils/index';
-  import { hasPermission, hasAnyPermission, type Permission } from '$lib/utils/permissions';
+  import { hasPermission, type Permission } from '$lib/utils/permissions';
 
   let { children, data } = $props();
 
   const startsWith = (path: string) => page.url.pathname.startsWith(path);
 
-  const mainNavItems: { href: string; label: string; permission: Permission | null }[] = [
-    { href: '/', label: 'Home', permission: null },
-    { href: '/sites', label: 'Sites', permission: 'Sites.Read' },
-    { href: '/integrations', label: 'Integrations', permission: 'Integrations.Read' },
-    { href: '/reports/reconcilliation', label: 'Reports', permission: 'Reports.Read' },
+  type NavLink = { kind: 'link'; href: string; label: string; permission: Permission | null };
+  type NavGroup = {
+    kind: 'group';
+    label: string;
+    children: { href: string; label: string; permission: Permission }[];
+  };
+  type NavItem = NavLink | NavGroup;
+
+  const navItems: NavItem[] = [
+    { kind: 'link', href: '/', label: 'Home', permission: null },
+    { kind: 'link', href: '/sites', label: 'Sites', permission: 'Sites.Read' },
+    { kind: 'link', href: '/integrations', label: 'Integrations', permission: 'Integrations.Read' },
+    { kind: 'link', href: '/reports/reconcilliation', label: 'Reports', permission: 'Reports.Read' },
+    {
+      kind: 'group',
+      label: 'Admin',
+      children: [
+        { href: '/users', label: 'Users', permission: 'Users.Read' },
+        { href: '/roles', label: 'Roles', permission: 'Roles.Read' },
+      ],
+    },
   ];
 
-  const adminNavItems: { href: string; label: string; permission: Permission }[] = [
-    { href: '/users', label: 'Users', permission: 'Users.Read' },
-    { href: '/roles', label: 'Roles', permission: 'Roles.Read' },
-  ];
+  const isActive = (href: string) =>
+    href === '/' ? page.url.pathname === '/' : startsWith(href);
+
+  const isGroupActive = (group: NavGroup) =>
+    group.children.some((child) => startsWith(child.href));
 
   let attributes = $derived((data.role?.attributes ?? null) as Record<string, unknown> | null);
 
-  let visibleMainItems = $derived(
-    mainNavItems.filter((item) => !item.permission || hasPermission(attributes, item.permission))
-  );
-
-  let showAdminDropdown = $derived(
-    hasAnyPermission(attributes, ['Users.Read', 'Roles.Read'])
-  );
-
-  let visibleAdminItems = $derived(
-    adminNavItems.filter((item) => hasPermission(attributes, item.permission))
-  );
-
-  let isAdminActive = $derived(startsWith('/users') || startsWith('/roles'));
+  let visibleNavItems = $derived.by(() => {
+    const result: NavItem[] = [];
+    for (const item of navItems) {
+      if (item.kind === 'link') {
+        if (!item.permission || hasPermission(attributes, item.permission)) {
+          result.push(item);
+        }
+      } else {
+        const visibleChildren = item.children.filter((child) =>
+          hasPermission(attributes, child.permission)
+        );
+        if (visibleChildren.length > 0) {
+          result.push({ ...item, children: visibleChildren });
+        }
+      }
+    }
+    return result;
+  });
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -56,48 +79,44 @@
     </svg>
   </div>
   <div class="flex w-full h-fit p-2 bg-background shadow">
-    <NavigationMenu.Root>
-      <NavigationMenu.List>
-        {#each visibleMainItems as item}
-          <NavigationMenu.Item>
-            <NavigationMenu.Link
-              href={item.href}
+    <nav class="flex items-center gap-1">
+      {#each visibleNavItems as item}
+        {#if item.kind === 'link'}
+          <a
+            href={item.href}
+            class={cn(
+              'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
+              'hover:bg-accent hover:text-accent-foreground',
+              isActive(item.href) && 'bg-accent/50'
+            )}
+          >
+            {item.label}
+          </a>
+        {:else}
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
               class={cn(
-                item.href === '/'
-                  ? page.url.pathname === '/' && 'bg-accent/50'
-                  : startsWith(item.href) && 'bg-accent/50'
+                'inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors',
+                'hover:bg-accent hover:text-accent-foreground',
+                isGroupActive(item) && 'bg-accent/50'
               )}
             >
               {item.label}
-            </NavigationMenu.Link>
-          </NavigationMenu.Item>
-        {/each}
-        {#if showAdminDropdown}
-          <NavigationMenu.Item>
-            <NavigationMenu.Trigger class={cn(isAdminActive && 'bg-accent/50')}>
-              Admin
-            </NavigationMenu.Trigger>
-            <NavigationMenu.Content>
-              <ul class="flex flex-col gap-1 p-1 w-48">
-                {#each visibleAdminItems as item}
-                  <li>
-                    <NavigationMenu.Link
-                      href={item.href}
-                      class={cn(
-                        'w-full justify-start',
-                        startsWith(item.href) && 'bg-accent/50'
-                      )}
-                    >
-                      {item.label}
-                    </NavigationMenu.Link>
-                  </li>
-                {/each}
-              </ul>
-            </NavigationMenu.Content>
-          </NavigationMenu.Item>
+              <ChevronDown class="size-3" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content align="start">
+              {#each item.children as child}
+                <a href={child.href}>
+                  <DropdownMenu.Item class={cn(startsWith(child.href) && 'bg-accent/50')}>
+                    {child.label}
+                  </DropdownMenu.Item>
+                </a>
+              {/each}
+            </DropdownMenu.Content>
+          </DropdownMenu.Root>
         {/if}
-      </NavigationMenu.List>
-    </NavigationMenu.Root>
+      {/each}
+    </nav>
   </div>
   <div class="flex flex-1 min-h-0">
     {@render children()}
