@@ -12,7 +12,7 @@ import { Debug } from '@workspace/shared/lib/utils/debug';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config({ path: join(__dirname, '../.env.local') });
+dotenv.config({ path: join(__dirname, '../.env') });
 
 // Initialize Fastify server
 const fastify = Fastify({ logger: false });
