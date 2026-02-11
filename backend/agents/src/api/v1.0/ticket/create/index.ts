@@ -297,6 +297,12 @@ export default async function (fastify: FastifyInstance) {
         }
       });
 
+      const urgencyMap: Record<string, string> = {
+        '1': '7',
+        '2': '6',
+        '3': '5',
+      };
+      console.log(body.urgency);
       const ticketInfo = {
         siteId: Number(psaSiteId),
         clientId: psaParentCompanyId || 0,
@@ -308,7 +314,7 @@ export default async function (fastify: FastifyInstance) {
           phone: body.phone,
         },
         impact: body.impact,
-        urgency: body.urgency,
+        urgency: urgencyMap[String(body.urgency)],
         deviceName: agent.hostname,
         assets: asset ? [asset.id] : [],
         images: body.link ? [body.link] : [],
