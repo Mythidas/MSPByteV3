@@ -44,6 +44,7 @@
     "@supabase/supabase-js": "^2.93.3",
     "@sveltejs/adapter-vercel": "^6.3.1",
     "exceljs": "^4.4.0",
-    "lucide-svelte": "^0.563.0"
+    "lucide-svelte": "^0.563.0",
+    "zod": "^4.3.6"
   }
 }
