@@ -68,9 +68,7 @@ export default async function (fastify: FastifyInstance) {
             throw new Error('Agent integration not found');
           }
 
-          const psaIntId = (agentIntegration.config as any)?.psa_integration_id as
-            | string
-            | undefined;
+          const psaIntId = (agentIntegration.config as any)?.primaryPSA as string | undefined;
           if (!psaIntId) {
             return [agentRes.data, siteRes.data, null, null, null] as const;
           }
