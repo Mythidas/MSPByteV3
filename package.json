@@ -8,6 +8,7 @@
     "backend/*"
   ],
   "scripts": {
+    "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=@workspace/frontend",
     "dev:agent": "turbo dev --filter=@workspace/agents",
@@ -22,7 +23,8 @@
     "@types/minimatch": "^6.0.0",
     "@workspace/ts-config": "workspace:*",
     "prettier": "^3.8.1",
-    "prettier-plugin-svelte": "^3.4.1"
+    "prettier-plugin-svelte": "^3.4.1",
+    "tsc-alias": "^1.8.16"
   },
   "dependencies": {
     "@supabase/postgrest-js": "^2.93.3",

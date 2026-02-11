@@ -14,7 +14,7 @@
   import Mapper from '../_mapper.svelte';
 
   let { data }: PageProps = $props();
-
+  // svelte-ignore state_referenced_locally
   const form = superForm(data.form, {
     validators: zod4Client(coveConfigSchema),
     resetForm: false,

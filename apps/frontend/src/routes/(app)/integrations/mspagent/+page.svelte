@@ -25,6 +25,7 @@
 
   let { data }: PageProps = $props();
 
+  // svelte-ignore state_referenced_locally
   const form = superForm(data.form, {
     validators: zod4Client(mspagentConfigSchema),
     resetForm: false,
@@ -111,8 +112,7 @@
     if (search) {
       const q = search.toLowerCase();
       sites = sites.filter(
-        (s) =>
-          s.name.toLowerCase().includes(q) || s.rmmSiteName?.toLowerCase().includes(q)
+        (s) => s.name.toLowerCase().includes(q) || s.rmmSiteName?.toLowerCase().includes(q)
       );
     }
 
@@ -124,9 +124,7 @@
       case 'set':
         return sites.filter((s) => variableStatuses[s.id] === 'set');
       case 'not_set':
-        return sites.filter(
-          (s) => s.linked && variableStatuses[s.id] !== 'set'
-        );
+        return sites.filter((s) => s.linked && variableStatuses[s.id] !== 'set');
       default:
         return sites;
     }
@@ -405,31 +403,46 @@
 
             <div class="flex flex-wrap gap-1.5 mb-3">
               <button
-                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter ===
+                'all'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
                 onclick={() => (filter = 'all')}
               >
                 All ({allSiteData.length})
               </button>
               <button
-                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter === 'linked' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter ===
+                'linked'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
                 onclick={() => (filter = 'linked')}
               >
                 Linked ({linkedSites.length})
               </button>
               <button
-                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter === 'unlinked' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter ===
+                'unlinked'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
                 onclick={() => (filter = 'unlinked')}
               >
                 Unlinked ({allSiteData.filter((s) => !s.linked).length})
               </button>
               <button
-                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter === 'set' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter ===
+                'set'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
                 onclick={() => (filter = 'set')}
               >
                 Variables Set ({Object.values(variableStatuses).filter((s) => s === 'set').length})
               </button>
               <button
-                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter === 'not_set' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+                class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter ===
+                'not_set'
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
                 onclick={() => (filter = 'not_set')}
               >
                 Variables Not Set
@@ -453,15 +466,21 @@
                     <div class="flex items-center gap-3 min-w-0">
                       <div class="shrink-0">
                         {#if status === 'set'}
-                          <div class="w-6 h-6 rounded-full bg-green-500/15 flex items-center justify-center">
+                          <div
+                            class="w-6 h-6 rounded-full bg-green-500/15 flex items-center justify-center"
+                          >
                             <Check class="h-3.5 w-3.5 text-green-500" />
                           </div>
                         {:else if status === 'not_set'}
-                          <div class="w-6 h-6 rounded-full bg-destructive/15 flex items-center justify-center">
+                          <div
+                            class="w-6 h-6 rounded-full bg-destructive/15 flex items-center justify-center"
+                          >
                             <X class="h-3.5 w-3.5 text-destructive" />
                           </div>
                         {:else}
-                          <div class="w-6 h-6 rounded-full bg-muted flex items-center justify-center">
+                          <div
+                            class="w-6 h-6 rounded-full bg-muted flex items-center justify-center"
+                          >
                             <HelpCircle class="h-3.5 w-3.5 text-muted-foreground" />
                           </div>
                         {/if}
