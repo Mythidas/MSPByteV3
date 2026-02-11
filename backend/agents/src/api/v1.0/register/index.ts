@@ -83,6 +83,7 @@ export default async function (fastify: FastifyInstance) {
               mac_address: mac,
               ip_address: ip_address,
               ext_address: ext_address,
+              updated_at: new Date().toISOString(),
             })
             .eq('id', agent.id)
             .select('id')

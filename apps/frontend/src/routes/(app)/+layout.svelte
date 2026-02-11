@@ -7,46 +7,36 @@
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import { page } from '$app/state';
   import { cn } from '$lib/utils/index';
-  import { hasPermission, type Permission } from '$lib/utils/permissions';
+  import { hasPermission } from '$lib/utils/permissions';
+  import {
+    MODULES,
+    GLOBAL_NAV_ITEMS,
+    type GlobalNavGroup,
+    type GlobalNavItem,
+  } from '$lib/config/modules';
+  import SitePicker from '$lib/components/site-picker.svelte';
 
   let { children, data } = $props();
 
-  const startsWith = (path: string) => page.url.pathname.startsWith(path);
-
-  type NavLink = { kind: 'link'; href: string; label: string; permission: Permission | null };
-  type NavGroup = {
-    kind: 'group';
-    label: string;
-    children: { href: string; label: string; permission: Permission }[];
-  };
-  type NavItem = NavLink | NavGroup;
-
-  const navItems: NavItem[] = [
-    { kind: 'link', href: '/', label: 'Home', permission: null },
-    { kind: 'link', href: '/sites', label: 'Sites', permission: 'Sites.Read' },
-    { kind: 'link', href: '/integrations', label: 'Integrations', permission: 'Integrations.Read' },
-    { kind: 'link', href: '/reports/reconcilliation', label: 'Reports', permission: 'Reports.Read' },
-    {
-      kind: 'group',
-      label: 'Admin',
-      children: [
-        { href: '/users', label: 'Users', permission: 'Users.Read' },
-        { href: '/roles', label: 'Roles', permission: 'Roles.Read' },
-      ],
-    },
-  ];
-
-  const isActive = (href: string) =>
-    href === '/' ? page.url.pathname === '/' : startsWith(href);
-
-  const isGroupActive = (group: NavGroup) =>
-    group.children.some((child) => startsWith(child.href));
-
   let attributes = $derived((data.role?.attributes ?? null) as Record<string, unknown> | null);
 
-  let visibleNavItems = $derived.by(() => {
-    const result: NavItem[] = [];
-    for (const item of navItems) {
+  let visibleModules = $derived(
+    MODULES.filter((m) => !m.permission || hasPermission(attributes, m.permission))
+  );
+
+  let activeModule = $derived(
+    visibleModules.find((m) => page.url.pathname.startsWith(m.basePath)) ?? null
+  );
+
+  let activeSubNav = $derived(
+    activeModule?.navLinks.filter(
+      (link) => !link.permission || hasPermission(attributes, link.permission)
+    ) ?? []
+  );
+
+  let visibleGlobalItems = $derived.by(() => {
+    const result: GlobalNavItem[] = [];
+    for (const item of GLOBAL_NAV_ITEMS) {
       if (item.kind === 'link') {
         if (!item.permission || hasPermission(attributes, item.permission)) {
           result.push(item);
@@ -62,6 +52,16 @@
     }
     return result;
   });
+
+  let siteParam = $derived(page.url.searchParams.get('site'));
+  let siteQuery = $derived(siteParam ? `?site=${siteParam}` : '');
+
+  const startsWith = (path: string) => page.url.pathname.startsWith(path);
+
+  const isGlobalActive = (href: string) => startsWith(href);
+
+  const isGroupActive = (group: GlobalNavGroup) =>
+    group.children.some((child) => startsWith(child.href));
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
@@ -79,15 +79,61 @@
     </svg>
   </div>
   <div class="flex w-full h-fit p-2 bg-background shadow">
-    <nav class="flex items-center gap-1">
-      {#each visibleNavItems as item}
+    <nav class="flex items-center gap-1 w-full">
+      <!-- Module pills -->
+      {#each visibleModules as mod}
+        <a
+          href={mod.navLinks[0].href + siteQuery}
+          class={cn(
+            'inline-flex h-8 items-center rounded-full px-3 text-sm font-medium transition-colors',
+            activeModule?.id === mod.id
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+        >
+          {mod.label}
+        </a>
+      {/each}
+
+      <!-- Separator between pills and sub-nav -->
+      {#if visibleModules.length > 0 && activeSubNav.length > 0}
+        <div class="mx-1 h-5 w-px bg-border"></div>
+      {/if}
+
+      <!-- Active module sub-nav -->
+      {#each activeSubNav as link}
+        <a
+          href={link.href + siteQuery}
+          class={cn(
+            'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
+            'hover:bg-accent hover:text-accent-foreground',
+            page.url.pathname.startsWith(link.href) && 'bg-accent/50'
+          )}
+        >
+          {link.label}
+        </a>
+      {/each}
+
+      <!-- Site picker -->
+      {#if activeModule && data.sites.length > 0}
+        <div class="mx-1 h-5 w-px bg-border"></div>
+        <div class="flex w-64">
+          <SitePicker sites={data.sites} />
+        </div>
+      {/if}
+
+      <!-- Spacer -->
+      <div class="flex-1"></div>
+
+      <!-- Global nav items (right side) -->
+      {#each visibleGlobalItems as item}
         {#if item.kind === 'link'}
           <a
             href={item.href}
             class={cn(
               'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
               'hover:bg-accent hover:text-accent-foreground',
-              isActive(item.href) && 'bg-accent/50'
+              isGlobalActive(item.href) && 'bg-accent/50'
             )}
           >
             {item.label}
@@ -104,7 +150,7 @@
               {item.label}
               <ChevronDown class="size-3" />
             </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="start">
+            <DropdownMenu.Content align="end">
               {#each item.children as child}
                 <a href={child.href}>
                   <DropdownMenu.Item class={cn(startsWith(child.href) && 'bg-accent/50')}>

@@ -141,6 +141,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "agents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "agents_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -522,6 +529,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parent_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -529,6 +537,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          parent_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -536,10 +545,18 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          parent_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sites_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sites_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -701,7 +718,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      current_tenant_id: { Args: never; Returns: number }
+      current_tenant_id: { Args: never; Returns: string }
       current_user_has_permission: { Args: { perm: string }; Returns: boolean }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }

@@ -1,6 +1,7 @@
 import type { Permission } from './permissions';
 
 const ROUTE_PERMISSIONS: [string, Permission][] = [
+  ['/mspagent', 'Integrations.Read'],
   ['/sites', 'Sites.Read'],
   ['/integrations', 'Integrations.Read'],
   ['/reports', 'Reports.Read'],
