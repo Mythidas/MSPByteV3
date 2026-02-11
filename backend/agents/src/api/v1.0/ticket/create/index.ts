@@ -298,9 +298,9 @@ export default async function (fastify: FastifyInstance) {
       });
 
       const urgencyMap: Record<string, string> = {
-        '1': '7',
+        '1': '5',
         '2': '6',
-        '3': '5',
+        '3': '7',
       };
       console.log(body.urgency);
       const ticketInfo = {
