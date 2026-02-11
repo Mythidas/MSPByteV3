@@ -9,10 +9,7 @@ import { HaloPSASite } from '@workspace/shared/types/integrations/halopsa/sites.
 import { HaloPSANewTicket } from '@workspace/shared/types/integrations/halopsa/tickets.js';
 
 export class HaloPSAConnector {
-  constructor(
-    private config: HaloPSAConfig,
-    private encryptionKey: string
-  ) {}
+  constructor(private config: HaloPSAConfig) {}
 
   async checkHealth(): Promise<APIResponse<boolean>> {
     const { data: token, error: tokenError } = await this.getToken();
@@ -252,8 +249,7 @@ export class HaloPSAConnector {
         body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: this.config.clientId,
-          client_secret:
-            (await Encryption.decrypt(this.config.clientSecret, this.encryptionKey)) || '',
+          client_secret: this.config.clientSecret,
           scope: 'all',
         }),
       });

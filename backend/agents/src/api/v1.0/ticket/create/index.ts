@@ -6,6 +6,7 @@ import { logAgentApiCall } from '@/lib/agentLogger.js';
 import { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/assets.js';
 import { getSupabase } from '@/lib/supabase.js';
 import { Debug } from '@workspace/shared/lib/utils/debug';
+import Encryption from '@workspace/shared/lib/utils/encryption';
 
 export default async function (fastify: FastifyInstance) {
   fastify.post('/', async (req) => {
@@ -121,10 +122,10 @@ export default async function (fastify: FastifyInstance) {
         message: `Creating ticket for agent ${agent.hostname} (DeviceID: ${agent.id}) (SiteID: ${siteID})`,
       });
 
-      const connector = new HaloPSAConnector(
-        psaConfig.config as HaloPSAConfig,
-        process.env.SECRET_KEY!
-      );
+      const config = psaConfig.config as HaloPSAConfig;
+      config.clientSecret =
+        (await Encryption.decrypt(config.clientSecret, process.env.ENCRYPTION_KEY!)) || '';
+      const connector = new HaloPSAConnector(psaConfig.config as HaloPSAConfig);
 
       // Parse and validate request body (multipart/form-data or JSON)
       const body = await perf.trackSpan('parse_request_body', async () => {
