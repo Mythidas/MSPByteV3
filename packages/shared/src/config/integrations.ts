@@ -28,4 +28,8 @@ export const INTEGRATIONS: Record<string, Integration> = {
     name: "HaloPSA",
     type: "psa",
   },
+  mspagent: {
+    name: "MSPAgent",
+    type: "other",
+  },
 };

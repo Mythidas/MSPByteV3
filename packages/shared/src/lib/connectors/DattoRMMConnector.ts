@@ -1,10 +1,10 @@
-import { APIResponse, Debug } from "@workspace/shared/lib/utils/debug";
+import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
 import {
   DattoRMMConfig,
   DattoRMMPagination,
-} from "@workspace/shared/types/integrations/datto/index";
-import { DattoRMMDevice } from "@workspace/shared/types/integrations/datto/devices";
-import { DattoRMMSite } from "@workspace/shared/types/integrations/datto/sites";
+} from '@workspace/shared/types/integrations/datto/index';
+import { DattoRMMDevice } from '@workspace/shared/types/integrations/datto/devices';
+import { DattoRMMSite } from '@workspace/shared/types/integrations/datto/sites';
 
 export class DattoRMMConnector {
   private readonly apiUrl: string;
@@ -29,17 +29,17 @@ export class DattoRMMConnector {
     try {
       while (true) {
         const response = await fetch(url, {
-          method: "GET",
+          method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
         });
 
         if (!response.ok) {
           return Debug.error({
-            module: "DattoRMMConnector",
-            context: "getSites",
+            module: 'DattoRMMConnector',
+            context: 'getSites',
             message: `HTTP ${response.status}: ${response.statusText}`,
           });
         }
@@ -65,9 +65,9 @@ export class DattoRMMConnector {
       return { data: sites };
     } catch (error) {
       return Debug.error({
-        module: "DattoRMMConnector",
-        context: "getSites",
-        message: error instanceof Error ? error.message : "Unknown error",
+        module: 'DattoRMMConnector',
+        context: 'getSites',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -82,17 +82,17 @@ export class DattoRMMConnector {
     try {
       while (true) {
         const response = await fetch(url, {
-          method: "GET",
+          method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
+            'Content-Type': 'application/json',
           },
         });
 
         if (!response.ok) {
           return Debug.error({
-            module: "DattoRMMConnector",
-            context: "getDevices",
+            module: 'DattoRMMConnector',
+            context: 'getDevices',
             message: `HTTP ${response.status}: ${response.statusText}`,
           });
         }
@@ -118,9 +118,9 @@ export class DattoRMMConnector {
       return { data: devices };
     } catch (error) {
       return Debug.error({
-        module: "DattoRMMConnector",
-        context: "getDevices",
-        message: error instanceof Error ? error.message : "Unknown error",
+        module: 'DattoRMMConnector',
+        context: 'getDevices',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -128,28 +128,25 @@ export class DattoRMMConnector {
   async setSiteVariable(
     siteUid: string,
     variableName: string,
-    value: string,
+    value: string
   ): Promise<APIResponse<boolean>> {
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) return { error: tokenError };
 
     try {
       // First, get all variables to find the variableId
-      const variablesResponse = await fetch(
-        `${this.apiUrl}/api/v2/site/${siteUid}/variables`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+      const variablesResponse = await fetch(`${this.apiUrl}/api/v2/site/${siteUid}/variables`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      );
+      });
 
       if (!variablesResponse.ok && variablesResponse.status !== 404) {
         return Debug.error({
-          module: "DattoRMMConnector",
-          context: "setSiteVariable",
+          module: 'DattoRMMConnector',
+          context: 'setSiteVariable',
           message: `Failed to fetch variables: HTTP ${variablesResponse.status}: ${variablesResponse.statusText}`,
         });
       }
@@ -158,12 +155,12 @@ export class DattoRMMConnector {
 
       if (variablesResponse.ok) {
         const variables = (await variablesResponse.json()) as {
-          id: string;
-          name: string;
-        }[];
-        const matchingVariable = variables.find(
-          (v: any) => v.name === variableName,
-        );
+          variables: {
+            id: string;
+            name: string;
+          }[];
+        };
+        const matchingVariable = variables.variables.find((v: any) => v.name === variableName);
         if (matchingVariable) {
           variableId = matchingVariable.id;
         }
@@ -172,41 +169,36 @@ export class DattoRMMConnector {
       let response;
       if (variableId) {
         // Update existing variable using variableId
-        response = await fetch(
-          `${this.apiUrl}/api/v2/site/${siteUid}/variable/${variableId}`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              value: value,
-            }),
+        response = await fetch(`${this.apiUrl}/api/v2/site/${siteUid}/variable/${variableId}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-        );
+          body: JSON.stringify({
+            name: variableName,
+            value: value,
+          }),
+        });
       } else {
         // Create new variable (no variableId in path)
-        response = await fetch(
-          `${this.apiUrl}/api/v2/site/${siteUid}/variable`,
-          {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name: variableName,
-              value: value,
-            }),
+        response = await fetch(`${this.apiUrl}/api/v2/site/${siteUid}/variable`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
           },
-        );
+          body: JSON.stringify({
+            name: variableName,
+            value: value,
+          }),
+        });
       }
 
       if (!response.ok) {
         return Debug.error({
-          module: "DattoRMMConnector",
-          context: "setSiteVariable",
+          module: 'DattoRMMConnector',
+          context: 'setSiteVariable',
           message: `HTTP ${response.status}: ${response.statusText}`,
         });
       }
@@ -214,9 +206,9 @@ export class DattoRMMConnector {
       return { data: true };
     } catch (error) {
       return Debug.error({
-        module: "DattoRMMConnector",
-        context: "setSiteVariable",
-        message: error instanceof Error ? error.message : "Unknown error",
+        module: 'DattoRMMConnector',
+        context: 'setSiteVariable',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -228,23 +220,20 @@ export class DattoRMMConnector {
    */
   async getSiteVariable(
     siteUid: string,
-    variableName: string,
+    variableName: string
   ): Promise<APIResponse<string | null>> {
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) return { error: tokenError };
 
     try {
       // First, get all variables to find the variableId
-      const variablesResponse = await fetch(
-        `${this.apiUrl}/api/v2/site/${siteUid}/variables`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+      const variablesResponse = await fetch(`${this.apiUrl}/api/v2/site/${siteUid}/variables`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      );
+      });
 
       if (!variablesResponse.ok) {
         if (variablesResponse.status === 404) {
@@ -252,56 +241,28 @@ export class DattoRMMConnector {
           return { data: null };
         }
         return Debug.error({
-          module: "DattoRMMConnector",
-          context: "getSiteVariable",
+          module: 'DattoRMMConnector',
+          context: 'getSiteVariable',
           message: `HTTP ${variablesResponse.status}: ${variablesResponse.statusText}`,
         });
       }
 
       const variables = (await variablesResponse.json()) as {
-        id: string;
-        name: string;
-      }[];
-      const matchingVariable = variables.find(
-        (v: any) => v.name === variableName,
-      );
+        variables: {
+          id: string;
+          name: string;
+          value: string;
+          masked: boolean;
+        }[];
+      };
+      const matchingVariable = variables.variables.find((v: any) => v.name === variableName);
 
-      if (!matchingVariable) {
-        // Variable doesn't exist
-        return { data: null };
-      }
-
-      // Get the specific variable using variableId
-      const response = await fetch(
-        `${this.apiUrl}/api/v2/site/${siteUid}/variable/${matchingVariable.id}`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          // Variable doesn't exist
-          return { data: null };
-        }
-        return Debug.error({
-          module: "DattoRMMConnector",
-          context: "getSiteVariable",
-          message: `HTTP ${response.status}: ${response.statusText}`,
-        });
-      }
-
-      const data = (await response.json()) as { value: string };
-      return { data: data.value || null };
+      return { data: matchingVariable?.value || null };
     } catch (error) {
       return Debug.error({
-        module: "DattoRMMConnector",
-        context: "getSiteVariable",
-        message: error instanceof Error ? error.message : "Unknown error",
+        module: 'DattoRMMConnector',
+        context: 'getSiteVariable',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -314,20 +275,20 @@ export class DattoRMMConnector {
 
       if (!apiKey || !apiSecretKey) {
         return Debug.error({
-          module: "DattoRMMConnector",
-          context: "getToken",
-          message: "Failed to decrypt API credentials",
+          module: 'DattoRMMConnector',
+          context: 'getToken',
+          message: 'Failed to decrypt API credentials',
         });
       }
 
       const response = await fetch(`${this.config.url}/auth/oauth/token`, {
-        method: "POST",
+        method: 'POST',
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Authorization: "Basic " + btoa("public-client:public"),
+          'Content-Type': 'application/x-www-form-urlencoded',
+          Authorization: 'Basic ' + btoa('public-client:public'),
         },
         body: new URLSearchParams({
-          grant_type: "password",
+          grant_type: 'password',
           username: apiKey,
           password: apiSecretKey,
         }),
@@ -335,8 +296,8 @@ export class DattoRMMConnector {
 
       if (!response.ok) {
         return Debug.error({
-          module: "DattoRMMConnector",
-          context: "getToken",
+          module: 'DattoRMMConnector',
+          context: 'getToken',
           message: `HTTP ${response.status}: ${response.statusText}`,
         });
       }
@@ -345,9 +306,9 @@ export class DattoRMMConnector {
       return { data: data.access_token };
     } catch (error) {
       return Debug.error({
-        module: "DattoRMMConnector",
-        context: "getToken",
-        message: error instanceof Error ? error.message : "Unknown error",
+        module: 'DattoRMMConnector',
+        context: 'getToken',
+        message: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
