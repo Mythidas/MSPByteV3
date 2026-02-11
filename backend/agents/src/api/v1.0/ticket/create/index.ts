@@ -121,7 +121,6 @@ export default async function (fastify: FastifyInstance) {
       });
 
       const config = psaConfig.config as HaloPSAConfig;
-      console.log(config, process.env.ENCRYPTION_KEY?.substring(0, 6));
       config.clientSecret =
         (await Encryption.decrypt(config.clientSecret, process.env.ENCRYPTION_KEY!)) || '';
       const connector = new HaloPSAConnector(psaConfig.config as HaloPSAConfig);

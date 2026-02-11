@@ -18,19 +18,19 @@ export default class Encryption {
 
     const tag = cipher.getAuthTag();
     return [
-      iv.toString("hex"),
-      tag.toString("hex"),
-      encrypted.toString("hex"),
+      iv.toString("base64"),
+      tag.toString("base64"),
+      encrypted.toString("base64"),
     ].join(":");
   }
 
   static async decrypt(encryptedText: string, key: string) {
-    const [ivHex, tagHex, dataHex] = encryptedText.split(":");
-    if (!ivHex || !tagHex || !dataHex) return undefined;
+    const [ivB64, tagB64, dataB64] = encryptedText.split(":");
+    if (!ivB64 || !tagB64 || !dataB64) return undefined;
 
-    const iv = Buffer.from(ivHex, "hex");
-    const tag = Buffer.from(tagHex, "hex");
-    const encrypted = Buffer.from(dataHex, "hex");
+    const iv = Buffer.from(ivB64, "base64");
+    const tag = Buffer.from(tagB64, "base64");
+    const encrypted = Buffer.from(dataB64, "base64");
 
     const decipher = crypto.createDecipheriv(
       ALGORITHM,
