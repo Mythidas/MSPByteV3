@@ -436,7 +436,7 @@ export default async function (fastify: FastifyInstance) {
           error: {
             module: 'v1.0/ticket/create',
             context: 'POST',
-            message: `Failed to create ticket: ${err}`,
+            message: `Failed to process route: ${err}`,
           },
         },
         500
