@@ -60,6 +60,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     } else {
       // Profile missing → treat as not fully onboarded / force logout or redirect to onboarding
       // For now we just don't attach it
+      await event.locals.supabase.auth.signOut();
       console.warn('No public.users row found for authenticated user', session.id);
     }
   }
@@ -71,7 +72,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   if (session) {
     // Already signed in → prevent access to login/signup/etc pages
-    if (isAuthRoute) {
+    if (isAuthRoute && pathname !== '/auth/callback') {
       throw redirect(303, '/');
     }
 

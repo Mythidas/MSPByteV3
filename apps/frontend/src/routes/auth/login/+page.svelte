@@ -2,13 +2,14 @@
   import Input from '$lib/components/ui/input/input.svelte';
   import Label from '$lib/components/ui/label/label.svelte';
   import Separator from '$lib/components/ui/separator/separator.svelte';
-  import { AlertCircle } from 'lucide-svelte';
+  import Button from '$lib/components/ui/button/button.svelte';
+  import { AlertCircle } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { superForm } from 'sveltekit-superforms';
   import { zod4Client } from 'sveltekit-superforms/adapters';
+  import { supabase } from '$lib/supabase';
   import type { PageProps } from './$types';
   import { loginFormSchema } from './_forms';
-  import Button from '$lib/components/ui/button/button.svelte';
 
   const { data }: PageProps = $props();
 
@@ -26,40 +27,64 @@
       }
     },
   });
-  const { form: formData, errors, enhance, delayed, submitting } = form;
+  const { form: formData, errors, enhance, submitting } = form;
+
+  async function signInWithMicrosoft() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'azure',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'email',
+      },
+    });
+    if (error) {
+      toast.error(`SSO failed: ${error.message}`);
+    }
+  }
 </script>
 
-<div class="flex flex-col size-full justify-center items-center p-4">
-  <form
-    method="POST"
-    action="?/login"
-    class="flex flex-col w-1/2 h-1/2 bg-card/60 rounded shadow p-4 gap-4 border border-primary/40"
-    use:enhance
-  >
+<div class="flex flex-col size-full items-center justify-center p-4">
+  <div class="flex flex-col w-full max-w-sm gap-6">
     <div>
       <h1 class="font-bold text-3xl">Welcome Back!</h1>
       <span class="text-sm text-muted-foreground">Sign into MSPByte</span>
     </div>
-    <Separator />
-    <div class="flex flex-col gap-4">
+
+    <Button variant="outline" class="w-full gap-2" onclick={signInWithMicrosoft}>
+      <svg class="size-5" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022"></rect>
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"></rect>
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"></rect>
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900"></rect>
+      </svg>
+      Sign in with Microsoft
+    </Button>
+
+    <div class="flex items-center gap-3">
+      <Separator class="flex-1" />
+      <span class="text-xs text-muted-foreground">or continue with email</span>
+      <Separator class="flex-1" />
+    </div>
+
+    <form method="POST" action="?/login" class="flex flex-col gap-4" use:enhance>
       <div class="space-y-2">
-        <Label for="username">
-          Username
+        <Label for="email">
+          Email
           <span class="text-destructive">*</span>
         </Label>
         <Input
-          id="username"
-          name="username"
-          type="text"
+          id="email"
+          name="email"
+          type="email"
           placeholder="john.doe@email.com"
-          bind:value={$formData.username}
-          aria-invalid={$errors.username ? 'true' : undefined}
-          class={$errors.username ? 'border-destructive' : ''}
+          bind:value={$formData.email}
+          aria-invalid={$errors.email ? 'true' : undefined}
+          class={$errors.email ? 'border-destructive' : ''}
         />
-        {#if $errors.username}
+        {#if $errors.email}
           <p class="text-sm text-destructive flex items-center gap-1">
             <AlertCircle class="h-3 w-3" />
-            {$errors.username}
+            {$errors.email}
           </p>
         {/if}
       </div>
@@ -84,9 +109,7 @@
           </p>
         {/if}
       </div>
-    </div>
-    <div class="flex w-full mt-auto">
       <Button type="submit" class="w-full" disabled={$submitting}>Login</Button>
-    </div>
-  </form>
+    </form>
+  </div>
 </div>

@@ -21,7 +21,7 @@ export const actions: Actions = {
 
     try {
       const { error } = await locals.supabase.auth.signInWithPassword({
-        email: form.data.username,
+        email: form.data.email,
         password: form.data.password,
       });
       if (error) {
