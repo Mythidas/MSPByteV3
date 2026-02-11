@@ -10,6 +10,7 @@
   import { supabase } from '$lib/supabase';
   import type { PageProps } from './$types';
   import { loginFormSchema } from './_forms';
+  import { PUBLIC_ORIGIN } from '$env/static/public';
 
   const { data }: PageProps = $props();
 
@@ -33,7 +34,7 @@
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${PUBLIC_ORIGIN}/auth/callback`,
         scopes: 'email',
       },
     });
