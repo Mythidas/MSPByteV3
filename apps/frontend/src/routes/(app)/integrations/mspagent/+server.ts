@@ -93,16 +93,16 @@ async function handleBulkCheck(orm: ORM, params: any) {
     const results = await Promise.allSettled(
       items.map(async ({ siteId, rmmSiteId }) => {
         const { data: value, error } = await connector.getSiteVariable(rmmSiteId, variableName);
-        if (error) return { siteId, status: 'unknown' };
+        if (error) return { rmmSiteId, status: 'unknown' };
         const status = value === siteId ? 'set' : 'not_set';
-        return { siteId, status };
+        return { rmmSiteId, status };
       })
     );
 
     const statusMap: Record<string, string> = {};
     for (const result of results) {
       if (result.status === 'fulfilled') {
-        statusMap[result.value.siteId] = result.value.status;
+        statusMap[result.value.rmmSiteId] = result.value.status;
       }
     }
 
@@ -122,21 +122,18 @@ async function handleBulkPush(orm: ORM, params: any) {
       return json({ message: 'DattoRMM integration not configured' }, { status: 400 });
     }
 
-    const results = await Promise.allSettled(
-      items.map(async ({ siteId, rmmSiteId }) => {
-        const { error } = await connector.setSiteVariable(rmmSiteId, variableName, siteId);
-        return { siteId, success: !error, error: error?.message };
-      })
-    );
+    let results = [];
+    for await (const item of items) {
+      const { error } = await connector.setSiteVariable(item.rmmSiteId, variableName, item.siteId);
+      results.push({ rmmSiteId: item.rmmSiteId, success: !error, error: error?.message });
+    }
 
     const resultMap: Record<string, { success: boolean; error?: string }> = {};
     for (const result of results) {
-      if (result.status === 'fulfilled') {
-        resultMap[result.value.siteId] = {
-          success: result.value.success,
-          error: result.value.error,
-        };
-      }
+      resultMap[result.rmmSiteId] = {
+        success: result.success,
+        error: result.error,
+      };
     }
 
     return json({ resultMap });

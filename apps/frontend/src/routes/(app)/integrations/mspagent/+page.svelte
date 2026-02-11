@@ -53,11 +53,11 @@
 
   const siteVariablesEnabled = $derived(data.integration && data.dattoConfigured);
 
+  type RmmSiteMapping = { rmmSiteId: string; rmmSiteName: string };
   type SiteWithMapping = {
     id: string;
     name: string;
-    rmmSiteId: string | null;
-    rmmSiteName: string | null;
+    rmmSites: RmmSiteMapping[];
     linked: boolean;
   };
 
@@ -72,15 +72,19 @@
     const dattoSiteMap = new Map(dattoSites.data.map((s) => [String(s.id), s]));
 
     return data.sites.map((site) => {
-      const link = links.find((l) => l.site_id === site.id);
-      const dattoSite = link ? dattoSiteMap.get(link.external_id) : null;
+      const siteLinks = links.filter((l) => l.site_id === site.id);
+      const rmmSites: RmmSiteMapping[] = siteLinks
+        .map((link) => {
+          const dattoSite = dattoSiteMap.get(link.external_id);
+          return dattoSite ? { rmmSiteId: dattoSite.uid, rmmSiteName: dattoSite.name } : null;
+        })
+        .filter((m): m is RmmSiteMapping => m !== null);
 
       return {
         id: site.id,
         name: site.name,
-        rmmSiteId: dattoSite?.uid || null,
-        rmmSiteName: dattoSite?.name || null,
-        linked: !!link && !!dattoSite,
+        rmmSites,
+        linked: rmmSites.length > 0,
       };
     });
   };
@@ -106,13 +110,23 @@
     }
   });
 
+  function getAggregateStatus(site: SiteWithMapping): 'set' | 'not_set' | 'unknown' {
+    if (site.rmmSites.length === 0) return 'unknown';
+    const statuses = site.rmmSites.map((r) => variableStatuses[r.rmmSiteId]);
+    if (statuses.every((s) => s === 'set')) return 'set';
+    if (statuses.some((s) => s === 'not_set')) return 'not_set';
+    return 'unknown';
+  }
+
   const filteredSites = $derived.by(() => {
     let sites = allSiteData;
 
     if (search) {
       const q = search.toLowerCase();
       sites = sites.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.rmmSiteName?.toLowerCase().includes(q)
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.rmmSites.some((r) => r.rmmSiteName.toLowerCase().includes(q))
       );
     }
 
@@ -122,9 +136,9 @@
       case 'unlinked':
         return sites.filter((s) => !s.linked);
       case 'set':
-        return sites.filter((s) => variableStatuses[s.id] === 'set');
+        return sites.filter((s) => getAggregateStatus(s) === 'set');
       case 'not_set':
-        return sites.filter((s) => s.linked && variableStatuses[s.id] !== 'set');
+        return sites.filter((s) => s.linked && getAggregateStatus(s) !== 'set');
       default:
         return sites;
     }
@@ -163,17 +177,17 @@
   }
 
   async function checkVariable(site: SiteWithMapping) {
-    if (!site.rmmSiteId) return;
+    if (site.rmmSites.length === 0) return;
     loadingActions = { ...loadingActions, [site.id]: 'checking' };
 
     try {
-      const result = await callAction('checkVariable', {
-        siteId: site.id,
-        rmmSiteId: site.rmmSiteId,
-      });
-      variableStatuses = { ...variableStatuses, [site.id]: result.status };
+      const items = site.rmmSites.map((r) => ({ siteId: site.id, rmmSiteId: r.rmmSiteId }));
+      const result = await callAction('bulkCheck', { items });
+      variableStatuses = { ...variableStatuses, ...result.statusMap };
     } catch {
-      variableStatuses = { ...variableStatuses, [site.id]: 'unknown' };
+      for (const r of site.rmmSites) {
+        variableStatuses = { ...variableStatuses, [r.rmmSiteId]: 'unknown' };
+      }
     } finally {
       const { [site.id]: _, ...rest } = loadingActions;
       loadingActions = rest;
@@ -181,16 +195,29 @@
   }
 
   async function pushVariable(site: SiteWithMapping) {
-    if (!site.rmmSiteId) return;
+    if (site.rmmSites.length === 0) return;
     loadingActions = { ...loadingActions, [site.id]: 'pushing' };
 
     try {
-      await callAction('pushVariable', {
-        siteId: site.id,
-        rmmSiteId: site.rmmSiteId,
-      });
-      variableStatuses = { ...variableStatuses, [site.id]: 'set' };
-      toast.success(`Variable pushed for ${site.name}`);
+      const items = site.rmmSites.map((r) => ({ siteId: site.id, rmmSiteId: r.rmmSiteId }));
+      const result = await callAction('bulkPush', { items });
+
+      for (const [rmmSiteId, res] of Object.entries(result.resultMap)) {
+        if ((res as any).success) {
+          variableStatuses = { ...variableStatuses, [rmmSiteId]: 'set' };
+        }
+      }
+
+      const succeeded = Object.values(result.resultMap).filter((r: any) => r.success).length;
+      const failed = Object.values(result.resultMap).filter((r: any) => !r.success).length;
+
+      if (failed > 0) {
+        toast.warning(
+          `Pushed ${succeeded}/${site.rmmSites.length} RMM site(s) for ${site.name}. ${failed} failed.`
+        );
+      } else {
+        toast.success(`Variable pushed for ${site.name}`);
+      }
     } catch (err) {
       toast.error(`Failed to push for ${site.name}: ${String(err)}`);
     } finally {
@@ -204,13 +231,12 @@
     checkingAll = true;
 
     try {
-      const items = linkedSites.map((s) => ({
-        siteId: s.id,
-        rmmSiteId: s.rmmSiteId!,
-      }));
+      const items = linkedSites.flatMap((s) =>
+        s.rmmSites.map((r) => ({ siteId: s.id, rmmSiteId: r.rmmSiteId }))
+      );
       const result = await callAction('bulkCheck', { items });
       variableStatuses = { ...variableStatuses, ...result.statusMap };
-      toast.success(`Checked ${items.length} site(s)`);
+      toast.success(`Checked ${items.length} RMM site(s) across ${linkedSites.length} site(s)`);
     } catch (err) {
       toast.error(`Bulk check failed: ${String(err)}`);
     } finally {
@@ -220,30 +246,37 @@
 
   async function bulkPush() {
     if (linkedSites.length === 0) return;
-    if (!confirm(`Push variables to all ${linkedSites.length} linked site(s)?`)) return;
+
+    const items = linkedSites.flatMap((s) =>
+      s.rmmSites
+        .filter((r) => variableStatuses[r.rmmSiteId] !== 'set')
+        .map((r) => ({ siteId: s.id, rmmSiteId: r.rmmSiteId }))
+    );
+
+    if (items.length === 0) {
+      toast.info('All linked RMM sites already have the variable set');
+      return;
+    }
+
+    if (!confirm(`Push variables to ${items.length} RMM site(s) missing the variable?`)) return;
     pushingAll = true;
 
     try {
-      const items = linkedSites.map((s) => ({
-        siteId: s.id,
-        rmmSiteId: s.rmmSiteId!,
-      }));
       const result = await callAction('bulkPush', { items });
 
       const succeeded = Object.values(result.resultMap).filter((r: any) => r.success).length;
       const failed = Object.values(result.resultMap).filter((r: any) => !r.success).length;
 
-      // Mark all successful as set
-      for (const [siteId, res] of Object.entries(result.resultMap)) {
+      for (const [rmmSiteId, res] of Object.entries(result.resultMap)) {
         if ((res as any).success) {
-          variableStatuses = { ...variableStatuses, [siteId]: 'set' };
+          variableStatuses = { ...variableStatuses, [rmmSiteId]: 'set' };
         }
       }
 
       if (failed > 0) {
-        toast.warning(`Pushed ${succeeded} / ${succeeded + failed} site(s). ${failed} failed.`);
+        toast.warning(`Pushed ${succeeded} / ${succeeded + failed} RMM site(s). ${failed} failed.`);
       } else {
-        toast.success(`Successfully pushed to ${succeeded} site(s)`);
+        toast.success(`Successfully pushed to ${succeeded} RMM site(s)`);
       }
     } catch (err) {
       toast.error(`Bulk push failed: ${String(err)}`);
@@ -436,7 +469,7 @@
                   : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
                 onclick={() => (filter = 'set')}
               >
-                Variables Set ({Object.values(variableStatuses).filter((s) => s === 'set').length})
+                Variables Set ({allSiteData.filter((s) => getAggregateStatus(s) === 'set').length})
               </button>
               <button
                 class="px-2.5 py-0.5 rounded-full text-xs font-medium transition-colors {filter ===
@@ -458,7 +491,7 @@
             {:else}
               <div class="flex-1 overflow-y-auto space-y-1.5">
                 {#each filteredSites as site (site.id)}
-                  {@const status = variableStatuses[site.id]}
+                  {@const status = getAggregateStatus(site)}
                   {@const isLoading = !!loadingActions[site.id]}
                   <div
                     class="flex items-center justify-between p-3 rounded-md border bg-card/50 hover:bg-card transition-colors"
@@ -489,7 +522,7 @@
                         <p class="text-sm font-medium truncate">{site.name}</p>
                         {#if site.linked}
                           <p class="text-xs text-muted-foreground truncate">
-                            {site.rmmSiteName}
+                            {site.rmmSites.map((r) => r.rmmSiteName).join(', ')}
                           </p>
                         {:else}
                           <p class="text-xs text-muted-foreground/60 italic">

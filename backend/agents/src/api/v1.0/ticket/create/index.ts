@@ -302,7 +302,6 @@ export default async function (fastify: FastifyInstance) {
         '2': '6',
         '3': '7',
       };
-      console.log(body.urgency);
       const ticketInfo = {
         siteId: Number(psaSiteId),
         clientId: psaParentCompanyId || 0,

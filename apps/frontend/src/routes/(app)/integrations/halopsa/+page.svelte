@@ -74,7 +74,7 @@
         </Breadcrumb.Item>
         <Breadcrumb.Separator />
         <Breadcrumb.Item>
-          <Breadcrumb.Page>AutoTask</Breadcrumb.Page>
+          <Breadcrumb.Page>HaloPSA</Breadcrumb.Page>
         </Breadcrumb.Item>
       </Breadcrumb.List>
     </Breadcrumb.Root>
@@ -93,9 +93,9 @@
         <Tabs.Content value="configuration" class="w-full h-full overflow-hidden space-y-4">
           <div class="flex items-center justify-between">
             <div>
-              <h2 class="text-lg font-semibold">AutoTask Configuration</h2>
+              <h2 class="text-lg font-semibold">HaloPSA Configuration</h2>
               <p class="text-sm text-muted-foreground">
-                Configure your AutoTask integration credentials
+                Configure your HaloPSA integration credentials
               </p>
             </div>
             {#if data.integration}
