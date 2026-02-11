@@ -1,39 +1,38 @@
-// src/routes/(app)/integrations/autotask/+page.server.ts
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { superValidate, message } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { prepareSensitiveFormData, isMaskedSecret } from '$lib/utils/forms';
-import { AutoTaskConnector } from '@workspace/shared/lib/connectors/AutoTaskConnector';
-import { autoTaskConfigSchema } from './_forms';
+import { HaloPSAConnector } from '@workspace/shared/lib/connectors/HaloPSAConnector';
+import { haloPSAConfigSchema } from './_forms';
 import { Encryption } from '$lib/server/encryption';
 import { ORM } from '@workspace/shared/lib/utils/orm';
 
 const fetchTenants = async (orm: ORM) => {
-  const { data } = await orm.selectSingle('public', 'integrations', (q) => q.eq('id', 'autotask'));
+  const { data } = await orm.selectSingle('public', 'integrations', (q) => q.eq('id', 'halopsa'));
   if (!data) return { data: [] };
 
   (data.config as any).clientSecret = Encryption.decrypt((data.config as any).clientSecret);
-  const autotask = new AutoTaskConnector(data.config as any);
-  const { data: companies, error } = await autotask.getCompanies();
+  const halopsa = new HaloPSAConnector(data.config as any);
+  const { data: companies, error } = await halopsa.getSites();
 
   if (error) {
     return { error };
   }
 
-  return { data: companies.map((c) => ({ id: c.id, name: c.companyName })) };
+  return { data: companies.map((c) => ({ id: String(c.id), name: c.clientsite_name })) };
 };
 
 const fetchLinks = async (orm: ORM) => {
   const { data } = await orm.select('public', 'site_to_integration', (q) =>
-    q.eq('integration_id', 'autotask')
+    q.eq('integration_id', 'halopsa')
   );
   return { data: data?.rows || [] };
 };
 
 export const load: PageServerLoad = async ({ locals }) => {
   const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
-    q.eq('id', 'autotask')
+    q.eq('id', 'halopsa')
   );
   const { data: sites } = await locals.orm.select('public', 'sites');
 
@@ -44,7 +43,7 @@ export const load: PageServerLoad = async ({ locals }) => {
       }
     : null;
 
-  const form = await superValidate(formDefaults, zod4(autoTaskConfigSchema));
+  const form = await superValidate(formDefaults, zod4(haloPSAConfigSchema));
 
   return {
     integration,
@@ -57,7 +56,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 
 export const actions: Actions = {
   testConnection: async ({ request, locals }) => {
-    const form = await superValidate(request, zod4(autoTaskConfigSchema));
+    const form = await superValidate(request, zod4(haloPSAConfigSchema));
 
     if (!form.valid) {
       return fail(400, { form });
@@ -66,7 +65,7 @@ export const actions: Actions = {
     try {
       // Get existing config to handle masked secret
       const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
-        q.eq('id', 'autotask')
+        q.eq('id', 'halopsa')
       );
 
       // Prepare data, using existing secret if it's still masked
@@ -74,7 +73,7 @@ export const actions: Actions = {
         'clientSecret',
       ]);
 
-      const connector = new AutoTaskConnector(configData as any);
+      const connector = new HaloPSAConnector(configData as any);
       const result = await connector.checkHealth();
 
       if (!result.data) {
@@ -92,7 +91,7 @@ export const actions: Actions = {
   },
 
   save: async ({ request, locals }) => {
-    const form = await superValidate(request, zod4(autoTaskConfigSchema));
+    const form = await superValidate(request, zod4(haloPSAConfigSchema));
 
     if (!form.valid) {
       return fail(400, { form });
@@ -101,7 +100,7 @@ export const actions: Actions = {
     try {
       // Get existing config to handle masked secret
       const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
-        q.eq('id', 'autotask')
+        q.eq('id', 'halopsa')
       );
 
       // Prepare data, using existing secret if it's still masked
@@ -110,7 +109,7 @@ export const actions: Actions = {
       ]);
 
       // Test connection before saving
-      const connector = new AutoTaskConnector(configData);
+      const connector = new HaloPSAConnector(configData);
       const healthCheck = await connector.checkHealth();
 
       if (!healthCheck.data) {
@@ -124,7 +123,7 @@ export const actions: Actions = {
       configData.clientSecret = Encryption.encrypt(configData.clientSecret);
       const { error } = await locals.orm.upsert('public', 'integrations', [
         {
-          id: 'autotask',
+          id: 'halopsa',
           tenant_id: locals.user?.tenant_id,
           config: configData,
           updated_at: new Date().toISOString(),
@@ -149,7 +148,7 @@ export const actions: Actions = {
     try {
       // DB Query: Delete integration
       const { error } = await locals.orm.delete('public', 'integrations', (q) =>
-        q.eq('id', 'autotask').eq('tenant_id', locals.user?.tenant_id || '')
+        q.eq('id', 'halopsa').eq('tenant_id', locals.user?.tenant_id || '')
       );
 
       if (error) {

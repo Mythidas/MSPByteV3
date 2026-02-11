@@ -428,7 +428,6 @@
     // Prefill site name with first selected tenant's name if name is empty
     if (tenantIds.length > 0 && newSiteName.length === 0) {
       const firstTenant = tenants.find((t) => t.id.toString() === tenantIds[0]);
-      console.log(firstTenant, newSiteName);
       if (firstTenant) {
         newSiteName = firstTenant.name;
       }
@@ -454,7 +453,16 @@
         // Skip tenants already matched to another site
         if (matchedTenants.has(tenantId)) continue;
 
-        const score = stringCompare(site.name, tenant.name);
+        let score = 0;
+        const tenantName =
+          id === 'halopsa' ? (tenant.name.split('/')[1] ?? tenant.name) : tenant.name;
+        score = stringCompare(site.name, tenantName);
+
+        if (id === 'halopsa') {
+          const score1 = stringCompare(site.name, tenant.name);
+          const score2 = stringCompare(site.name, tenant.name.split('/').at(1) ?? tenant.name);
+          score = Math.max(score1, score2);
+        } else score = stringCompare(site.name, tenant.name);
         if (score > 0.8 && (!bestMatch || score > bestMatch.score)) {
           bestMatch = { tenantId, score };
         }

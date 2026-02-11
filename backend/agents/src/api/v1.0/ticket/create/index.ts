@@ -60,7 +60,7 @@ export default async function (fastify: FastifyInstance) {
           const { data: agentIntegration } = await supabase
             .from('integrations')
             .select('config')
-            .eq('id', 'msp-agent')
+            .eq('id', 'mspagent')
             .eq('tenant_id', siteRes.data.tenant_id)
             .single();
 
