@@ -31,6 +31,7 @@
   const { form: formData, errors, enhance, submitting } = form;
 
   async function signInWithMicrosoft() {
+    console.log('redirectTo: ' + `${PUBLIC_ORIGIN}/auth/callback`);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'azure',
       options: {
