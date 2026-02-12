@@ -41,3 +41,19 @@ export function hasPermission(attributes: Attributes, permission: Permission): b
 export function hasAnyPermission(attributes: Attributes, permissions: Permission[]): boolean {
   return permissions.some((p) => hasPermission(attributes, p));
 }
+
+export const ROLE_LEVELS = [
+  { value: 1, label: 'Basic' },
+  { value: 2, label: 'Elevated' },
+  { value: 3, label: 'Admin' },
+  { value: 4, label: 'Super Admin' },
+  { value: 5, label: 'Global Admin' },
+];
+
+export function canActOnLevel(
+  myLevel: number | null | undefined,
+  targetLevel: number | null | undefined
+): boolean {
+  if (myLevel == null || targetLevel == null) return false;
+  return myLevel > targetLevel;
+}

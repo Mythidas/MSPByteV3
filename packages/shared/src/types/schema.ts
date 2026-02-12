@@ -56,6 +56,13 @@ export type Database = {
             referencedRelation: "agents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_logs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
         ]
       }
       agent_tickets: {
@@ -88,12 +95,19 @@ export type Database = {
             referencedRelation: "agents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_tickets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
         ]
       }
       agents: {
         Row: {
           created_at: string
-          deleted_at: string
+          deleted_at: string | null
           ext_address: string | null
           guid: string
           hostname: string
@@ -109,7 +123,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          deleted_at?: string
+          deleted_at?: string | null
           ext_address?: string | null
           guid: string
           hostname: string
@@ -125,7 +139,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          deleted_at?: string
+          deleted_at?: string | null
           ext_address?: string | null
           guid?: string
           hostname?: string
@@ -214,6 +228,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entities_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entities_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -299,6 +320,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entity_alerts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entity_alerts_suppressed_by_fkey"
             columns: ["suppressed_by"]
             isOneToOne: false
@@ -363,6 +391,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entity_relationships_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entity_relationships_parent_entity_id_fkey"
             columns: ["parent_entity_id"]
             isOneToOne: false
@@ -382,7 +417,7 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string
-          entity_id: number
+          entity_id: string
           id: number
           source: string | null
           tag: string
@@ -390,7 +425,7 @@ export type Database = {
         Insert: {
           category?: string | null
           created_at?: string
-          entity_id: number
+          entity_id: string
           id?: never
           source?: string | null
           tag: string
@@ -398,12 +433,20 @@ export type Database = {
         Update: {
           category?: string | null
           created_at?: string
-          entity_id?: number
+          entity_id?: string
           id?: never
           source?: string | null
           tag?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "entity_tags_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integrations: {
         Row: {
@@ -443,6 +486,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          level: number
           name: string
           tenant_id: string | null
           updated_at: string
@@ -452,6 +496,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          level?: number
           name: string
           tenant_id?: string | null
           updated_at?: string
@@ -461,6 +506,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          level?: number
           name?: string
           tenant_id?: string | null
           updated_at?: string
@@ -471,6 +517,66 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_groups: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      site_to_group: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: number
+          site_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: number
+          site_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: number
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_to_group_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "site_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_to_group_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -735,7 +841,64 @@ export type Database = {
       [_ in never]: never
     }
     Views: {
-      [_ in never]: never
+      d_agents_view: {
+        Row: {
+          created_at: string | null
+          deleted_at: string | null
+          ext_address: string | null
+          guid: string | null
+          hostname: string | null
+          id: string | null
+          ip_address: string | null
+          mac_address: string | null
+          platform: string | null
+          registered_at: string | null
+          site_id: string | null
+          site_name: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          version: string | null
+        }
+        Relationships: []
+      }
+      d_roles_view: {
+        Row: {
+          attributes: Json | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          level: number | null
+          name: string | null
+          tenant_id: string | null
+          updated_at: string | null
+          user_count: number | null
+        }
+        Relationships: []
+      }
+      d_users_view: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          first_name: string | null
+          full_name: string | null
+          id: string | null
+          last_name: string | null
+          preferences: Json | null
+          role_id: string | null
+          role_name: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "d_roles_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       [_ in never]: never

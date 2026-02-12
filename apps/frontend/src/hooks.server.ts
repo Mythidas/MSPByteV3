@@ -53,7 +53,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       // Fetch role for permission checks
       const { data: role } = await event.locals.supabase
         .from('roles')
-        .select('id, name, attributes, description, tenant_id, created_at, updated_at')
+        .select('id, name, attributes, description, level, tenant_id, created_at, updated_at')
         .eq('id', profile.role_id)
         .single();
       event.locals.role = role ?? null;

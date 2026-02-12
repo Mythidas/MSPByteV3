@@ -1,7 +1,7 @@
 <script lang="ts">
   import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission, ALL_PERMISSIONS } from '$lib/utils/permissions';
+  import { hasPermission, canActOnLevel, ROLE_LEVELS, ALL_PERMISSIONS } from '$lib/utils/permissions';
   import { ORM } from '@workspace/shared/lib/utils/orm';
   import { supabase } from '$lib/supabase';
   import { toast } from 'svelte-sonner';
@@ -9,12 +9,13 @@
   import { Plus } from '@lucide/svelte';
   import RoleDialog from './_role-dialog.svelte';
 
-  type Role = Tables<'public', 'roles'>;
+  type Role = Tables<'views', 'd_roles_view'>;
 
   const { data } = $props();
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Roles.Write')
   );
+  let currentUserLevel = $derived(data.role?.level ?? null);
 
   let isDeleting = $state(false);
   let createDialogOpen = $state(false);
@@ -53,14 +54,14 @@
       },
     },
     {
-      key: 'attributes',
-      title: 'Permissions',
-      cell: permissionsCell,
+      key: 'level',
+      title: 'Level',
+      sortable: true,
+      cell: levelCell,
     },
     {
       key: 'user_count',
       title: 'User Count',
-      cell: usersCell,
     },
   ]);
 
@@ -70,9 +71,17 @@
           {
             label: 'Delete',
             variant: 'destructive',
-            disabled: (rows) => isDeleting || rows.every((r) => r.tenant_id === null),
+            disabled: (rows) =>
+              isDeleting ||
+              rows.every(
+                (r) =>
+                  r.tenant_id === null ||
+                  !canActOnLevel(currentUserLevel, r.level)
+              ),
             onclick: async (rows, fetchData) => {
-              const deletable = rows.filter((r) => r.tenant_id !== null);
+              const deletable = rows.filter(
+                (r) => r.tenant_id !== null && canActOnLevel(currentUserLevel, r.level)
+              );
               if (deletable.length === 0) {
                 toast.error('System roles cannot be deleted.');
                 return;
@@ -81,7 +90,7 @@
               const skipped = rows.length - deletable.length;
               if (skipped > 0) {
                 toast.warning(
-                  `${skipped} system role${skipped > 1 ? 's' : ''} skipped (cannot be deleted).`
+                  `${skipped} role${skipped > 1 ? 's' : ''} skipped (system or insufficient level).`
                 );
               }
 
@@ -92,7 +101,7 @@
 
               try {
                 const orm = new ORM(supabase);
-                const ids = deletable.map((r) => r.id);
+                const ids = deletable.map((r) => r.id!);
                 const { error } = await orm.delete('public', 'roles', (q) => q.in('id', ids));
                 if (error) throw new Error(error.message);
 
@@ -115,6 +124,7 @@
 
   function handleRowClick(row: Role) {
     if (row.tenant_id === null || !canWrite) return;
+    if (!canActOnLevel(currentUserLevel, row.level)) return;
     editingRole = row;
     editDialogOpen = true;
   }
@@ -123,6 +133,11 @@
     refreshKey++;
   }
 </script>
+
+{#snippet levelCell({ row }: { row: Role; value: number | null })}
+  {@const label = ROLE_LEVELS.find((l) => l.value === row.level)?.label ?? 'Unknown'}
+  <span class="text-sm">{row.level} — {label}</span>
+{/snippet}
 
 {#snippet nameCell({ row }: { row: Role; value: string })}
   <span class="flex items-center gap-2">
@@ -133,15 +148,6 @@
       </span>
     {/if}
   </span>
-{/snippet}
-
-{#snippet permissionsCell({ row }: { row: Role; value: unknown })}
-  {getPermissionCount(row)}
-{/snippet}
-
-{#snippet usersCell({ row }: { row: Role; value: string })}
-  {@const count = data.users.filter((u) => u.role_id === row.id).length}
-  {count}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
@@ -157,8 +163,8 @@
 
   {#key refreshKey}
     <DataTable
-      schema="public"
-      table="roles"
+      schema="views"
+      table="d_roles_view"
       {columns}
       {rowActions}
       onrowclick={handleRowClick}
@@ -177,13 +183,15 @@
   bind:open={createDialogOpen}
   mode="create"
   tenantId={data.user?.tenant_id ?? ''}
+  maxLevel={currentUserLevel}
   onsuccess={handleDialogSuccess}
 />
 
 <RoleDialog
   bind:open={editDialogOpen}
   mode="edit"
-  role={editingRole}
+  role={editingRole as Tables<'public', 'roles'>}
   tenantId={data.user?.tenant_id ?? ''}
+  maxLevel={currentUserLevel}
   onsuccess={handleDialogSuccess}
 />

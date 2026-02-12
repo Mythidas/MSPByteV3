@@ -6,8 +6,9 @@
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '$lib/utils/permissions';
   import { page } from '$app/state';
+  import { getSiteIdsForScope } from '$lib/utils/scope-filter';
 
-  type Agent = Tables<'public', 'agents'>;
+  type Agent = Tables<'views', 'd_agents_view'>;
 
   const { data } = $props();
   let isDeleting = $state(false);
@@ -43,6 +44,12 @@
         operators: ['ilike', 'eq'],
         placeholder: 'Search hostname...',
       },
+    },
+    {
+      key: 'site_name',
+      title: 'Site',
+      sortable: true,
+      searchable: true,
     },
     {
       key: 'platform',
@@ -107,7 +114,7 @@
               const { error } = await orm.delete('public', 'agents', (q) =>
                 q.in(
                   'id',
-                  rows.map((r) => r.id)
+                  rows.map((r) => r.id!)
                 )
               );
 
@@ -129,11 +136,16 @@
       : []
   );
 
-  let siteId = $derived(page.url.searchParams.get('site'));
+  let scope = $derived(page.url.searchParams.get('scope'));
+  let scopeId = $derived(page.url.searchParams.get('scopeId'));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
 
   function modifyQuery(q: any) {
     q.is('deleted_at', null);
-    if (siteId) q.eq('site_id', siteId);
+    if (filterSiteIds) {
+      if (filterSiteIds.length === 1) q.eq('site_id', filterSiteIds[0]);
+      else if (filterSiteIds.length > 1) q.in('site_id', filterSiteIds);
+    }
   }
 </script>
 
@@ -148,10 +160,10 @@
 <div class="flex flex-col gap-2 p-4 size-full">
   <h1 class="h-fit text-2xl font-bold">Agents</h1>
 
-  {#key siteId}
+  {#key `${scope}-${scopeId}`}
     <DataTable
-      schema="public"
-      table="agents"
+      schema="views"
+      table="d_agents_view"
       {columns}
       {rowActions}
       {modifyQuery}

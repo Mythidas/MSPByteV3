@@ -53,8 +53,9 @@
     return result;
   });
 
-  let siteParam = $derived(page.url.searchParams.get('site'));
-  let siteQuery = $derived(siteParam ? `?site=${siteParam}` : '');
+  let scope = $derived(page.url.searchParams.get('scope'));
+  let scopeId = $derived(page.url.searchParams.get('scopeId'));
+  let scopeQuery = $derived(scope && scopeId ? `?scope=${scope}&scopeId=${scopeId}` : '');
 
   const startsWith = (path: string) => page.url.pathname.startsWith(path);
 
@@ -83,7 +84,7 @@
       <!-- Module pills -->
       {#each visibleModules as mod}
         <a
-          href={mod.navLinks[0].href + siteQuery}
+          href={mod.navLinks[0].href + scopeQuery}
           class={cn(
             'inline-flex h-8 items-center rounded-full px-3 text-sm font-medium transition-colors',
             activeModule?.id === mod.id
@@ -103,7 +104,7 @@
       <!-- Active module sub-nav -->
       {#each activeSubNav as link}
         <a
-          href={link.href + siteQuery}
+          href={link.href + scopeQuery}
           class={cn(
             'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
             'hover:bg-accent hover:text-accent-foreground',
@@ -117,9 +118,7 @@
       <!-- Site picker -->
       {#if activeModule && data.sites.length > 0}
         <div class="mx-1 h-5 w-px bg-border"></div>
-        <div class="flex w-64">
-          <SitePicker sites={data.sites} />
-        </div>
+        <SitePicker sites={data.sites} groups={data.groups} />
       {/if}
 
       <!-- Spacer -->

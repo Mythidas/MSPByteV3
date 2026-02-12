@@ -4,11 +4,12 @@
   import Input from '$lib/components/ui/input/input.svelte';
   import Label from '$lib/components/ui/label/label.svelte';
   import { Switch } from '$lib/components/ui/switch/index.js';
+  import * as Select from '$lib/components/ui/select/index.js';
   import type { Tables } from '@workspace/shared/types/database';
   import { ORM } from '@workspace/shared/lib/utils/orm';
   import { supabase } from '$lib/supabase';
   import { toast } from 'svelte-sonner';
-  import { PERMISSION_CATEGORIES, type Permission } from '$lib/utils/permissions';
+  import { PERMISSION_CATEGORIES, ROLE_LEVELS, type Permission } from '$lib/utils/permissions';
 
   type Role = Tables<'public', 'roles'>;
 
@@ -17,32 +18,40 @@
     mode,
     role = null,
     tenantId,
+    maxLevel = null,
     onsuccess,
   }: {
     open: boolean;
     mode: 'create' | 'edit';
     role?: Role | null;
     tenantId: string;
+    maxLevel: number | null;
     onsuccess?: () => void;
   } = $props();
 
   let name = $state('');
   let description = $state('');
+  let level = $state(1);
   let permissions = $state<Record<string, boolean>>({});
   let isSaving = $state(false);
 
   let isGlobalAdmin = $derived(permissions['Global.Admin'] === true);
+  let assignableLevels = $derived(
+    ROLE_LEVELS.filter((l) => maxLevel == null || l.value < maxLevel)
+  );
 
   $effect(() => {
     if (open) {
       if (mode === 'edit' && role) {
         name = role.name;
         description = role.description ?? '';
+        level = role.level ?? 1;
         const attrs = (role.attributes ?? {}) as Record<string, boolean>;
         permissions = { ...attrs };
       } else {
         name = '';
         description = '';
+        level = 1;
         permissions = {};
       }
     }
@@ -71,6 +80,7 @@
           {
             name: name.trim(),
             description: description.trim() || null,
+            level,
             attributes,
             tenant_id: tenantId,
           },
@@ -81,6 +91,7 @@
         const { error } = await orm.update('public', 'roles', String(role.id), {
           name: name.trim(),
           description: description.trim() || null,
+          level,
           attributes,
         });
         if (error) throw new Error(error.message);
@@ -129,6 +140,28 @@
           bind:value={description}
           placeholder="Enter role description (optional)"
         />
+      </div>
+
+      <div class="flex flex-col gap-2">
+        <Label>Level</Label>
+        <Select.Root
+          type="single"
+          value={String(level)}
+          onValueChange={(v) => { level = Number(v); }}
+        >
+          <Select.Trigger class="w-full">
+            {#snippet children()}
+              {level} — {ROLE_LEVELS.find((l) => l.value === level)?.label ?? 'Unknown'}
+            {/snippet}
+          </Select.Trigger>
+          <Select.Content>
+            {#each assignableLevels as tier}
+              <Select.Item value={String(tier.value)} label="{tier.value} — {tier.label}">
+                {tier.value} — {tier.label}
+              </Select.Item>
+            {/each}
+          </Select.Content>
+        </Select.Root>
       </div>
 
       <div class="flex flex-col gap-3">
