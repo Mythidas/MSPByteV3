@@ -74,10 +74,7 @@ export const actions: Actions = {
       return fail(400, { error: 'You cannot delete yourself.' });
     }
 
-    const { error: profileError } = await supabaseAdmin
-      .from('users')
-      .delete()
-      .eq('id', userId);
+    const { error: profileError } = await supabaseAdmin.from('users').delete().eq('id', userId);
 
     if (profileError) {
       return fail(400, { error: profileError.message });

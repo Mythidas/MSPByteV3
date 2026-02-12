@@ -67,14 +67,12 @@
               isDeleting ||
               rows.every(
                 (u) =>
-                  u.id === data.user?.id ||
-                  !canActOnLevel(currentUserLevel, getUserRoleLevel(u))
+                  u.id === data.user?.id || !canActOnLevel(currentUserLevel, getUserRoleLevel(u))
               ),
             onclick: async (rows, fetchData) => {
               const deletable = rows.filter(
                 (u) =>
-                  u.id !== data.user?.id &&
-                  canActOnLevel(currentUserLevel, getUserRoleLevel(u))
+                  u.id !== data.user?.id && canActOnLevel(currentUserLevel, getUserRoleLevel(u))
               );
               if (deletable.length === 0) {
                 toast.error('No users can be deleted from this selection.');
@@ -142,7 +140,9 @@
   <span class="flex items-center gap-2">
     {row.first_name + ' ' + row.last_name}
     {#if row.id === data.user?.id}
-      <span class="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/30">
+      <span
+        class="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded border border-primary/30"
+      >
         You
       </span>
     {/if}

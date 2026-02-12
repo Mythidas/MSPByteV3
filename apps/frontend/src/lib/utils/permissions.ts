@@ -13,7 +13,10 @@ export type Permission =
 
 export const PERMISSION_CATEGORIES = [
   { category: 'Sites', permissions: ['Sites.Read', 'Sites.Write'] as Permission[] },
-  { category: 'Integrations', permissions: ['Integrations.Read', 'Integrations.Write'] as Permission[] },
+  {
+    category: 'Integrations',
+    permissions: ['Integrations.Read', 'Integrations.Write'] as Permission[],
+  },
   { category: 'Reports', permissions: ['Reports.Read', 'Reports.Write'] as Permission[] },
   { category: 'Users', permissions: ['Users.Read', 'Users.Write'] as Permission[] },
   { category: 'Roles', permissions: ['Roles.Read', 'Roles.Write'] as Permission[] },
@@ -55,5 +58,5 @@ export function canActOnLevel(
   targetLevel: number | null | undefined
 ): boolean {
   if (myLevel == null || targetLevel == null) return false;
-  return myLevel > targetLevel;
+  return myLevel >= targetLevel;
 }
