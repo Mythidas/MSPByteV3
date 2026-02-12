@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use whoami;
 use std::process::Command;
+use crate::logger::log_to_file;
 
 #[cfg(target_os = "windows")]
 use std::os::windows::process::CommandExt;
@@ -45,8 +46,9 @@ pub async fn get_settings() -> Result<Settings, Box<dyn std::error::Error>> {
     }
 
     let content = tokio::fs::read_to_string(&settings_path).await?;
+    let content = content.trim_start_matches('\u{FEFF}');
     let settings: Settings = serde_json::from_str(&content)?;
-
+    
     Ok(settings)
 }
 

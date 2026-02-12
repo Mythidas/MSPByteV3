@@ -4,7 +4,7 @@
 !define APP_NAME "MSPAgent"
 !define APP_COMPANY "MSPByte"
 !define CONFIG_DIR_NAME "MSPAgent"  ; Folder name in ProgramData
-!define APP_VERSION "0.1.15"
+!define APP_VERSION "0.1.17"
 !define API_HOST "https://agent.mspbyte.pro"
 
 ; =============================================================================
@@ -130,13 +130,7 @@ FunctionEnd
     ; Setup ProgramData directory
     Call SetupProgramDataDirectory
 
-    StrCpy $R9 "=== STEP 4: Repairing Malformed Settings (if needed) ==="
-    Call LogWrite
-
-    ; Repair malformed settings.json if it exists
-    Call RepairMalformedSettings
-
-    StrCpy $R9 "=== STEP 5: Creating Site Configuration ==="
+    StrCpy $R9 "=== STEP 4: Creating Site Configuration ==="
     Call LogWrite
 
     ; Create site configuration
@@ -416,112 +410,6 @@ Function SetupProgramDataDirectory
     ${EndIf}
 FunctionEnd
 
-; Function: Repair Malformed Settings
-Function RepairMalformedSettings
-    StrCpy $R9 "Checking for malformed settings.json"
-    Call LogWrite
-
-    ; Check if settings.json exists
-    ${IfNot} ${FileExists} "$COMMONPROGRAMDATA\${CONFIG_DIR_NAME}\settings.json"
-        StrCpy $R9 "No existing settings.json to repair"
-        Call LogWrite
-        Return
-    ${EndIf}
-
-    StrCpy $R9 "Existing settings.json found - checking if valid JSON"
-    Call LogWrite
-
-    ; Create a temporary PowerShell script to validate and repair JSON
-    StrCpy $R7 "$TEMP\nsis_repair_json_$$.ps1"
-    FileOpen $R8 $R7 w
-
-    ; PowerShell script to repair malformed JSON
-    FileWrite $R8 '$$settingsPath = "$COMMONPROGRAMDATA\${CONFIG_DIR_NAME}\settings.json"$\r$\n'
-    FileWrite $R8 '$$backupPath = "$COMMONPROGRAMDATA\${CONFIG_DIR_NAME}\settings.json.backup"$\r$\n'
-    FileWrite $R8 '$\r$\n'
-    FileWrite $R8 'try {$\r$\n'
-    FileWrite $R8 '    # Read the current file$\r$\n'
-    FileWrite $R8 '    $$content = Get-Content -Path $$settingsPath -Raw -ErrorAction Stop$\r$\n'
-    FileWrite $R8 '    $\r$\n'
-    FileWrite $R8 '    # Try to parse it as JSON$\r$\n'
-    FileWrite $R8 '    try {$\r$\n'
-    FileWrite $R8 '        $$null = ConvertFrom-Json -InputObject $$content -ErrorAction Stop$\r$\n'
-    FileWrite $R8 '        Write-Output "VALID_JSON"$\r$\n'
-    FileWrite $R8 '        exit 0$\r$\n'
-    FileWrite $R8 '    } catch {$\r$\n'
-    FileWrite $R8 '        Write-Output "INVALID_JSON: $$_"$\r$\n'
-    FileWrite $R8 '        $\r$\n'
-    FileWrite $R8 '        # Create backup$\r$\n'
-    FileWrite $R8 '        Copy-Item -Path $$settingsPath -Destination $$backupPath -Force$\r$\n'
-    FileWrite $R8 '        Write-Output "BACKUP_CREATED"$\r$\n'
-    FileWrite $R8 '        $\r$\n'
-    FileWrite $R8 '        # Common fix: missing comma after "show_tray": false$\r$\n'
-    FileWrite $R8 "        $$fixed = $$content -replace '($\"show_tray$\"\s*:\s*(?:true|false))(\s*[\r\n]+\s*$\")','$$1,$$2'$\r$\n"
-    FileWrite $R8 '        $\r$\n'
-    FileWrite $R8 '        # Validate the fix$\r$\n'
-    FileWrite $R8 '        try {$\r$\n'
-    FileWrite $R8 '            $$null = ConvertFrom-Json -InputObject $$fixed -ErrorAction Stop$\r$\n'
-    FileWrite $R8 '            $\r$\n'
-    FileWrite $R8 '            # Write the fixed content back$\r$\n'
-    FileWrite $R8 '            [System.IO.File]::WriteAllText($$settingsPath, $$fixed)$\r$\n'
-    FileWrite $R8 '            Write-Output "REPAIRED_SUCCESS"$\r$\n'
-    FileWrite $R8 '            exit 0$\r$\n'
-    FileWrite $R8 '        } catch {$\r$\n'
-    FileWrite $R8 '            # Restore from backup if repair failed$\r$\n'
-    FileWrite $R8 '            Copy-Item -Path $$backupPath -Destination $$settingsPath -Force$\r$\n'
-    FileWrite $R8 '            Write-Output "REPAIR_FAILED: $$_"$\r$\n'
-    FileWrite $R8 '            exit 1$\r$\n'
-    FileWrite $R8 '        }$\r$\n'
-    FileWrite $R8 '    }$\r$\n'
-    FileWrite $R8 '} catch {$\r$\n'
-    FileWrite $R8 '    Write-Output "ERROR_READING_FILE: $$_"$\r$\n'
-    FileWrite $R8 '    exit 1$\r$\n'
-    FileWrite $R8 '}$\r$\n'
-    FileClose $R8
-
-    ; Execute the PowerShell script
-    StrCpy $R9 "Running JSON validation and repair script"
-    Call LogWrite
-
-    nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$R7"'
-    Pop $R0  ; Exit code
-    Pop $R1  ; Output
-
-    ; Log the output
-    StrCpy $R9 "Repair script output: $R1"
-    Call LogWrite
-    StrCpy $R9 "Repair script exit code: $R0"
-    Call LogWrite
-
-    ; Clean up the temporary script
-    Delete $R7
-
-    ; Check if repair was needed and successful
-    ${StrStr} $R2 $R1 "VALID_JSON"
-    ${If} $R2 != ""
-        StrCpy $R9 "settings.json is valid - no repair needed"
-        Call LogWrite
-        Return
-    ${EndIf}
-
-    ${StrStr} $R2 $R1 "REPAIRED_SUCCESS"
-    ${If} $R2 != ""
-        StrCpy $R9 "settings.json was malformed and has been repaired successfully"
-        Call LogWrite
-        Return
-    ${EndIf}
-
-    ${StrStr} $R2 $R1 "REPAIR_FAILED"
-    ${If} $R2 != ""
-        StrCpy $R9 "WARNING: Failed to repair malformed settings.json - restored from backup"
-        Call LogWrite
-        Return
-    ${EndIf}
-
-    StrCpy $R9 "WARNING: Unexpected result from repair script"
-    Call LogWrite
-FunctionEnd
-
 ; Function: Merge Config Settings
 ; Performs intelligent merge of settings.json, updating installer-controlled fields
 ; while preserving registration data (device_id, guid, registered_at, hostname)
@@ -696,9 +584,6 @@ Function CreateSiteConfig
                 StrCpy $R9 "site_id matches provided secret - performing composable config merge"
                 Call LogWrite
 
-                ; Call merge function to update installer-controlled fields
-                ; while preserving registration data (device_id, guid, registered_at, hostname)
-                Call MergeConfigSettings
                 Return  ; Exit after successful merge
             ${Else}
                 StrCpy $R9 "site_id differs from provided secret - will perform complete overwrite"
