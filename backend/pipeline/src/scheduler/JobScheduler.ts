@@ -7,8 +7,8 @@ import type { SyncJobData } from '../types.js';
 const POLL_INTERVAL_MS = 5000;
 
 /**
- * JobScheduler - Polls sync_jobs table for pending jobs and creates BullMQ jobs.
- * After completion, inserts a new row with trigger='scheduled' for recurring syncs.
+ * JobScheduler - Polls sync_jobs table for pending jobs and dispatches to BullMQ.
+ * Uses jobId for idempotent dispatch. Requires entity_type to be set (no fan-out).
  */
 export class JobScheduler {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -23,7 +23,6 @@ export class JobScheduler {
     });
 
     this.pollTimer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
-    // Immediate first poll
     this.poll();
   }
 
@@ -47,7 +46,6 @@ export class JobScheduler {
     try {
       const supabase = getSupabase();
 
-      // Find pending jobs ready to run
       const { data: pendingJobs, error } = await supabase
         .from('sync_jobs')
         .select('*')
@@ -93,8 +91,9 @@ export class JobScheduler {
   private async dispatchJob(syncJob: any): Promise<void> {
     const supabase = getSupabase();
     const integrationId = syncJob.integration_id as IntegrationId;
-    const config = INTEGRATION_CONFIGS[integrationId];
+    const entityType = syncJob.entity_type as EntityType | null;
 
+    const config = INTEGRATION_CONFIGS[integrationId];
     if (!config) {
       Logger.log({
         module: 'JobScheduler',
@@ -105,12 +104,18 @@ export class JobScheduler {
       return;
     }
 
-    // Determine entity types to sync
-    const entityTypes: EntityType[] = syncJob.entity_type
-      ? [syncJob.entity_type as EntityType]
-      : config.supportedTypes.map((t) => t.type);
+    // Require entity_type — no fan-out from null
+    if (!entityType) {
+      Logger.log({
+        module: 'JobScheduler',
+        context: 'dispatchJob',
+        message: `Skipping sync_job ${syncJob.id}: entity_type is required`,
+        level: 'warn',
+      });
+      return;
+    }
 
-    // Get integration DB record to pass config to adapters
+    // Get integration DB record
     const { data: integration } = await supabase
       .from('integrations')
       .select('id')
@@ -119,32 +124,30 @@ export class JobScheduler {
       .single();
 
     const integrationDbId = integration?.id || syncJob.integration_id;
+    const queueName = QueueNames.sync(integrationId, entityType);
+    const typeConfig = config.supportedTypes.find((t) => t.type === entityType);
 
-    for (const entityType of entityTypes) {
-      const queueName = QueueNames.sync(integrationId, entityType);
-      const typeConfig = config.supportedTypes.find((t) => t.type === entityType);
+    const jobData: SyncJobData = {
+      tenantId: syncJob.tenant_id,
+      integrationId,
+      integrationDbId,
+      entityType,
+      syncId: syncJob.sync_id,
+      syncJobId: syncJob.id,
+    };
 
-      const jobData: SyncJobData = {
-        tenantId: syncJob.tenant_id,
-        integrationId,
-        integrationDbId,
-        entityType,
-        syncId: syncJob.sync_id,
-        syncJobId: syncJob.id,
-        batchNumber: 0,
-      };
+    // Idempotent dispatch via jobId
+    const bullmqJob = await queueManager.addJob(queueName, jobData, {
+      priority: typeConfig?.priority || syncJob.priority,
+      jobId: String(syncJob.id),
+    });
 
-      const bullmqJob = await queueManager.addJob(queueName, jobData, {
-        priority: typeConfig?.priority || syncJob.priority,
-      });
-
-      Logger.log({
-        module: 'JobScheduler',
-        context: 'dispatchJob',
-        message: `Dispatched ${integrationId}:${entityType} → BullMQ job ${bullmqJob.id}`,
-        level: 'info',
-      });
-    }
+    Logger.log({
+      module: 'JobScheduler',
+      context: 'dispatchJob',
+      message: `Dispatched ${integrationId}:${entityType} → BullMQ job ${bullmqJob.id}`,
+      level: 'info',
+    });
 
     // Update sync_job status to 'queued'
     await supabase
@@ -158,42 +161,76 @@ export class JobScheduler {
   }
 
   /**
-   * Called by the analyzer when a sync completes.
-   * Inserts a new sync_jobs row for the next scheduled run.
+   * On startup, reset running/queued jobs to pending so they get re-dispatched.
+   */
+  static async recoverStuckJobs(): Promise<number> {
+    const supabase = getSupabase();
+
+    const { data: stuckJobs, error } = await supabase
+      .from('sync_jobs')
+      .select('id')
+      .in('status', ['running', 'queued']);
+
+    if (error) {
+      Logger.log({
+        module: 'JobScheduler',
+        context: 'recoverStuckJobs',
+        message: `Error finding stuck jobs: ${error.message}`,
+        level: 'error',
+      });
+      return 0;
+    }
+
+    if (!stuckJobs || stuckJobs.length === 0) return 0;
+
+    const ids = stuckJobs.map((j) => j.id);
+    await supabase
+      .from('sync_jobs')
+      .update({ status: 'pending', updated_at: new Date().toISOString() })
+      .in('id', ids);
+
+    Logger.log({
+      module: 'JobScheduler',
+      context: 'recoverStuckJobs',
+      message: `Recovered ${ids.length} stuck jobs (reset to pending)`,
+      level: 'info',
+    });
+
+    return ids.length;
+  }
+
+  /**
+   * Inserts a new pending sync_jobs row for the next scheduled run.
    */
   static async scheduleNextSync(
-    tenantId: number,
+    tenantId: string,
     integrationId: IntegrationId,
-    entityType?: EntityType,
+    entityType: EntityType,
   ): Promise<void> {
     const config = INTEGRATION_CONFIGS[integrationId];
     if (!config) return;
 
-    const typesToSchedule = entityType
-      ? config.supportedTypes.filter((t) => t.type === entityType)
-      : config.supportedTypes;
+    const typeConfig = config.supportedTypes.find((t) => t.type === entityType);
+    if (!typeConfig) return;
 
     const supabase = getSupabase();
+    const scheduledFor = new Date(Date.now() + typeConfig.rateMinutes * 60 * 1000).toISOString();
 
-    for (const typeConfig of typesToSchedule) {
-      const scheduledFor = new Date(Date.now() + typeConfig.rateMinutes * 60 * 1000).toISOString();
+    await supabase.from('sync_jobs').insert({
+      tenant_id: tenantId,
+      integration_id: integrationId,
+      entity_type: typeConfig.type,
+      status: 'pending',
+      priority: typeConfig.priority,
+      trigger: 'scheduled',
+      scheduled_for: scheduledFor,
+    });
 
-      await supabase.from('sync_jobs').insert({
-        tenant_id: tenantId,
-        integration_id: integrationId,
-        entity_type: typeConfig.type,
-        status: 'pending',
-        priority: typeConfig.priority,
-        trigger: 'scheduled',
-        scheduled_for: scheduledFor,
-      });
-
-      Logger.log({
-        module: 'JobScheduler',
-        context: 'scheduleNextSync',
-        message: `Scheduled next ${integrationId}:${typeConfig.type} in ${typeConfig.rateMinutes}m`,
-        level: 'info',
-      });
-    }
+    Logger.log({
+      module: 'JobScheduler',
+      context: 'scheduleNextSync',
+      message: `Scheduled next ${integrationId}:${typeConfig.type} in ${typeConfig.rateMinutes}m`,
+      level: 'info',
+    });
   }
 }

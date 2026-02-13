@@ -3,18 +3,18 @@ import { Logger } from '../lib/logger.js';
 
 /**
  * TagManager - Manages entity_tags table.
- * Uses DELETE WHERE source + INSERT pattern per analyzer pass.
+ * Uses DELETE WHERE (entity_id, source) + INSERT pattern per analyzer pass.
  */
 export class TagManager {
   async applyTags(
-    entityTags: Map<number, { tag: string; category?: string; source: string }[]>,
+    entityTags: Map<string, { tag: string; category?: string; source: string }[]>,
   ): Promise<void> {
     if (entityTags.size === 0) return;
 
     const supabase = getSupabase();
 
     // Collect all sources involved for cleanup
-    const sourcesByEntity = new Map<number, Set<string>>();
+    const sourcesByEntity = new Map<string, Set<string>>();
     const allInserts: any[] = [];
 
     for (const [entityId, tags] of entityTags) {
@@ -38,10 +38,9 @@ export class TagManager {
       }
     }
 
-    // Batch insert new tags (filter out empty tag entries)
+    // Batch insert new tags
     const validInserts = allInserts.filter((t) => t.tag && t.tag.length > 0);
     if (validInserts.length > 0) {
-      // Insert in chunks of 100
       for (let i = 0; i < validInserts.length; i += 100) {
         const chunk = validInserts.slice(i, i + 100);
         const { error } = await supabase.from('entity_tags').upsert(chunk, {

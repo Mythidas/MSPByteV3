@@ -106,69 +106,7 @@ export class MetricsCollector {
     };
   }
 
-  reset(): void {
-    this.stageTimes.clear();
-    this.stageStartTimes.clear();
-    this.dbQueries = 0;
-    this.dbUpserts = 0;
-    this.apiCalls = 0;
-    this.entitiesCreated = 0;
-    this.entitiesUpdated = 0;
-    this.entitiesDeleted = 0;
-    this.entitiesUnchanged = 0;
-    this.errorDetails = {};
-  }
-
-  merge(other: MetricsCollector): void {
-    const m = other.getMetrics();
-    if (m.adapter_ms) this.stageTimes.set('adapter', (this.stageTimes.get('adapter') || 0) + m.adapter_ms);
-    if (m.processor_ms)
-      this.stageTimes.set('processor', (this.stageTimes.get('processor') || 0) + m.processor_ms);
-    if (m.linker_ms) this.stageTimes.set('linker', (this.stageTimes.get('linker') || 0) + m.linker_ms);
-    if (m.analyzer_ms)
-      this.stageTimes.set('analyzer', (this.stageTimes.get('analyzer') || 0) + m.analyzer_ms);
-
-    this.dbQueries += m.db_queries;
-    this.dbUpserts += m.db_upserts;
-    this.apiCalls += m.api_calls;
-    this.entitiesCreated += m.entities_created;
-    this.entitiesUpdated += m.entities_updated;
-    this.entitiesDeleted += m.entities_deleted;
-    this.entitiesUnchanged += m.entities_unchanged;
-
-    if (m.error_message && !this.errorDetails.error_message) {
-      this.errorDetails = {
-        error_message: m.error_message,
-        error_stack: m.error_stack,
-        retry_count: m.retry_count,
-      };
-    }
-  }
-
   toJSON(): any {
     return this.getMetrics();
-  }
-
-  static fromJSON(json: any): MetricsCollector {
-    const c = new MetricsCollector();
-    if (json.adapter_ms) c.stageTimes.set('adapter', json.adapter_ms);
-    if (json.processor_ms) c.stageTimes.set('processor', json.processor_ms);
-    if (json.linker_ms) c.stageTimes.set('linker', json.linker_ms);
-    if (json.analyzer_ms) c.stageTimes.set('analyzer', json.analyzer_ms);
-    c.dbQueries = json.db_queries || 0;
-    c.dbUpserts = json.db_upserts || 0;
-    c.apiCalls = json.api_calls || 0;
-    c.entitiesCreated = json.entities_created || 0;
-    c.entitiesUpdated = json.entities_updated || 0;
-    c.entitiesDeleted = json.entities_deleted || 0;
-    c.entitiesUnchanged = json.entities_unchanged || 0;
-    if (json.error_message) {
-      c.errorDetails = {
-        error_message: json.error_message,
-        error_stack: json.error_stack,
-        retry_count: json.retry_count,
-      };
-    }
-    return c;
   }
 }

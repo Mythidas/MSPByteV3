@@ -12,6 +12,10 @@
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=@workspace/frontend",
     "dev:agent": "turbo dev --filter=@workspace/agents",
+    "dev:pipeline": "turbo dev --filter=@workspace/pipeline",
+    "infra:up": "cd backend && docker-compose up -d && docker-compose ps",
+    "infra:down": "cd backend && docker-compose down",
+    "infra:clean": "cd backend && docker-compose down -v",
     "supabase:types": "bunx supabase gen types typescript --project-id bhyazlrcyuvbporjyefx --schema public,views > packages/shared/src/types/schema.ts",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },

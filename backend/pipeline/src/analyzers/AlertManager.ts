@@ -1,19 +1,19 @@
 import { getSupabase } from '../supabase.js';
 import { Logger } from '../lib/logger.js';
-import type { IntegrationId } from '../config.js';
 import type { Alert } from '../types.js';
 
 /**
  * AlertManager - Fingerprint-based deduplication for entity_alerts.
- * Suppressed alerts remain suppressed across syncs.
+ * New alerts → insert, existing alerts → touch last_seen_at,
+ * missing alerts → resolve (set resolved_at). Respects suppressed status.
  */
 export class AlertManager {
   async processAlerts(
     alerts: Alert[],
-    tenantId: number,
-    integrationId: IntegrationId,
+    tenantId: string,
+    integrationId: string,
     syncId: string,
-    siteId?: number,
+    siteId?: string,
   ): Promise<{ created: number; updated: number; resolved: number }> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -36,7 +36,7 @@ export class AlertManager {
     const seenFingerprints = new Set<string>();
 
     const toCreate: any[] = [];
-    const toUpdate: { id: number; updates: any }[] = [];
+    const toUpdate: { id: string; updates: any }[] = [];
 
     for (const alert of alerts) {
       seenFingerprints.add(alert.fingerprint);
@@ -76,7 +76,7 @@ export class AlertManager {
     }
 
     // Resolve active alerts not seen in this sync
-    const toResolve: number[] = [];
+    const toResolve: string[] = [];
     for (const existing of existingAlerts || []) {
       if (!seenFingerprints.has(existing.fingerprint) && existing.status === 'active') {
         toResolve.push(existing.id);

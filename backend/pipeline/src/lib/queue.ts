@@ -1,39 +1,35 @@
 import { Queue, Worker, Job, type QueueOptions, type WorkerOptions } from 'bullmq';
-import { redis } from './redis.js';
+import { getRedisConnection } from './redis.js';
 import { Logger } from './logger.js';
-import type { IntegrationId, EntityType } from '../config.js';
-import type { SyncJobData } from '../types.js';
 
 export const QueueNames = {
-  sync: (integrationId: IntegrationId, entityType: EntityType) =>
-    `sync.${integrationId}.${entityType}`,
-  process: 'process.entity',
-  link: (integrationId: IntegrationId) => `link.${integrationId}`,
-  analyze: 'analyze.tenant',
-} as const;
-
-const getDefaultQueueOptions = (): QueueOptions => ({
-  connection: redis.getClient(),
-  defaultJobOptions: {
-    attempts: 3,
-    backoff: { type: 'exponential', delay: 2000 },
-    removeOnComplete: { count: 100 },
-    removeOnFail: { count: 500 },
-  },
-});
+  sync: (integrationId: string, entityType: string) => `sync.${integrationId}.${entityType}`,
+};
 
 class QueueManager {
   private queues = new Map<string, Queue>();
   private workers = new Map<string, Worker>();
 
-  getQueue(queueName: string): Queue {
+  private getDefaultOpts(): QueueOptions {
+    return {
+      connection: getRedisConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 2000 },
+        removeOnComplete: { count: 100 },
+        removeOnFail: { count: 500 },
+      },
+    };
+  }
+
+  private getOrCreateQueue(queueName: string): Queue {
     if (!this.queues.has(queueName)) {
-      const queue = new Queue(queueName, getDefaultQueueOptions());
+      const queue = new Queue(queueName, this.getDefaultOpts());
 
       queue.on('error', (error: Error) => {
         Logger.log({
           module: 'QueueManager',
-          context: 'getQueue',
+          context: 'queue',
           message: `Queue error [${queueName}]: ${error.message}`,
           level: 'error',
         });
@@ -42,13 +38,22 @@ class QueueManager {
       this.queues.set(queueName, queue);
       Logger.log({
         module: 'QueueManager',
-        context: 'getQueue',
+        context: 'queue',
         message: `Queue created: ${queueName}`,
-        level: 'info',
+        level: 'trace',
       });
     }
 
     return this.queues.get(queueName)!;
+  }
+
+  async addJob<T>(
+    queueName: string,
+    jobData: T,
+    options?: { priority?: number; delay?: number; jobId?: string },
+  ): Promise<Job<T>> {
+    const queue = this.getOrCreateQueue(queueName);
+    return queue.add(queueName, jobData, options);
   }
 
   createWorker<T = any>(
@@ -93,7 +98,7 @@ class QueueManager {
         }
       },
       {
-        connection: getDefaultQueueOptions().connection,
+        connection: getRedisConnection(),
         concurrency: options?.concurrency || 5,
         ...options,
       },
@@ -128,52 +133,6 @@ class QueueManager {
     return worker;
   }
 
-  async addJob<T>(
-    queueName: string,
-    jobData: T,
-    options?: { priority?: number; delay?: number; jobId?: string },
-  ): Promise<Job<T>> {
-    const queue = this.getQueue(queueName);
-    return queue.add(queueName, jobData, options);
-  }
-
-  async hasJobForSync(
-    queueName: string,
-    integrationDbId: string,
-    entityType: EntityType,
-  ): Promise<boolean> {
-    const queue = this.getQueue(queueName);
-    const waitingJobs = await queue.getJobs(['waiting', 'delayed']);
-    return waitingJobs.some(
-      (job) =>
-        (job.data as SyncJobData).integrationDbId === integrationDbId &&
-        (job.data as SyncJobData).entityType === entityType,
-    );
-  }
-
-  async clearWaitingAndDelayedJobs(queueName: string): Promise<number> {
-    const queue = this.getQueue(queueName);
-    const allJobs = [
-      ...(await queue.getJobs(['waiting'])),
-      ...(await queue.getJobs(['delayed'])),
-    ];
-
-    let removed = 0;
-    for (const job of allJobs) {
-      await job.remove();
-      removed++;
-    }
-
-    Logger.log({
-      module: 'QueueManager',
-      context: 'clearWaitingAndDelayedJobs',
-      message: `Cleared ${removed} jobs from queue: ${queueName}`,
-      level: 'info',
-    });
-
-    return removed;
-  }
-
   async closeAll(): Promise<void> {
     Logger.log({
       module: 'QueueManager',
@@ -188,7 +147,7 @@ class QueueManager {
         module: 'QueueManager',
         context: 'closeAll',
         message: `Worker closed: ${key}`,
-        level: 'info',
+        level: 'trace',
       });
     }
 
@@ -198,7 +157,7 @@ class QueueManager {
         module: 'QueueManager',
         context: 'closeAll',
         message: `Queue closed: ${name}`,
-        level: 'info',
+        level: 'trace',
       });
     }
 

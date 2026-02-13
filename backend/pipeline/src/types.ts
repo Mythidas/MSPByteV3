@@ -8,10 +8,10 @@ export type EntityState = 'low' | 'normal' | 'warn' | 'critical';
 export type MFACoverage = 'none' | 'partial' | 'full';
 
 export interface Entity {
-  id: number;
-  tenant_id: number;
+  id: string;
+  tenant_id: string;
   integration_id: string;
-  site_id: number | null;
+  site_id: string | null;
   entity_type: string;
   external_id: string;
   display_name: string | null;
@@ -25,11 +25,11 @@ export interface Entity {
 }
 
 export interface Relationship {
-  id: number;
-  tenant_id: number;
+  id: string;
+  tenant_id: string;
   integration_id: string;
-  parent_entity_id: number;
-  child_entity_id: number;
+  parent_entity_id: string;
+  child_entity_id: string;
   relationship_type: string;
   metadata: any;
   last_seen_at: string;
@@ -43,7 +43,7 @@ export interface Relationship {
 // ============================================================================
 
 export interface AnalysisContext {
-  tenantId: number;
+  tenantId: string;
   integrationId: IntegrationId;
   syncId: string;
 
@@ -66,10 +66,10 @@ export interface AnalysisContext {
 
   relationships: Relationship[];
 
-  getEntity(id: number): Entity | undefined;
-  getRelationships(entityId: number, type?: string): Relationship[];
-  getChildEntities(parentId: number): Entity[];
-  getParentEntity(childId: number): Entity | undefined;
+  getEntity(id: string): Entity | undefined;
+  getRelationships(entityId: string, type?: string): Relationship[];
+  getChildEntities(parentId: string): Entity[];
+  getParentEntity(childId: string): Entity | undefined;
 }
 
 // ============================================================================
@@ -88,7 +88,7 @@ export type AlertType =
   | 'backup-failed';
 
 export interface Alert {
-  entityId: number;
+  entityId: string;
   alertType: AlertType;
   severity: AlertSeverity;
   message: string;
@@ -102,8 +102,8 @@ export interface Alert {
 
 export interface AnalyzerResult {
   alerts: Alert[];
-  entityTags: Map<number, { tag: string; category?: string; source: string }[]>;
-  entityStates: Map<number, EntityState>;
+  entityTags: Map<string, { tag: string; category?: string; source: string }[]>;
+  entityStates: Map<string, EntityState>;
 }
 
 // ============================================================================
@@ -113,7 +113,7 @@ export interface AnalyzerResult {
 export interface RawEntity {
   externalId: string;
   displayName?: string;
-  siteId?: number;
+  siteId?: string;
   rawData: any;
 }
 
@@ -126,57 +126,16 @@ export interface AdapterFetchResult {
 }
 
 // ============================================================================
-// PIPELINE JOB TYPES (BullMQ queue data)
+// PIPELINE JOB TYPES (BullMQ queue data — single queue design)
 // ============================================================================
 
 export interface SyncJobData {
-  tenantId: number;
+  tenantId: string;
   integrationId: IntegrationId;
   integrationDbId: string;
   entityType: EntityType;
-  cursor?: string;
-  batchNumber?: number;
   syncId: string;
-  syncJobId: number;
-  startedAt?: number;
-  metrics?: any;
-}
-
-export interface ProcessJobData {
-  tenantId: number;
-  integrationId: IntegrationId;
-  integrationDbId: string;
-  entityType: EntityType;
-  entities: RawEntity[];
-  syncId: string;
-  syncJobId: number;
-  siteId?: number;
-  startedAt?: number;
-  metrics?: any;
-}
-
-export interface LinkJobData {
-  tenantId: number;
-  integrationId: IntegrationId;
-  integrationDbId: string;
-  syncId: string;
-  syncJobId: number;
-  siteId?: number;
-  entityType?: EntityType;
-  startedAt?: number;
-  metrics?: any;
-}
-
-export interface AnalyzeJobData {
-  tenantId: number;
-  integrationId: IntegrationId;
-  integrationDbId: string;
-  syncId: string;
-  syncJobId: number;
-  siteId?: number;
-  entityType?: EntityType;
-  startedAt?: number;
-  metrics?: any;
+  syncJobId: string;
 }
 
 // ============================================================================
@@ -184,8 +143,8 @@ export interface AnalyzeJobData {
 // ============================================================================
 
 export interface RelationshipToCreate {
-  parentEntityId: number;
-  childEntityId: number;
+  parentEntityId: string;
+  childEntityId: string;
   relationshipType: string;
   metadata?: Record<string, any>;
 }

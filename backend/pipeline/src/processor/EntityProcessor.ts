@@ -1,120 +1,62 @@
 import crypto from 'crypto';
-import { Job } from 'bullmq';
 import { getSupabase } from '../supabase.js';
-import { QueueNames, queueManager } from '../lib/queue.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
-import type { IntegrationId } from '../config.js';
-import type { ProcessJobData, RawEntity } from '../types.js';
+import type { RawEntity } from '../types.js';
 
 /**
- * EntityProcessor - Hash-based upsert to entities table via Supabase.
- * Replaces the old Convex-based processor.
+ * EntityProcessor - Hash-based upsert to entities table.
+ * No BullMQ — plain class called by SyncWorker.
+ * Core algorithm: fetch existing by external_id, hash comparison,
+ * three-way split (create/update/touch).
  */
 export class EntityProcessor {
-  private metrics: MetricsCollector;
-
-  constructor() {
-    this.metrics = new MetricsCollector();
-  }
-
-  start(): void {
-    queueManager.createWorker<ProcessJobData>(QueueNames.process, this.processJob.bind(this), {
-      concurrency: 10,
-    });
-
+  async process(
+    entities: RawEntity[],
+    tenantId: string,
+    integrationId: string,
+    entityType: string,
+    syncId: string,
+    metrics: MetricsCollector,
+    siteId?: string,
+  ): Promise<void> {
     Logger.log({
       module: 'EntityProcessor',
-      context: 'start',
-      message: 'EntityProcessor worker started',
-      level: 'info',
-    });
-  }
-
-  private async processJob(job: Job<ProcessJobData>): Promise<void> {
-    const {
-      tenantId,
-      integrationId,
-      integrationDbId,
-      entityType,
-      entities,
-      siteId,
-      syncId,
-      syncJobId,
-      startedAt,
-      metrics: previousMetrics,
-    } = job.data;
-
-    if (previousMetrics) {
-      this.metrics = MetricsCollector.fromJSON(previousMetrics);
-    } else {
-      this.metrics.reset();
-    }
-
-    this.metrics.startStage('processor');
-
-    Logger.log({
-      module: 'EntityProcessor',
-      context: 'processJob',
+      context: 'process',
       message: `Processing ${entities.length} ${entityType} entities`,
       level: 'info',
     });
 
-    try {
-      const chunks = chunkArray(entities, 100);
+    const chunks = chunkArray(entities, 100);
 
-      for (let i = 0; i < chunks.length; i++) {
-        await this.processChunk(chunks[i], tenantId, integrationId, entityType, syncId, siteId);
+    for (let i = 0; i < chunks.length; i++) {
+      await this.processChunk(chunks[i], tenantId, integrationId, entityType, syncId, metrics, siteId);
 
-        Logger.log({
-          module: 'EntityProcessor',
-          context: 'processJob',
-          message: `Processed chunk ${i + 1}/${chunks.length}`,
-          level: 'trace',
-        });
-      }
-
-      this.metrics.endStage('processor');
-
-      const m = this.metrics.getMetrics();
       Logger.log({
         module: 'EntityProcessor',
-        context: 'processJob',
-        message: `Completed: ${m.entities_created} created, ${m.entities_updated} updated, ${m.entities_unchanged} unchanged`,
-        level: 'info',
+        context: 'process',
+        message: `Processed chunk ${i + 1}/${chunks.length}`,
+        level: 'trace',
       });
-
-      // Trigger linking stage
-      await this.triggerLinking(
-        integrationId,
-        integrationDbId,
-        tenantId,
-        syncId,
-        syncJobId,
-        siteId,
-        startedAt,
-        entityType,
-      );
-    } catch (error) {
-      this.metrics.trackError(error as Error, job.attemptsMade);
-      this.metrics.endStage('processor');
-      Logger.log({
-        module: 'EntityProcessor',
-        context: 'processJob',
-        message: `Failed: ${error}`,
-        level: 'error',
-      });
-      throw error;
     }
+
+    const m = metrics.getMetrics();
+    Logger.log({
+      module: 'EntityProcessor',
+      context: 'process',
+      message: `Completed: ${m.entities_created} created, ${m.entities_updated} updated, ${m.entities_unchanged} unchanged`,
+      level: 'info',
+    });
   }
 
   private async processChunk(
     entities: RawEntity[],
-    tenantId: number,
-    integrationId: IntegrationId,
+    tenantId: string,
+    integrationId: string,
     entityType: string,
     syncId: string,
-    siteId?: number,
+    metrics: MetricsCollector,
+    siteId?: string,
   ): Promise<void> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -122,7 +64,7 @@ export class EntityProcessor {
     // Fetch existing entities by external_id
     const externalIds = entities.map((e) => e.externalId);
 
-    this.metrics.trackQuery();
+    metrics.trackQuery();
     const { data: existing } = await supabase
       .from('entities')
       .select('id, external_id, data_hash')
@@ -134,8 +76,16 @@ export class EntityProcessor {
     const existingMap = new Map((existing || []).map((e) => [e.external_id, e]));
 
     const toCreate: any[] = [];
-    const toUpdate: { id: number; data_hash: string; raw_data: any; display_name: string | null; last_seen_at: string; sync_id: string; updated_at: string }[] = [];
-    const toTouch: number[] = [];
+    const toUpdate: {
+      id: string;
+      data_hash: string;
+      raw_data: any;
+      display_name: string | null;
+      last_seen_at: string;
+      sync_id: string;
+      updated_at: string;
+    }[] = [];
+    const toTouch: string[] = [];
 
     for (const entity of entities) {
       const dataHash = calculateHash(entity.rawData);
@@ -173,10 +123,10 @@ export class EntityProcessor {
 
     // CREATE
     if (toCreate.length > 0) {
-      this.metrics.trackUpsert();
+      metrics.trackUpsert();
       const { error } = await supabase.from('entities').insert(toCreate);
       if (error) throw new Error(`Insert entities failed: ${error.message}`);
-      this.metrics.trackEntityCreated(toCreate.length);
+      metrics.trackEntityCreated(toCreate.length);
 
       Logger.log({
         module: 'EntityProcessor',
@@ -188,12 +138,12 @@ export class EntityProcessor {
 
     // UPDATE (changed data)
     for (const row of toUpdate) {
-      this.metrics.trackUpsert();
+      metrics.trackUpsert();
       const { id, ...updates } = row;
       await supabase.from('entities').update(updates).eq('id', id);
     }
     if (toUpdate.length > 0) {
-      this.metrics.trackEntityUpdated(toUpdate.length);
+      metrics.trackEntityUpdated(toUpdate.length);
       Logger.log({
         module: 'EntityProcessor',
         context: 'processChunk',
@@ -204,12 +154,12 @@ export class EntityProcessor {
 
     // TOUCH (unchanged, just bump last_seen_at)
     if (toTouch.length > 0) {
-      this.metrics.trackUpsert();
+      metrics.trackUpsert();
       await supabase
         .from('entities')
         .update({ last_seen_at: now, sync_id: syncId, updated_at: now })
         .in('id', toTouch);
-      this.metrics.trackEntityUnchanged(toTouch.length);
+      metrics.trackEntityUnchanged(toTouch.length);
 
       Logger.log({
         module: 'EntityProcessor',
@@ -218,42 +168,6 @@ export class EntityProcessor {
         level: 'trace',
       });
     }
-  }
-
-  private async triggerLinking(
-    integrationId: IntegrationId,
-    integrationDbId: string,
-    tenantId: number,
-    syncId: string,
-    syncJobId: number,
-    siteId?: number,
-    startedAt?: number,
-    entityType?: string,
-  ): Promise<void> {
-    const queueName = QueueNames.link(integrationId);
-
-    await queueManager.addJob(
-      queueName,
-      {
-        tenantId,
-        integrationId,
-        integrationDbId,
-        syncId,
-        syncJobId,
-        siteId,
-        entityType,
-        startedAt,
-        metrics: this.metrics.toJSON(),
-      },
-      { priority: 5 },
-    );
-
-    Logger.log({
-      module: 'EntityProcessor',
-      context: 'triggerLinking',
-      message: `Triggered linking for ${integrationId}`,
-      level: 'info',
-    });
   }
 }
 
