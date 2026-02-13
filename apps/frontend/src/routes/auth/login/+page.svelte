@@ -113,7 +113,7 @@
           </p>
         {/if}
       </div>
-      <Button type="submit" class="w-full" disabled={$submitting}>Login</Button>
+      <Button type="submit" class="w-full" disabled={$submitting || !dev}>Login</Button>
     </form>
   </div>
 </div>

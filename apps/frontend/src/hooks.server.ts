@@ -72,7 +72,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   if (session) {
     // Already signed in → prevent access to login/signup/etc pages
-    if (isAuthRoute && pathname !== '/auth/callback') {
+    if (isAuthRoute) {
       throw redirect(303, '/');
     }
 
