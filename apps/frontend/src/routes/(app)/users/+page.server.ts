@@ -30,22 +30,8 @@ export const actions: Actions = {
       return fail(403, { error: 'No tenant context.' });
     }
 
-    // Create auth user with a random password (they'll use Azure OAuth)
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: crypto.randomUUID(),
-      email_confirm: true,
-    });
-
-    if (authError) {
-      return fail(400, { error: authError.message });
-    }
-
-    const authUser = authData.user;
-
     // Insert public.users profile row
     const { error: profileError } = await supabaseAdmin.from('users').insert({
-      id: authUser.id,
       email,
       first_name: firstName,
       last_name: lastName,
@@ -53,13 +39,7 @@ export const actions: Actions = {
       tenant_id: tenantId,
     });
 
-    if (profileError) {
-      // Rollback: delete the auth user we just created
-      await supabaseAdmin.auth.admin.deleteUser(authUser.id);
-      return fail(400, { error: profileError.message });
-    }
-
-    return { success: true };
+    return { success: !profileError };
   },
 
   deleteUser: async ({ request, locals }) => {

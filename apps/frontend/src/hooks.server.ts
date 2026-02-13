@@ -44,7 +44,7 @@ export const handle: Handle = async ({ event, resolve }) => {
       .select(
         'id, tenant_id, role_id, first_name, last_name, email, preferences, created_at, updated_at'
       )
-      .eq('id', session.id)
+      .eq('email', session.email)
       .single();
 
     if (!error && profile) {

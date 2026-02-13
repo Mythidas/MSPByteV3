@@ -784,7 +784,7 @@ export type Database = {
           created_at?: string
           email: string
           first_name: string
-          id: string
+          id?: string
           last_name: string
           preferences?: Json
           role_id: string

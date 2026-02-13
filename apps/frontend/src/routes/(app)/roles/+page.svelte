@@ -1,7 +1,12 @@
 <script lang="ts">
   import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission, canActOnLevel, ROLE_LEVELS, ALL_PERMISSIONS } from '$lib/utils/permissions';
+  import {
+    hasPermission,
+    canActOnLevel,
+    ROLE_LEVELS,
+    ALL_PERMISSIONS,
+  } from '$lib/utils/permissions';
   import { ORM } from '@workspace/shared/lib/utils/orm';
   import { supabase } from '$lib/supabase';
   import { toast } from 'svelte-sonner';
@@ -73,11 +78,7 @@
             variant: 'destructive',
             disabled: (rows) =>
               isDeleting ||
-              rows.every(
-                (r) =>
-                  r.tenant_id === null ||
-                  !canActOnLevel(currentUserLevel, r.level)
-              ),
+              rows.every((r) => r.tenant_id === null || !canActOnLevel(currentUserLevel, r.level)),
             onclick: async (rows, fetchData) => {
               const deletable = rows.filter(
                 (r) => r.tenant_id !== null && canActOnLevel(currentUserLevel, r.level)
@@ -153,12 +154,6 @@
 <div class="flex flex-col gap-2 p-4 size-full">
   <div class="flex items-center justify-between">
     <h1 class="h-fit text-2xl font-bold">Roles</h1>
-    {#if canWrite}
-      <Button onclick={() => (createDialogOpen = true)}>
-        <Plus class="size-4 mr-1" />
-        Create Role
-      </Button>
-    {/if}
   </div>
 
   {#key refreshKey}
@@ -178,20 +173,3 @@
     />
   {/key}
 </div>
-
-<RoleDialog
-  bind:open={createDialogOpen}
-  mode="create"
-  tenantId={data.user?.tenant_id ?? ''}
-  maxLevel={currentUserLevel}
-  onsuccess={handleDialogSuccess}
-/>
-
-<RoleDialog
-  bind:open={editDialogOpen}
-  mode="edit"
-  role={editingRole as Tables<'public', 'roles'>}
-  tenantId={data.user?.tenant_id ?? ''}
-  maxLevel={currentUserLevel}
-  onsuccess={handleDialogSuccess}
-/>
