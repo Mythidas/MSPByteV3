@@ -36,6 +36,7 @@ export async function logAgentApiCall(
     await supabase.from('agent_logs').insert({
       agent_id: context.agentId,
       site_id: context.siteId,
+      tenant_id: context.tenantId,
       method: context.method,
       message: result.errorMessage || context.endpoint,
       status: result.statusCode,

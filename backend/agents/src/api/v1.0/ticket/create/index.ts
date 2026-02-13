@@ -355,6 +355,7 @@ export default async function (fastify: FastifyInstance) {
           await supabase.from('agent_tickets').insert({
             agent_id: agent.id,
             site_id: site.id,
+            tenant_id: site.tenant_id,
             ticket_id: String(ticketID),
           });
         } catch (err) {

@@ -24,6 +24,7 @@ export type Database = {
           method: string
           site_id: string | null
           status: number
+          tenant_id: string
           time_elapsed_ms: number
         }
         Insert: {
@@ -35,6 +36,7 @@ export type Database = {
           method: string
           site_id?: string | null
           status: number
+          tenant_id: string
           time_elapsed_ms: number
         }
         Update: {
@@ -46,6 +48,7 @@ export type Database = {
           method?: string
           site_id?: string | null
           status?: number
+          tenant_id?: string
           time_elapsed_ms?: number
         }
         Relationships: [
@@ -63,6 +66,13 @@ export type Database = {
             referencedRelation: "sites"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
         ]
       }
       agent_tickets: {
@@ -71,6 +81,7 @@ export type Database = {
           created_at: string
           id: string
           site_id: string
+          tenant_id: string
           ticket_id: string
         }
         Insert: {
@@ -78,6 +89,7 @@ export type Database = {
           created_at?: string
           id?: string
           site_id: string
+          tenant_id: string
           ticket_id: string
         }
         Update: {
@@ -85,6 +97,7 @@ export type Database = {
           created_at?: string
           id?: string
           site_id?: string
+          tenant_id?: string
           ticket_id?: string
         }
         Relationships: [
@@ -100,6 +113,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_tickets_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]

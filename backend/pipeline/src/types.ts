@@ -136,6 +136,8 @@ export interface SyncJobData {
   entityType: EntityType;
   syncId: string;
   syncJobId: string;
+
+  siteId: string | null;
 }
 
 // ============================================================================

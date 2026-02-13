@@ -3,8 +3,9 @@ import { queueManager, QueueNames } from '../lib/queue.js';
 import { Logger } from '../lib/logger.js';
 import { INTEGRATION_CONFIGS, type IntegrationId, type EntityType } from '../config.js';
 import type { SyncJobData } from '../types.js';
+import { Tables } from '@workspace/shared/types/database.js';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 15000;
 
 /**
  * JobScheduler - Polls sync_jobs table for pending jobs and dispatches to BullMQ.
@@ -88,7 +89,7 @@ export class JobScheduler {
     }
   }
 
-  private async dispatchJob(syncJob: any): Promise<void> {
+  private async dispatchJob(syncJob: Tables<'public', 'sync_jobs'>): Promise<void> {
     const supabase = getSupabase();
     const integrationId = syncJob.integration_id as IntegrationId;
     const entityType = syncJob.entity_type as EntityType | null;
@@ -134,6 +135,7 @@ export class JobScheduler {
       entityType,
       syncId: syncJob.sync_id,
       syncJobId: syncJob.id,
+      siteId: syncJob.site_id,
     };
 
     // Idempotent dispatch via jobId
@@ -205,7 +207,7 @@ export class JobScheduler {
   static async scheduleNextSync(
     tenantId: string,
     integrationId: IntegrationId,
-    entityType: EntityType,
+    entityType: EntityType
   ): Promise<void> {
     const config = INTEGRATION_CONFIGS[integrationId];
     if (!config) return;
