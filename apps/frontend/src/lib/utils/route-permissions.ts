@@ -1,12 +1,12 @@
 import type { Permission } from './permissions';
 
 const ROUTE_PERMISSIONS: [string, Permission][] = [
-  ['/mspagent', 'Integrations.Read'],
+  ['/mspagent', 'Assets.Read'],
   ['/sites', 'Sites.Read'],
   ['/integrations', 'Integrations.Read'],
   ['/reports', 'Reports.Read'],
   ['/users', 'Users.Read'],
-  ['/roles', 'Roles.Read'],
+  ['/roles', 'Users.Read'],
 ];
 
 export function getRoutePermission(pathname: string): Permission | null {

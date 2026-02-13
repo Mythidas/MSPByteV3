@@ -34,7 +34,7 @@ export const MODULES: ModuleConfig[] = [
     id: 'mspagent',
     label: 'MSPAgent',
     basePath: '/mspagent',
-    permission: 'Integrations.Read',
+    permission: 'Assets.Read',
     navLinks: [
       { href: '/mspagent/agents', label: 'Agents', permission: null },
       { href: '/mspagent/tickets', label: 'Tickets', permission: null },
@@ -50,7 +50,7 @@ export const GLOBAL_NAV_ITEMS: GlobalNavItem[] = [
     label: 'Admin',
     children: [
       { href: '/users', label: 'Users', permission: 'Users.Read' },
-      { href: '/roles', label: 'Roles', permission: 'Roles.Read' },
+      { href: '/roles', label: 'Roles', permission: 'Users.Read' },
       { href: '/integrations', label: 'Integrations', permission: 'Integrations.Read' },
       { href: '/reports/reconcilliation', label: 'Reports', permission: 'Reports.Read' },
     ],

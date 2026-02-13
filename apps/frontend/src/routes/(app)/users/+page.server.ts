@@ -1,4 +1,3 @@
-import { supabaseAdmin } from '$lib/server/supabase-admin';
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 
@@ -31,7 +30,7 @@ export const actions: Actions = {
     }
 
     // Insert public.users profile row
-    const { error: profileError } = await supabaseAdmin.from('users').insert({
+    const { error: profileError } = await locals.supabase.from('users').insert({
       email,
       first_name: firstName,
       last_name: lastName,
@@ -54,16 +53,10 @@ export const actions: Actions = {
       return fail(400, { error: 'You cannot delete yourself.' });
     }
 
-    const { error: profileError } = await supabaseAdmin.from('users').delete().eq('id', userId);
+    const { error: profileError } = await locals.supabase.from('users').delete().eq('id', userId);
 
     if (profileError) {
       return fail(400, { error: profileError.message });
-    }
-
-    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-    if (authError) {
-      return fail(400, { error: authError.message });
     }
 
     return { success: true };

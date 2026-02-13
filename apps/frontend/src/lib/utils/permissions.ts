@@ -5,11 +5,10 @@ export type Permission =
   | 'Integrations.Read'
   | 'Integrations.Write'
   | 'Reports.Read'
-  | 'Reports.Write'
   | 'Users.Read'
   | 'Users.Write'
-  | 'Roles.Read'
-  | 'Roles.Write';
+  | 'Assets.Read'
+  | 'Assets.Write';
 
 export const PERMISSION_CATEGORIES = [
   { category: 'Sites', permissions: ['Sites.Read', 'Sites.Write'] as Permission[] },
@@ -19,7 +18,6 @@ export const PERMISSION_CATEGORIES = [
   },
   { category: 'Reports', permissions: ['Reports.Read', 'Reports.Write'] as Permission[] },
   { category: 'Users', permissions: ['Users.Read', 'Users.Write'] as Permission[] },
-  { category: 'Roles', permissions: ['Roles.Read', 'Roles.Write'] as Permission[] },
 ];
 
 export const ALL_PERMISSIONS: Permission[] = [

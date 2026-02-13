@@ -18,7 +18,7 @@
 
   const { data } = $props();
   let canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Roles.Write')
+    hasPermission(data.role?.attributes as Record<string, unknown>, 'Users.Write')
   );
   let currentUserLevel = $derived(data.role?.level ?? null);
 
@@ -27,12 +27,6 @@
   let editDialogOpen = $state(false);
   let editingRole = $state<Role | null>(null);
   let refreshKey = $state(0);
-
-  function getPermissionCount(role: Role): number {
-    const attrs = (role.attributes ?? {}) as Record<string, boolean>;
-    if (attrs['Global.Admin'] === true) return ALL_PERMISSIONS.length;
-    return Object.values(attrs).filter(Boolean).length;
-  }
 
   const columns: DataTableColumn<Role>[] = $derived([
     {
