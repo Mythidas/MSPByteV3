@@ -11,6 +11,7 @@
   import type { PageProps } from './$types';
   import { loginFormSchema } from './_forms';
   import { PUBLIC_ORIGIN } from '$env/static/public';
+  import { dev } from '$app/environment';
 
   const { data }: PageProps = $props();
 
@@ -35,7 +36,7 @@
       provider: 'azure',
       options: {
         redirectTo: `${PUBLIC_ORIGIN}/auth/callback`,
-        scopes: 'email',
+        scopes: 'openid profile email',
       },
     });
     if (error) {
@@ -77,6 +78,7 @@
           id="email"
           name="email"
           type="email"
+          disabled={!dev}
           placeholder="john.doe@email.com"
           bind:value={$formData.email}
           aria-invalid={$errors.email ? 'true' : undefined}
@@ -98,6 +100,7 @@
           id="password"
           name="password"
           type="password"
+          disabled={!dev}
           placeholder="***********"
           bind:value={$formData.password}
           aria-invalid={$errors.password ? 'true' : undefined}
