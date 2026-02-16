@@ -139,6 +139,8 @@ export class HaloPSAConnector {
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) return { error: tokenError };
 
+    const isSiteValid = ticket.siteId ? await this.validateSiteId(ticket.siteId) : false;
+
     const images = ticket.images
       .map((image) => {
         return `<img src=\"${image}\" class=\"fr-fil fr-dib\" width=\"720\" height=\"374\">`;
@@ -171,7 +173,7 @@ export class HaloPSAConnector {
       },
       body: JSON.stringify([
         {
-          site_id: ticket.siteId,
+          site_id: isSiteValid ? ticket.siteId : undefined,
           priority_id: 4,
           files: null,
           usertype: 1,
@@ -237,6 +239,33 @@ export class HaloPSAConnector {
 
     const data: { link: string } = await response.json();
     return { data: data.link };
+  }
+
+  private async validateSiteId(siteId: Number): Promise<APIResponse<boolean>> {
+    const { data: token, error: tokenError } = await this.getToken();
+    if (tokenError) return { error: tokenError };
+
+    const response = await fetch(`${this.config.url}/api/site/${siteId}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return Debug.error({
+        module: 'HaloPSAConnector',
+        context: 'getSites',
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      });
+    }
+
+    const data = await response.json();
+
+    return {
+      data: !!data,
+    };
   }
 
   private async getToken(): Promise<APIResponse<string>> {
