@@ -30,6 +30,15 @@ type QueryBuilder<S extends Schemas, T extends TableOrView<S>> = PostgrestFilter
   RowType<S, T>
 >;
 
+function toPostgrestColumn(key: string): string {
+  const parts = key.split('.');
+  if (parts.length <= 1) return key;
+  const [col, ...jsonParts] = parts;
+  if (jsonParts.length === 1) return `${col}->>${jsonParts[0]}`;
+  const intermediate = jsonParts.slice(0, -1).join('->');
+  return `${col}->${intermediate}->>${jsonParts.at(-1)}`;
+}
+
 export class ORM {
   constructor(private supabase: SupabaseClient<Database>) {}
 
@@ -131,12 +140,16 @@ export class ORM {
 
       if (pagination.globalFields && pagination.globalSearch) {
         const value = `%${pagination.globalSearch}%`;
-        query = query.or(pagination.globalFields.map((col) => `${col}.ilike.${value}`).join(','));
+        query = query.or(
+          pagination.globalFields.map((col) => `${toPostgrestColumn(col)}.ilike.${value}`).join(',')
+        );
       }
 
       if (pagination.sorting && Object.entries(pagination.sorting).length) {
         const [key, value] = Object.entries(pagination.sorting)[0];
-        const keyMap = pagination.filterMap ? (pagination.filterMap[key] ?? key) : key;
+        const keyMap = pagination.filterMap
+          ? (pagination.filterMap[key] ?? toPostgrestColumn(key))
+          : toPostgrestColumn(key);
         query = query.order(keyMap, { ascending: value === 'asc' });
       }
 
@@ -171,7 +184,7 @@ export class ORM {
     for (let [key, { op, value }] of Object.entries(filters)) {
       if (value === undefined || value === null || value === '') continue;
 
-      const column = map ? (map[key] ?? key) : key;
+      const column = map ? (map[key] ?? toPostgrestColumn(key)) : toPostgrestColumn(key);
 
       switch (op) {
         case 'eq':

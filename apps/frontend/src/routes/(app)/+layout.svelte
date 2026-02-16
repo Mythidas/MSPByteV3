@@ -15,6 +15,8 @@
     type GlobalNavItem,
   } from '$lib/config/modules';
   import SitePicker from '$lib/components/site-picker.svelte';
+  import * as Select from '$lib/components/ui/select/index.js';
+  import { goto } from '$app/navigation';
 
   let { children, data } = $props();
 
@@ -81,20 +83,22 @@
   </div>
   <div class="flex w-full h-fit p-2 bg-background shadow">
     <nav class="flex items-center gap-1 w-full">
-      <!-- Module pills -->
-      {#each visibleModules as mod}
-        <a
-          href={mod.navLinks[0].href + scopeQuery}
-          class={cn(
-            'inline-flex h-8 items-center rounded-full px-3 text-sm font-medium transition-colors',
-            activeModule?.id === mod.id
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-          )}
-        >
-          {mod.label}
-        </a>
-      {/each}
+      <Select.Root
+        type="single"
+        onValueChange={(v) => {
+          const mod = visibleModules.find((m) => m.id === v);
+          goto(mod?.navLinks[0].href + scopeQuery);
+        }}
+      >
+        <Select.Trigger class="w-45">
+          {activeModule?.label || 'Select Integration'}
+        </Select.Trigger>
+        <Select.Content>
+          {#each visibleModules as mod}
+            <Select.Item value={mod.id}>{mod.label}</Select.Item>
+          {/each}
+        </Select.Content>
+      </Select.Root>
 
       <!-- Separator between pills and sub-nav -->
       {#if visibleModules.length > 0 && activeSubNav.length > 0}

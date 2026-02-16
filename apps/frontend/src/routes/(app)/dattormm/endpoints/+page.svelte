@@ -23,6 +23,16 @@
       },
     },
     {
+      key: 'raw_data.deviceType.type',
+      title: 'Type',
+      sortable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search type...',
+      },
+    },
+    {
       key: 'site_name',
       title: 'Site',
       sortable: true,
