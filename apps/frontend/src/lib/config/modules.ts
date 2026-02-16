@@ -52,6 +52,17 @@ export const MODULES: ModuleConfig[] = [
       { href: '/dattormm/companies', label: 'Companies', permission: null },
     ],
   },
+  {
+    id: 'sophos-partner',
+    label: 'Sophos Partner',
+    basePath: '/sophos-partner',
+    permission: 'Assets.Read',
+    navLinks: [
+      { href: '/sophos-partner/alerts', label: 'Alerts', permission: null },
+      { href: '/sophos-partner/endpoints', label: 'Endpoints', permission: null },
+      { href: '/sophos-partner/companies', label: 'Companies', permission: null },
+    ],
+  },
 ];
 
 export const GLOBAL_NAV_ITEMS: GlobalNavItem[] = [

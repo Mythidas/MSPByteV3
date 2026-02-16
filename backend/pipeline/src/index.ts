@@ -12,6 +12,9 @@ import { DattoRMMLinker } from './linkers/DattoRMMLinker.js';
 import { DattoRMMAnalyzer } from './analyzers/DattoRMMAnalyzer.js';
 import type { BaseAdapter } from './adapters/BaseAdapter.js';
 import type { BaseLinker } from './linkers/BaseLinker.js';
+import { SophosAdapter } from './adapters/SophosAdapter.js';
+import { SophosLinker } from './linkers/SophosLinker.js';
+import { SophosAnalyzer } from './analyzers/SophosAnalyzer.js';
 
 /**
  * Pipeline Entry Point
@@ -54,15 +57,17 @@ async function main() {
   // Concrete adapters and linkers keyed by integrationId
   const adapters: Partial<Record<IntegrationId, BaseAdapter>> = {
     dattormm: new DattoRMMAdapter(),
+    'sophos-partner': new SophosAdapter(),
   };
 
   const linkers: Partial<Record<IntegrationId, BaseLinker>> = {
     dattormm: new DattoRMMLinker(),
+    'sophos-partner': new SophosLinker(),
   };
 
   // Shared services
   const processor = new EntityProcessor();
-  const orchestrator = new AnalysisOrchestrator([new DattoRMMAnalyzer()]);
+  const orchestrator = new AnalysisOrchestrator([new DattoRMMAnalyzer(), new SophosAnalyzer()]);
 
   // Create SyncWorker for each (integrationId, entityType) pair
   const workers: SyncWorker[] = [];
@@ -74,7 +79,7 @@ async function main() {
         typeConfig.type,
         adapters[config.id] || null,
         processor,
-        linkers[config.id] || null,
+        linkers[config.id] || null
       );
       worker.start();
       workers.push(worker);

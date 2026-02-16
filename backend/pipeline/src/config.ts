@@ -45,9 +45,8 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
     name: 'Sophos Partner',
     id: 'sophos-partner',
     supportedTypes: [
+      { type: 'company', rateMinutes: 60, priority: 5 },
       { type: 'endpoint', rateMinutes: 15, priority: 3 },
-      { type: 'firewall', rateMinutes: 30, priority: 5 },
-      { type: 'license', rateMinutes: 120, priority: 7 },
     ],
   },
   dattormm: {
@@ -80,9 +79,6 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
   halopsa: {
     name: 'HaloPSA',
     id: 'halopsa',
-    supportedTypes: [
-      { type: 'company', rateMinutes: 60, priority: 5 },
-      { type: 'ticket', rateMinutes: 15, priority: 3 },
-    ],
+    supportedTypes: [{ type: 'company', rateMinutes: 60, priority: 5 }],
   },
 };

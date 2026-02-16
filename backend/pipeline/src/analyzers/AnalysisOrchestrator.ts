@@ -53,19 +53,21 @@ export class AnalysisOrchestrator {
       level: 'trace',
     });
 
-    if (this.analyzers.length === 0) {
+    const matchedAnalyzers = this.analyzers.filter((a) => a.getName() === ctx.integrationId);
+
+    if (matchedAnalyzers.length === 0) {
       Logger.log({
         module: 'AnalysisOrchestrator',
         context: 'analyze',
-        message: 'No analyzers registered, skipping analysis',
+        message: `No analyzers registered for ${ctx.integrationId}, skipping analysis`,
         level: 'trace',
       });
       return;
     }
 
-    // Run all analyzers in parallel
+    // Run matching analyzers in parallel
     const results = await Promise.all(
-      this.analyzers.map(async (analyzer) => {
+      matchedAnalyzers.map(async (analyzer) => {
         try {
           const result = await analyzer.analyze(context);
           Logger.log({

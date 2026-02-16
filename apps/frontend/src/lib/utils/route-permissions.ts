@@ -1,6 +1,8 @@
 import type { Permission } from './permissions';
 
 const ROUTE_PERMISSIONS: [string, Permission][] = [
+  ['/dattormm', 'Assets.Read'],
+  ['/sophos-partner', 'Assets.Read'],
   ['/mspagent', 'Assets.Read'],
   ['/sites', 'Sites.Read'],
   ['/integrations', 'Integrations.Read'],
