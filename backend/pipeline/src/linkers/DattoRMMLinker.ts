@@ -33,6 +33,7 @@ export class DattoRMMLinker extends BaseLinker {
       if (!parentSiteEntityId) continue;
 
       relationships.push({
+        siteId: endpoint.site_id || undefined,
         parentEntityId: parentSiteEntityId,
         childEntityId: endpoint.id,
         relationshipType: 'contains',
@@ -49,10 +50,7 @@ export class DattoRMMLinker extends BaseLinker {
     return relationships;
   }
 
-  async linkAndReconcile(
-    ctx: SyncContext,
-    metrics: MetricsCollector,
-  ): Promise<void> {
+  async linkAndReconcile(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
     // Run normal link-and-reconcile
     await super.linkAndReconcile(ctx, metrics);
 
@@ -67,18 +65,13 @@ export class DattoRMMLinker extends BaseLinker {
    * Remove site_to_integration rows whose external_id no longer exists in Datto.
    * Uses ctx.allEntities instead of a separate SELECT.
    */
-  private async cleanupStaleMappings(
-    ctx: SyncContext,
-    metrics: MetricsCollector,
-  ): Promise<void> {
+  private async cleanupStaleMappings(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
     const supabase = getSupabase();
 
     // Filter company entities from shared context instead of separate query
     const allEntities = await ensureAllEntitiesLoaded(ctx, metrics);
     const knownExternalIds = new Set(
-      allEntities
-        .filter((e) => e.entity_type === 'company')
-        .map((e) => e.external_id)
+      allEntities.filter((e) => e.entity_type === 'company').map((e) => e.external_id)
     );
 
     // Load site_to_integration mappings
@@ -115,10 +108,7 @@ export class DattoRMMLinker extends BaseLinker {
    * For each mapped site, ensure there's a pending endpoint sync_job.
    * Returns the number of endpoint jobs created (used by CompletionTracker).
    */
-  async fanOutEndpointJobs(
-    ctx: SyncContext,
-    metrics: MetricsCollector,
-  ): Promise<number> {
+  async fanOutEndpointJobs(ctx: SyncContext, metrics: MetricsCollector): Promise<number> {
     const supabase = getSupabase();
 
     // Load site_to_integration mappings

@@ -21,6 +21,7 @@
         operators: ['ilike', 'eq'],
         placeholder: 'Search type...',
       },
+      cell: typeCell,
     },
     {
       key: 'severity',
@@ -98,6 +99,10 @@
     }
   }
 </script>
+
+{#snippet typeCell({ value }: { row: EntityAlert; value: string })}
+  {formatStringProper(value)}
+{/snippet}
 
 {#snippet severityCell({ value }: { row: EntityAlert; value: string })}
   <Badge variant="outline" class={severityClass(value)}>

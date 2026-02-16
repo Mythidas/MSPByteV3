@@ -15,8 +15,9 @@ export function formatRelativeDate(dateStr: string): string {
   return `${diffDays}d ago`;
 }
 
-export function formatStringProper(str: string): string {
-  if (!str.length) return '';
-
-  return str[0].toUpperCase() + str.substring(1).toLowerCase();
+export function formatStringProper(input?: string | null): string {
+  if (!input || !input.length) return '';
+  return input
+    .replace(/[_-]+/g, ' ') // Replace underscores and dashes with spaces
+    .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize first letter of each word
 }

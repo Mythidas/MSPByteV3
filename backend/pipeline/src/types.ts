@@ -147,6 +147,7 @@ export interface RelationshipToCreate {
   parentEntityId: string;
   childEntityId: string;
   relationshipType: string;
+  siteId?: string;
   metadata?: Record<string, any>;
 }
 

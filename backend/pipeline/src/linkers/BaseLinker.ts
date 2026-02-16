@@ -21,10 +21,7 @@ export abstract class BaseLinker {
    * Full link-and-reconcile flow: uses SyncContext for shared data,
    * calls abstract link(), reconciles (create new, touch existing, delete stale).
    */
-  async linkAndReconcile(
-    ctx: SyncContext,
-    metrics: MetricsCollector,
-  ): Promise<void> {
+  async linkAndReconcile(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
     Logger.log({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
@@ -66,7 +63,7 @@ export abstract class BaseLinker {
       existingRelationships as any[],
       desiredRelationships,
       ctx,
-      metrics,
+      metrics
     );
 
     // Invalidate cached relationships since we just modified them
@@ -89,7 +86,7 @@ export abstract class BaseLinker {
     existing: any[],
     desired: RelationshipToCreate[],
     ctx: SyncContext,
-    metrics: MetricsCollector,
+    metrics: MetricsCollector
   ): Promise<{ created: number; updated: number; deleted: number }> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -120,6 +117,7 @@ export abstract class BaseLinker {
           parent_entity_id: rel.parentEntityId,
           child_entity_id: rel.childEntityId,
           relationship_type: rel.relationshipType,
+          site_id: rel.siteId,
           metadata: rel.metadata || {},
           last_seen_at: now,
           sync_id: syncJobId,
@@ -141,7 +139,7 @@ export abstract class BaseLinker {
     // Execute
     if (toCreate.length > 0) {
       metrics.trackUpsert();
-      const { error } = await supabase.from('entity_relationships').insert(toCreate);
+      const { error } = await supabase.from('entity_relationships').upsert(toCreate);
       if (error) {
         throw new Error(`Failed to insert entity_relationships: ${error.message}`);
       }
