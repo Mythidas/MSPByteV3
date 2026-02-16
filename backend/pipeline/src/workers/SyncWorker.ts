@@ -116,6 +116,24 @@ export class SyncWorker {
       );
       metrics.endStage('processor');
 
+      // 2b. CLEANUP: Remove entities no longer in API response
+      const pruned = await this.processor.pruneStaleEntities(
+        ctx.processedEntities,
+        tenantId,
+        integrationId,
+        entityType,
+        metrics,
+        siteId,
+      );
+      if (pruned > 0) {
+        Logger.log({
+          module: 'SyncWorker',
+          context: 'handleJob',
+          message: `Pruned ${pruned} stale ${entityType} entities`,
+          level: 'info',
+        });
+      }
+
       // 3. LINKER: Optional relationship linking (uses SyncContext)
       if (this.linker) {
         metrics.startStage('linker');

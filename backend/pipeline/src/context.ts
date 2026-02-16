@@ -1,4 +1,4 @@
-import { getSupabase } from './supabase.js';
+import { getORM } from './supabase.js';
 import { MetricsCollector } from './lib/metrics.js';
 import { Logger } from './lib/logger.js';
 import type { Entity, Relationship, SyncContext } from './types.js';
@@ -26,15 +26,15 @@ export async function ensureAllEntitiesLoaded(
 ): Promise<Entity[]> {
   if (ctx.allEntities !== null) return ctx.allEntities;
 
-  const supabase = getSupabase();
+  const orm = getORM();
   metrics.trackQuery();
-  const { data } = await supabase
-    .from('entities')
-    .select('*')
-    .eq('tenant_id', ctx.tenantId)
-    .eq('integration_id', ctx.integrationId);
+  const { data, error } = await orm.select('public', 'entities', (q) =>
+    q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId)
+  );
 
-  ctx.allEntities = (data || []) as Entity[];
+  if (error) throw new Error(`Failed to load entities: ${error}`);
+
+  ctx.allEntities = (data?.rows || []) as Entity[];
 
   Logger.log({
     module: 'SyncContext',
@@ -52,20 +52,110 @@ export async function ensureRelationshipsLoaded(
 ): Promise<Relationship[]> {
   if (ctx.relationships !== null) return ctx.relationships;
 
-  const supabase = getSupabase();
+  const orm = getORM();
   metrics.trackQuery();
-  const { data } = await supabase
-    .from('entity_relationships')
-    .select('*')
-    .eq('tenant_id', ctx.tenantId)
-    .eq('integration_id', ctx.integrationId);
+  const { data, error } = await orm.select('public', 'entity_relationships', (q) =>
+    q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId)
+  );
 
-  ctx.relationships = (data || []) as Relationship[];
+  if (error) throw new Error(`Failed to load relationships: ${error}`);
+
+  ctx.relationships = (data?.rows || []) as Relationship[];
 
   Logger.log({
     module: 'SyncContext',
     context: 'ensureRelationshipsLoaded',
     message: `Loaded ${ctx.relationships.length} relationships (cached)`,
+    level: 'trace',
+  });
+
+  return ctx.relationships;
+}
+
+/**
+ * Load entities scoped to a specific site. Also loads company entities
+ * (parents needed for relationship linking).
+ */
+export async function ensureSiteEntitiesLoaded(
+  ctx: SyncContext,
+  metrics: MetricsCollector,
+): Promise<Entity[]> {
+  if (ctx.allEntities !== null) return ctx.allEntities;
+
+  if (!ctx.siteId) {
+    return ensureAllEntitiesLoaded(ctx, metrics);
+  }
+
+  const orm = getORM();
+
+  // Load site-scoped entities (endpoints for this site)
+  metrics.trackQuery();
+  const { data: siteData, error: siteError } = await orm.select('public', 'entities', (q) =>
+    q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId).eq('site_id', ctx.siteId!)
+  );
+
+  if (siteError) throw new Error(`Failed to load site entities: ${siteError}`);
+
+  // Also load company entities (parents needed for relationships)
+  metrics.trackQuery();
+  const { data: companyData, error: companyError } = await orm.select('public', 'entities', (q) =>
+    q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId).eq('entity_type', 'company')
+  );
+
+  if (companyError) throw new Error(`Failed to load company entities: ${companyError}`);
+
+  const siteEntities = (siteData?.rows || []) as Entity[];
+  const companyEntities = (companyData?.rows || []) as Entity[];
+
+  // Deduplicate (a company entity might also have the same site_id)
+  const seen = new Set<string>();
+  const combined: Entity[] = [];
+  for (const e of [...siteEntities, ...companyEntities]) {
+    if (!seen.has(e.id)) {
+      seen.add(e.id);
+      combined.push(e);
+    }
+  }
+
+  ctx.allEntities = combined;
+
+  Logger.log({
+    module: 'SyncContext',
+    context: 'ensureSiteEntitiesLoaded',
+    message: `Loaded ${siteEntities.length} site entities + ${companyEntities.length} company entities for site ${ctx.siteId}`,
+    level: 'trace',
+  });
+
+  return ctx.allEntities;
+}
+
+/**
+ * Load relationships scoped to a specific site.
+ */
+export async function ensureSiteRelationshipsLoaded(
+  ctx: SyncContext,
+  metrics: MetricsCollector,
+): Promise<Relationship[]> {
+  if (ctx.relationships !== null) return ctx.relationships;
+
+  if (!ctx.siteId) {
+    return ensureRelationshipsLoaded(ctx, metrics);
+  }
+
+  const orm = getORM();
+  metrics.trackQuery();
+  const { data, error } = await orm.select('public', 'entity_relationships', (q) =>
+    q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId).eq('site_id', ctx.siteId!)
+  );
+
+  if (error) throw new Error(`Failed to load site relationships: ${error}`);
+
+  ctx.relationships = (data?.rows || []) as Relationship[];
+
+  Logger.log({
+    module: 'SyncContext',
+    context: 'ensureSiteRelationshipsLoaded',
+    message: `Loaded ${ctx.relationships.length} relationships for site ${ctx.siteId}`,
     level: 'trace',
   });
 

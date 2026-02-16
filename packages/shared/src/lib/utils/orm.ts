@@ -403,4 +403,128 @@ export class ORM {
       });
     }
   }
+
+  async batchInsert<S extends Schemas, T extends Table<S>>(
+    schema: S,
+    table: T,
+    rows: TablesInsert<S, T>[],
+    batchSize = 100,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
+  ): Promise<APIResponse<Tables<S, T>[]>> {
+    try {
+      const allResults: Tables<S, T>[] = [];
+
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const chunk = rows.slice(i, i + batchSize);
+        let query = this.supabase.schema(schema).from(table as any);
+
+        if (modifyQuery) {
+          modifyQuery(query as any);
+        }
+
+        const { data, error } = await query.insert(chunk as any).select();
+        if (error) throw new Error(error.message);
+        if (data) allResults.push(...(data as Tables<S, T>[]));
+      }
+
+      return { data: allResults };
+    } catch (err) {
+      return Debug.error({
+        module: 'supabase',
+        context: `batchInsert_${String(table)}`,
+        message: String(err),
+      });
+    }
+  }
+
+  async batchUpsert<S extends Schemas, T extends Table<S>>(
+    schema: S,
+    table: T,
+    rows: (TablesUpdate<S, T> | TablesInsert<S, T>)[],
+    batchSize = 100,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
+  ): Promise<APIResponse<Tables<S, T>[]>> {
+    try {
+      const allResults: Tables<S, T>[] = [];
+
+      for (let i = 0; i < rows.length; i += batchSize) {
+        const chunk = rows.slice(i, i + batchSize);
+        let query = this.supabase
+          .schema(schema)
+          .from(table as any)
+          .upsert(chunk as any);
+
+        if (modifyQuery) {
+          modifyQuery(query as any);
+        }
+
+        const { data, error } = await query.select();
+        if (error) throw new Error(error.message);
+        if (data) allResults.push(...(data as Tables<S, T>[]));
+      }
+
+      return { data: allResults };
+    } catch (err) {
+      return Debug.error({
+        module: 'supabase',
+        context: `batchUpsert_${String(table)}`,
+        message: String(err),
+      });
+    }
+  }
+
+  async batchUpdate<S extends Schemas, T extends Table<S>>(
+    schema: S,
+    table: T,
+    ids: string[],
+    row: TablesUpdate<S, T>,
+    batchSize = 100
+  ): Promise<APIResponse<null>> {
+    try {
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const chunk = ids.slice(i, i + batchSize);
+        const { error } = await this.supabase
+          .schema(schema)
+          .from(table as any)
+          .update(row as any)
+          .in('id', chunk as any);
+        if (error) throw new Error(error.message);
+      }
+
+      return { data: null };
+    } catch (err) {
+      return Debug.error({
+        module: 'supabase',
+        context: `batchUpdate_${String(table)}`,
+        message: String(err),
+      });
+    }
+  }
+
+  async batchDelete<S extends Schemas, T extends Table<S>>(
+    schema: S,
+    table: T,
+    ids: string[],
+    batchSize = 100
+  ): Promise<APIResponse<null>> {
+    try {
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const chunk = ids.slice(i, i + batchSize);
+        const { error } = await this.supabase
+          .schema(schema)
+          .from(table as any)
+          .delete()
+          .in('id', chunk as any);
+        if (error) throw new Error(error.message);
+      }
+
+      return { data: null };
+    } catch (err) {
+      return Debug.error({
+        module: 'supabase',
+        context: `batchDelete_${String(table)}`,
+        message: String(err),
+      });
+    }
+  }
 }

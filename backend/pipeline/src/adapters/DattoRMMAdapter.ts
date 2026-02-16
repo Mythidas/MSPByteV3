@@ -106,12 +106,18 @@ export class DattoRMMAdapter extends BaseAdapter {
       level: 'info',
     });
 
-    const entities = devices.map((device) => ({
-      externalId: device.uid,
-      displayName: device.hostname,
-      siteId: jobData.siteId!,
-      rawData: device,
-    }));
+    const isValidDevice = (str: string) => {
+      return str === 'Server' || str === 'Laptop' || str === 'Desktop';
+    };
+
+    const entities = devices
+      .filter((device) => isValidDevice(device.deviceType.category))
+      .map((device) => ({
+        externalId: device.uid,
+        displayName: device.hostname,
+        siteId: jobData.siteId!,
+        rawData: device,
+      }));
 
     return { entities, pagination: { hasMore: false } };
   }

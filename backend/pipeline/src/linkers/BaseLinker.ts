@@ -1,7 +1,12 @@
-import { getSupabase } from '../supabase.js';
+import { getORM } from '../supabase.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
-import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
+import {
+  ensureAllEntitiesLoaded,
+  ensureRelationshipsLoaded,
+  ensureSiteEntitiesLoaded,
+  ensureSiteRelationshipsLoaded,
+} from '../context.js';
 import type { IntegrationId } from '../config.js';
 import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
 
@@ -20,17 +25,22 @@ export abstract class BaseLinker {
   /**
    * Full link-and-reconcile flow: uses SyncContext for shared data,
    * calls abstract link(), reconciles (create new, touch existing, delete stale).
+   *
+   * When ctx.siteId is set (endpoint jobs), loads only site-scoped data
+   * to avoid races between concurrent workers.
    */
   async linkAndReconcile(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
     Logger.log({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
-      message: `Starting linking for ${ctx.integrationId}`,
+      message: `Starting linking for ${ctx.integrationId}${ctx.siteId ? ` (site: ${ctx.siteId})` : ''}`,
       level: 'info',
     });
 
-    // Use shared context instead of separate SELECTs
-    const entities = await ensureAllEntitiesLoaded(ctx, metrics);
+    // Use site-scoped loading when siteId is set (endpoint jobs)
+    const entities = ctx.siteId
+      ? await ensureSiteEntitiesLoaded(ctx, metrics)
+      : await ensureAllEntitiesLoaded(ctx, metrics);
 
     Logger.log({
       module: 'BaseLinker',
@@ -39,7 +49,9 @@ export abstract class BaseLinker {
       level: 'trace',
     });
 
-    const existingRelationships = await ensureRelationshipsLoaded(ctx, metrics);
+    const existingRelationships = ctx.siteId
+      ? await ensureSiteRelationshipsLoaded(ctx, metrics)
+      : await ensureRelationshipsLoaded(ctx, metrics);
 
     Logger.log({
       module: 'BaseLinker',
@@ -88,7 +100,7 @@ export abstract class BaseLinker {
     ctx: SyncContext,
     metrics: MetricsCollector
   ): Promise<{ created: number; updated: number; deleted: number }> {
-    const supabase = getSupabase();
+    const orm = getORM();
     const now = new Date().toISOString();
 
     // sync_id FK references sync_jobs.id (PK), which is syncJobId — NOT syncId
@@ -136,36 +148,33 @@ export abstract class BaseLinker {
       }
     }
 
-    // Execute
+    // Execute using ORM batch methods
     if (toCreate.length > 0) {
       metrics.trackUpsert();
-      const { error } = await supabase.from('entity_relationships').upsert(toCreate);
+      const { error } = await orm.batchUpsert('public', 'entity_relationships', toCreate);
       if (error) {
-        throw new Error(`Failed to insert entity_relationships: ${error.message}`);
+        throw new Error(`Failed to insert entity_relationships: ${error}`);
       }
     }
 
     if (toUpdate.length > 0) {
       metrics.trackUpsert();
-      const { error } = await supabase
-        .from('entity_relationships')
-        .update({ last_seen_at: now, sync_id: syncJobId, updated_at: now })
-        .in('id', toUpdate);
+      const { error } = await orm.batchUpdate(
+        'public',
+        'entity_relationships',
+        toUpdate,
+        { last_seen_at: now, sync_id: syncJobId, updated_at: now } as any
+      );
       if (error) {
-        throw new Error(`Failed to update entity_relationships: ${error.message}`);
+        throw new Error(`Failed to update entity_relationships: ${error}`);
       }
     }
 
     if (toDelete.length > 0) {
       metrics.trackUpsert();
-      for (let i = 0; i < toDelete.length; i += 100) {
-        const { error } = await supabase
-          .from('entity_relationships')
-          .delete()
-          .in('id', toDelete.slice(i, i + 100));
-        if (error) {
-          throw new Error(`Failed to delete entity_relationships: ${error.message}`);
-        }
+      const { error } = await orm.batchDelete('public', 'entity_relationships', toDelete);
+      if (error) {
+        throw new Error(`Failed to delete entity_relationships: ${error}`);
       }
     }
 

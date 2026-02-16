@@ -23,7 +23,7 @@
       },
     },
     {
-      key: 'raw_data.deviceType.type',
+      key: 'raw_data.deviceType.category',
       title: 'Type',
       sortable: true,
       filter: {
@@ -59,8 +59,8 @@
       cell: tagsCell,
     },
     {
-      key: 'last_seen_at',
-      title: 'Last Synced',
+      key: 'raw_data.lastSeen',
+      title: 'Last Online',
       sortable: true,
       cell: lastSeenCell,
     },
@@ -89,8 +89,8 @@
   {/each}
 {/snippet}
 
-{#snippet lastSeenCell({ value }: { row: Entity; value: string })}
-  {formatRelativeDate(value)}
+{#snippet lastSeenCell({ value }: { row: Entity; value: number })}
+  {formatRelativeDate(new Date(value).toISOString())}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">

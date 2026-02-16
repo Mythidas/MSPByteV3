@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getSupabase } from '../supabase.js';
+import { getSupabase, getORM } from '../supabase.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
 import type { Entity, RawEntity } from '../types.js';
@@ -59,6 +59,70 @@ export class EntityProcessor {
     });
 
     return allProcessed;
+  }
+
+  /**
+   * Delete entities that exist in the DB for this scope but were not returned
+   * by the adapter. Mirrors BaseLinker.reconcileRelationships() pattern.
+   */
+  async pruneStaleEntities(
+    processedEntities: Entity[],
+    tenantId: string,
+    integrationId: string,
+    entityType: string,
+    metrics: MetricsCollector,
+    siteId?: string,
+  ): Promise<number> {
+    const survivingExternalIds = new Set(processedEntities.map((e) => e.external_id));
+    const supabase = getSupabase();
+
+    // Paginated fetch of all entity IDs in this scope (avoid pulling raw_data)
+    const staleIds: string[] = [];
+    const PAGE_SIZE = 1000;
+    let offset = 0;
+
+    while (true) {
+      metrics.trackQuery();
+      let query = supabase
+        .from('entities')
+        .select('id, external_id')
+        .eq('tenant_id', tenantId)
+        .eq('integration_id', integrationId)
+        .eq('entity_type', entityType)
+        .range(offset, offset + PAGE_SIZE - 1);
+
+      if (siteId) {
+        query = query.eq('site_id', siteId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(`Fetch entities for prune failed: ${error.message}`);
+      if (!data || data.length === 0) break;
+
+      for (const row of data) {
+        if (!survivingExternalIds.has(row.external_id)) {
+          staleIds.push(row.id);
+        }
+      }
+
+      if (data.length < PAGE_SIZE) break;
+      offset += PAGE_SIZE;
+    }
+
+    if (staleIds.length === 0) return 0;
+
+    const { error } = await getORM().batchDelete('public', 'entities', staleIds);
+    if (error) throw new Error(`Delete stale entities failed: ${error}`);
+
+    metrics.trackEntityDeleted(staleIds.length);
+    Logger.log({
+      module: 'EntityProcessor',
+      context: 'pruneStaleEntities',
+      message: `Deleted ${staleIds.length} stale ${entityType} entities`,
+      level: 'info',
+    });
+
+    return staleIds.length;
   }
 
   private async processChunk(
@@ -179,10 +243,14 @@ export class EntityProcessor {
     // TOUCH (unchanged, just bump last_seen_at)
     if (toTouch.length > 0) {
       metrics.trackUpsert();
-      await supabase
-        .from('entities')
-        .update({ last_seen_at: now, sync_id: syncId, updated_at: now })
-        .in('id', toTouch);
+      const orm = getORM();
+      const { error: touchError } = await orm.batchUpdate(
+        'public',
+        'entities',
+        toTouch,
+        { last_seen_at: now, sync_id: syncId, updated_at: now } as any
+      );
+      if (touchError) throw new Error(`Touch entities failed: ${touchError}`);
       metrics.trackEntityUnchanged(toTouch.length);
       result.push(...touchedEntities);
 

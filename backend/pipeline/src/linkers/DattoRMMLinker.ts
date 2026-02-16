@@ -1,6 +1,5 @@
 import { BaseLinker } from './BaseLinker.js';
-import { getSupabase } from '../supabase.js';
-import { ensureAllEntitiesLoaded } from '../context.js';
+import { getSupabase, getORM } from '../supabase.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
 import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
@@ -63,20 +62,28 @@ export class DattoRMMLinker extends BaseLinker {
 
   /**
    * Remove site_to_integration rows whose external_id no longer exists in Datto.
-   * Uses ctx.allEntities instead of a separate SELECT.
+   * Queries only company entities directly instead of using the full allEntities cache.
    */
   private async cleanupStaleMappings(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
-    const supabase = getSupabase();
+    const orm = getORM();
 
-    // Filter company entities from shared context instead of separate query
-    const allEntities = await ensureAllEntitiesLoaded(ctx, metrics);
-    const knownExternalIds = new Set(
-      allEntities.filter((e) => e.entity_type === 'company').map((e) => e.external_id)
+    // Load only company entities — this is a company-sync-only operation
+    metrics.trackQuery();
+    const { data, error } = await orm.select('public', 'entities', (q) =>
+      q
+        .eq('tenant_id', ctx.tenantId)
+        .eq('integration_id', ctx.integrationId)
+        .eq('entity_type', 'company')
     );
+
+    if (error) throw new Error(`Failed to load company entities: ${error}`);
+
+    const companyEntities = data?.rows || [];
+    const knownExternalIds = new Set(companyEntities.map((e) => e.external_id));
 
     // Load site_to_integration mappings
     metrics.trackQuery();
-    const { data: mappings } = await supabase
+    const { data: mappings } = await getSupabase()
       .from('site_to_integration')
       .select('id, external_id')
       .eq('integration_id', ctx.integrationDbId)
@@ -88,12 +95,12 @@ export class DattoRMMLinker extends BaseLinker {
 
     if (staleIds.length > 0) {
       metrics.trackUpsert();
-      for (let i = 0; i < staleIds.length; i += 100) {
-        await supabase
-          .from('site_to_integration')
-          .delete()
-          .in('id', staleIds.slice(i, i + 100));
-      }
+      const { error: deleteError } = await orm.batchDelete(
+        'public',
+        'site_to_integration',
+        staleIds
+      );
+      if (deleteError) throw new Error(`Failed to delete stale mappings: ${deleteError}`);
 
       Logger.log({
         module: 'DattoRMMLinker',

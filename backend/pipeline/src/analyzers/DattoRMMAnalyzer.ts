@@ -25,6 +25,7 @@ export class DattoRMMAnalyzer extends BaseAnalyzer {
 
     for (const endpoint of context.entities.endpoints) {
       const lastSeen = endpoint.raw_data?.lastSeen;
+      const online: boolean = endpoint.raw_data?.online || false;
       if (!lastSeen) continue;
 
       const lastSeenDate = new Date(lastSeen);
@@ -32,7 +33,7 @@ export class DattoRMMAnalyzer extends BaseAnalyzer {
 
       const daysSince = Math.floor((now - lastSeenDate.getTime()) / (24 * 60 * 60 * 1000));
 
-      if (now - lastSeenDate.getTime() > THIRTY_DAYS_MS) {
+      if (now - lastSeenDate.getTime() > THIRTY_DAYS_MS && !online) {
         result.alerts.push(
           this.createAlert(
             endpoint.id,
