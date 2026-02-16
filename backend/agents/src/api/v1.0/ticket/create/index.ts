@@ -99,7 +99,7 @@ export default async function (fastify: FastifyInstance) {
         }
       );
 
-      if (!psaConfig || !site || !agent || !psaSiteMapping) {
+      if (!psaConfig || !site || !agent) {
         statusCode = 404;
         errorMessage = 'PSA records not valid';
         return Debug.response(
@@ -203,9 +203,9 @@ export default async function (fastify: FastifyInstance) {
       });
 
       // Fetch assets from PSA using the site mapping external_id
-      const psaSiteId = psaSiteMapping.external_id;
+      const psaSiteId = psaSiteMapping?.external_id;
       const assetResponse = await perf.trackSpan('psa_fetch_assets', async () => {
-        if (!body.rmm_id) {
+        if (!body.rmm_id || !psaSiteId) {
           return { data: [] };
         }
         return await connector.getAssets(psaSiteId);
@@ -303,8 +303,8 @@ export default async function (fastify: FastifyInstance) {
         '3': '7',
       };
       const ticketInfo = {
-        siteId: Number(psaSiteId),
-        clientId: psaParentCompanyId || 0,
+        siteId: psaSiteId ? Number(psaSiteId) : undefined,
+        clientId: psaParentCompanyId,
         summary: body.summary,
         details: body.description || '',
         user: {

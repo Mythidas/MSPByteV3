@@ -1,6 +1,6 @@
 export type HaloPSANewTicket = {
-  siteId: number;
-  clientId: number;
+  siteId?: number;
+  clientId?: number;
   summary: string;
   details: string;
   user: {
