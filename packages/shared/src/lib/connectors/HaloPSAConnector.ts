@@ -139,7 +139,9 @@ export class HaloPSAConnector {
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) return { error: tokenError };
 
-    const isSiteValid = ticket.siteId ? await this.validateSiteId(ticket.siteId) : false;
+    const isSiteValid = ticket.siteId
+      ? (await this.validateSiteId(ticket.siteId)).data || false
+      : false;
 
     const images = ticket.images
       .map((image) => {
@@ -256,7 +258,7 @@ export class HaloPSAConnector {
     if (!response.ok) {
       return Debug.error({
         module: 'HaloPSAConnector',
-        context: 'getSites',
+        context: 'validateSiteId',
         message: `HTTP ${response.status}: ${response.statusText}`,
       });
     }
