@@ -21,7 +21,7 @@ const fetchTenants = async (orm: ORM) => {
     return { error };
   }
 
-  return { data: companies.map((c) => ({ id: c.id, name: c.name })) };
+  return { data: companies.map((c) => ({ id: c.uid, name: c.name })) };
 };
 
 const fetchLinks = async (orm: ORM) => {

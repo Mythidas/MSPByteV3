@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import { getSupabase } from '../supabase.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
-import type { RawEntity } from '../types.js';
+import type { Entity, RawEntity } from '../types.js';
 
 /**
  * EntityProcessor - Hash-based upsert to entities table.
@@ -18,8 +18,8 @@ export class EntityProcessor {
     entityType: string,
     syncId: string,
     metrics: MetricsCollector,
-    siteId?: string,
-  ): Promise<void> {
+    siteId?: string
+  ): Promise<Entity[]> {
     Logger.log({
       module: 'EntityProcessor',
       context: 'process',
@@ -28,9 +28,19 @@ export class EntityProcessor {
     });
 
     const chunks = chunkArray(entities, 100);
+    const allProcessed: Entity[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
-      await this.processChunk(chunks[i], tenantId, integrationId, entityType, syncId, metrics, siteId);
+      const chunkEntities = await this.processChunk(
+        chunks[i],
+        tenantId,
+        integrationId,
+        entityType,
+        syncId,
+        metrics,
+        siteId
+      );
+      allProcessed.push(...chunkEntities);
 
       Logger.log({
         module: 'EntityProcessor',
@@ -47,6 +57,8 @@ export class EntityProcessor {
       message: `Completed: ${m.entities_created} created, ${m.entities_updated} updated, ${m.entities_unchanged} unchanged`,
       level: 'info',
     });
+
+    return allProcessed;
   }
 
   private async processChunk(
@@ -56,18 +68,19 @@ export class EntityProcessor {
     entityType: string,
     syncId: string,
     metrics: MetricsCollector,
-    siteId?: string,
-  ): Promise<void> {
+    siteId?: string
+  ): Promise<Entity[]> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
+    const result: Entity[] = [];
 
-    // Fetch existing entities by external_id
+    // Fetch existing entities by external_id (select full rows for upsert + return)
     const externalIds = entities.map((e) => e.externalId);
 
     metrics.trackQuery();
     const { data: existing } = await supabase
       .from('entities')
-      .select('id, external_id, data_hash')
+      .select('*')
       .eq('tenant_id', tenantId)
       .eq('integration_id', integrationId)
       .eq('entity_type', entityType)
@@ -76,16 +89,9 @@ export class EntityProcessor {
     const existingMap = new Map((existing || []).map((e) => [e.external_id, e]));
 
     const toCreate: any[] = [];
-    const toUpdate: {
-      id: string;
-      data_hash: string;
-      raw_data: any;
-      display_name: string | null;
-      last_seen_at: string;
-      sync_id: string;
-      updated_at: string;
-    }[] = [];
+    const toUpsert: any[] = [];
     const toTouch: string[] = [];
+    const touchedEntities: Entity[] = [];
 
     for (const entity of entities) {
       const dataHash = calculateHash(entity.rawData);
@@ -107,26 +113,39 @@ export class EntityProcessor {
           sync_id: syncId,
         });
       } else if (ex.data_hash !== dataHash) {
-        toUpdate.push({
+        // Build complete row for upsert (include all required columns)
+        toUpsert.push({
           id: ex.id,
-          data_hash: dataHash,
-          raw_data: entity.rawData,
+          tenant_id: ex.tenant_id,
+          integration_id: ex.integration_id,
+          site_id: ex.site_id,
+          entity_type: ex.entity_type,
+          external_id: ex.external_id,
           display_name: displayName,
+          raw_data: entity.rawData,
+          data_hash: dataHash,
+          state: ex.state,
           last_seen_at: now,
           sync_id: syncId,
+          created_at: ex.created_at,
           updated_at: now,
         });
       } else {
         toTouch.push(ex.id);
+        touchedEntities.push(ex as Entity);
       }
     }
 
     // CREATE
     if (toCreate.length > 0) {
       metrics.trackUpsert();
-      const { error } = await supabase.from('entities').insert(toCreate);
+      const { data: created, error } = await supabase
+        .from('entities')
+        .insert(toCreate)
+        .select('*');
       if (error) throw new Error(`Insert entities failed: ${error.message}`);
       metrics.trackEntityCreated(toCreate.length);
+      if (created) result.push(...(created as Entity[]));
 
       Logger.log({
         module: 'EntityProcessor',
@@ -136,18 +155,23 @@ export class EntityProcessor {
       });
     }
 
-    // UPDATE (changed data)
-    for (const row of toUpdate) {
-      metrics.trackUpsert();
-      const { id, ...updates } = row;
-      await supabase.from('entities').update(updates).eq('id', id);
-    }
-    if (toUpdate.length > 0) {
-      metrics.trackEntityUpdated(toUpdate.length);
+    // UPDATE (changed data) — chunked upsert on id conflict
+    if (toUpsert.length > 0) {
+      for (let i = 0; i < toUpsert.length; i += 100) {
+        const chunk = toUpsert.slice(i, i + 100);
+        metrics.trackUpsert();
+        const { data: updated, error } = await supabase
+          .from('entities')
+          .upsert(chunk, { onConflict: 'id' })
+          .select('*');
+        if (error) throw new Error(`Upsert entities failed: ${error.message}`);
+        if (updated) result.push(...(updated as Entity[]));
+      }
+      metrics.trackEntityUpdated(toUpsert.length);
       Logger.log({
         module: 'EntityProcessor',
         context: 'processChunk',
-        message: `Updated ${toUpdate.length} entities`,
+        message: `Updated ${toUpsert.length} entities`,
         level: 'trace',
       });
     }
@@ -160,6 +184,7 @@ export class EntityProcessor {
         .update({ last_seen_at: now, sync_id: syncId, updated_at: now })
         .in('id', toTouch);
       metrics.trackEntityUnchanged(toTouch.length);
+      result.push(...touchedEntities);
 
       Logger.log({
         module: 'EntityProcessor',
@@ -168,6 +193,8 @@ export class EntityProcessor {
         level: 'trace',
       });
     }
+
+    return result;
   }
 }
 

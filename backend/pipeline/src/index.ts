@@ -1,22 +1,28 @@
 import { Logger } from './lib/logger.js';
 import { disconnectRedis } from './lib/redis.js';
 import { queueManager } from './lib/queue.js';
-import { INTEGRATION_CONFIGS } from './config.js';
+import { INTEGRATION_CONFIGS, type IntegrationId } from './config.js';
 import { EntityProcessor } from './processor/EntityProcessor.js';
 import { AnalysisOrchestrator } from './analyzers/AnalysisOrchestrator.js';
 import { JobScheduler } from './scheduler/JobScheduler.js';
 import { SyncWorker } from './workers/SyncWorker.js';
+import { AnalysisWorker } from './workers/AnalysisWorker.js';
+import { DattoRMMAdapter } from './adapters/DattoRMMAdapter.js';
+import { DattoRMMLinker } from './linkers/DattoRMMLinker.js';
+import { DattoRMMAnalyzer } from './analyzers/DattoRMMAnalyzer.js';
+import type { BaseAdapter } from './adapters/BaseAdapter.js';
+import type { BaseLinker } from './linkers/BaseLinker.js';
 
 /**
  * Pipeline Entry Point
  *
- * Single-queue architecture:
+ * Architecture:
  *   sync_jobs table → JobScheduler → BullMQ → SyncWorker.handleJob():
  *     1. adapter.fetchAll()
  *     2. processor.process()
  *     3. linker.linkAndReconcile()  (optional)
- *     4. orchestrator.analyze()
- *     5. mark completed + schedule next
+ *     4. track completion → enqueue analysis when all types done
+ *   AnalysisWorker runs analysis once per integration after all syncs complete.
  */
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || 'info';
@@ -45,9 +51,18 @@ async function main() {
     level: 'info',
   });
 
+  // Concrete adapters and linkers keyed by integrationId
+  const adapters: Partial<Record<IntegrationId, BaseAdapter>> = {
+    dattormm: new DattoRMMAdapter(),
+  };
+
+  const linkers: Partial<Record<IntegrationId, BaseLinker>> = {
+    dattormm: new DattoRMMLinker(),
+  };
+
   // Shared services
   const processor = new EntityProcessor();
-  const orchestrator = new AnalysisOrchestrator([]); // No concrete analyzers yet
+  const orchestrator = new AnalysisOrchestrator([new DattoRMMAnalyzer()]);
 
   // Create SyncWorker for each (integrationId, entityType) pair
   const workers: SyncWorker[] = [];
@@ -57,10 +72,9 @@ async function main() {
       const worker = new SyncWorker(
         config.id,
         typeConfig.type,
-        null, // No concrete adapters yet — will fail gracefully with error message
+        adapters[config.id] || null,
         processor,
-        null, // No concrete linkers yet
-        orchestrator,
+        linkers[config.id] || null,
       );
       worker.start();
       workers.push(worker);
@@ -71,6 +85,21 @@ async function main() {
     module: 'Pipeline',
     context: 'main',
     message: `Started ${workers.length} sync workers`,
+    level: 'info',
+  });
+
+  // Create one AnalysisWorker per integration
+  const analysisWorkers: AnalysisWorker[] = [];
+  for (const [, config] of Object.entries(INTEGRATION_CONFIGS)) {
+    const analysisWorker = new AnalysisWorker(config.id, orchestrator);
+    analysisWorker.start();
+    analysisWorkers.push(analysisWorker);
+  }
+
+  Logger.log({
+    module: 'Pipeline',
+    context: 'main',
+    message: `Started ${analysisWorkers.length} analysis workers`,
     level: 'info',
   });
 

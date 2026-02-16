@@ -56,12 +56,9 @@ export interface AnalysisContext {
     companies: Entity[];
     endpoints: Entity[];
     firewalls: Entity[];
-    backup_devices: Entity[];
-    backup_customers: Entity[];
     tickets: Entity[];
     contracts: Entity[];
     contract_services: Entity[];
-    device_sites: Entity[];
   };
 
   relationships: Relationship[];
@@ -85,7 +82,9 @@ export type AlertType =
   | 'license-waste'
   | 'stale-user'
   | 'tamper-disabled'
-  | 'backup-failed';
+  | 'backup-failed'
+  | 'device-offline'
+  | 'site-empty';
 
 export interface Alert {
   entityId: string;
@@ -149,4 +148,32 @@ export interface RelationshipToCreate {
   childEntityId: string;
   relationshipType: string;
   metadata?: Record<string, any>;
+}
+
+// ============================================================================
+// SYNC CONTEXT — Shared state between pipeline phases to avoid re-SELECTs
+// ============================================================================
+
+export interface SyncContext {
+  tenantId: string;
+  integrationId: string;
+  integrationDbId: string;
+  entityType: string;
+  syncId: string;
+  syncJobId?: string;
+  siteId?: string;
+  processedEntities: Entity[];
+  allEntities: Entity[] | null;
+  relationships: Relationship[] | null;
+}
+
+// ============================================================================
+// ANALYSIS JOB TYPES
+// ============================================================================
+
+export interface AnalysisJobData {
+  tenantId: string;
+  integrationId: IntegrationId;
+  integrationDbId: string;
+  syncId: string;
 }

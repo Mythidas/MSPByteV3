@@ -7,7 +7,8 @@ import { Logger } from '../lib/logger.js';
  */
 export class TagManager {
   async applyTags(
-    entityTags: Map<string, { tag: string; category?: string; source: string }[]>,
+    tenantId: string,
+    entityTags: Map<string, { tag: string; category?: string; source: string }[]>
   ): Promise<void> {
     if (entityTags.size === 0) return;
 
@@ -22,6 +23,7 @@ export class TagManager {
       for (const t of tags) {
         sources.add(t.source);
         allInserts.push({
+          tenant_id: tenantId,
           entity_id: entityId,
           tag: t.tag,
           category: t.category || null,
@@ -31,10 +33,22 @@ export class TagManager {
       sourcesByEntity.set(entityId, sources);
     }
 
-    // For each entity + source combination, delete old tags then insert new
+    // Group entity IDs by source for batched deletes
+    const entityIdsBySource = new Map<string, string[]>();
     for (const [entityId, sources] of sourcesByEntity) {
       for (const source of sources) {
-        await supabase.from('entity_tags').delete().eq('entity_id', entityId).eq('source', source);
+        if (!entityIdsBySource.has(source)) {
+          entityIdsBySource.set(source, []);
+        }
+        entityIdsBySource.get(source)!.push(entityId);
+      }
+    }
+
+    // One batched delete per source (typically 1-2 sources)
+    for (const [source, entityIds] of entityIdsBySource) {
+      for (let i = 0; i < entityIds.length; i += 500) {
+        const chunk = entityIds.slice(i, i + 500);
+        await supabase.from('entity_tags').delete().in('entity_id', chunk).eq('source', source);
       }
     }
 

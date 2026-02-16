@@ -41,6 +41,17 @@ export const MODULES: ModuleConfig[] = [
       { href: '/mspagent/logs', label: 'Logs', permission: null },
     ],
   },
+  {
+    id: 'dattormm',
+    label: 'DattoRMM',
+    basePath: '/dattormm',
+    permission: 'Assets.Read',
+    navLinks: [
+      { href: '/dattormm/alerts', label: 'Alerts', permission: null },
+      { href: '/dattormm/endpoints', label: 'Endpoints', permission: null },
+      { href: '/dattormm/companies', label: 'Companies', permission: null },
+    ],
+  },
 ];
 
 export const GLOBAL_NAV_ITEMS: GlobalNavItem[] = [

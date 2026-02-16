@@ -13,9 +13,6 @@ export type EntityType =
   | 'endpoint'
   | 'firewall'
   | 'license'
-  | 'device_site'
-  | 'backup_device'
-  | 'backup_customer'
   | 'identity'
   | 'group'
   | 'role'
@@ -57,7 +54,7 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
     name: 'DattoRMM',
     id: 'dattormm',
     supportedTypes: [
-      { type: 'device_site', rateMinutes: 60, priority: 5 },
+      { type: 'company', rateMinutes: 60, priority: 5 },
       { type: 'endpoint', rateMinutes: 15, priority: 3 },
     ],
   },
@@ -65,8 +62,8 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
     name: 'Cove Backups',
     id: 'cove',
     supportedTypes: [
-      { type: 'backup_customer', rateMinutes: 60, priority: 5 },
-      { type: 'backup_device', rateMinutes: 30, priority: 3 },
+      { type: 'company', rateMinutes: 60, priority: 5 },
+      { type: 'endpoint', rateMinutes: 30, priority: 3 },
     ],
   },
   'microsoft-365': {

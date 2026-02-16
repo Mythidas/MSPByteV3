@@ -372,6 +372,7 @@ export type Database = {
           metadata: Json | null
           parent_entity_id: string
           relationship_type: string
+          site_id: string | null
           sync_id: string | null
           tenant_id: string
           updated_at: string
@@ -385,6 +386,7 @@ export type Database = {
           metadata?: Json | null
           parent_entity_id: string
           relationship_type: string
+          site_id?: string | null
           sync_id?: string | null
           tenant_id: string
           updated_at?: string
@@ -398,6 +400,7 @@ export type Database = {
           metadata?: Json | null
           parent_entity_id?: string
           relationship_type?: string
+          site_id?: string | null
           sync_id?: string | null
           tenant_id?: string
           updated_at?: string
@@ -425,6 +428,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entity_relationships_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_relationships_sync_id_fkey"
+            columns: ["sync_id"]
+            isOneToOne: false
+            referencedRelation: "sync_jobs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entity_relationships_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -438,25 +455,31 @@ export type Database = {
           category: string | null
           created_at: string
           entity_id: string
-          id: number
+          id: string
+          site_id: string | null
           source: string | null
           tag: string
+          tenant_id: string
         }
         Insert: {
           category?: string | null
           created_at?: string
           entity_id: string
-          id?: never
+          id?: string
+          site_id?: string | null
           source?: string | null
           tag: string
+          tenant_id: string
         }
         Update: {
           category?: string | null
           created_at?: string
           entity_id?: string
-          id?: never
+          id?: string
+          site_id?: string | null
           source?: string | null
           tag?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -464,6 +487,20 @@ export type Database = {
             columns: ["entity_id"]
             isOneToOne: false
             referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_tags_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_tags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -547,6 +584,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          tenant_id: string
           updated_at: string
         }
         Insert: {
@@ -554,6 +592,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          tenant_id: string
           updated_at?: string
         }
         Update: {
@@ -561,9 +600,18 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          tenant_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "site_groups_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       site_to_group: {
         Row: {
@@ -571,18 +619,21 @@ export type Database = {
           group_id: string
           id: number
           site_id: string
+          tenant_id: string
         }
         Insert: {
           created_at?: string
           group_id: string
           id?: number
           site_id: string
+          tenant_id: string
         }
         Update: {
           created_at?: string
           group_id?: string
           id?: number
           site_id?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -597,6 +648,13 @@ export type Database = {
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_to_group_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -759,6 +817,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "sync_jobs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "sync_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -878,6 +943,27 @@ export type Database = {
           tenant_id: string | null
           updated_at: string | null
           version: string | null
+        }
+        Relationships: []
+      }
+      d_entities_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          display_name: string | null
+          entity_type: string | null
+          external_id: string | null
+          id: string | null
+          integration_id: string | null
+          last_seen_at: string | null
+          raw_data: Json | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          sync_id: string | null
+          tags: Json | null
+          tenant_id: string | null
+          updated_at: string | null
         }
         Relationships: []
       }

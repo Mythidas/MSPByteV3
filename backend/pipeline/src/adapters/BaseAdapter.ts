@@ -3,6 +3,7 @@ import { Logger } from '../lib/logger.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import type { IntegrationId } from '../config.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
+import Encryption from '@workspace/shared/lib/utils/encryption.js';
 
 /**
  * BaseAdapter - Abstract base class for all integration adapters.
@@ -56,7 +57,7 @@ export abstract class BaseAdapter {
     jobData: SyncJobData,
     metrics: MetricsCollector,
     cursor?: string,
-    batchNumber?: number,
+    batchNumber?: number
   ): Promise<AdapterFetchResult>;
 
   /**
@@ -64,7 +65,8 @@ export abstract class BaseAdapter {
    */
   protected async getIntegrationConfig(
     integrationDbId: string,
-    metrics: MetricsCollector,
+    decryptKeys: string[],
+    metrics: MetricsCollector
   ): Promise<any> {
     const supabase = getSupabase();
     metrics.trackQuery();
@@ -75,8 +77,15 @@ export abstract class BaseAdapter {
       .eq('id', integrationDbId)
       .single();
 
-    if (error || !data) {
+    if (error || !data || !data.config) {
       throw new Error(`Integration config not found: ${integrationDbId}`);
+    }
+
+    for (const key of decryptKeys) {
+      (data.config as any)[key] = await Encryption.decrypt(
+        (data.config as any)[key],
+        process.env.ENCRYPTION_KEY!
+      );
     }
 
     return data.config;

@@ -4,6 +4,7 @@ import { Logger } from './logger.js';
 
 export const QueueNames = {
   sync: (integrationId: string, entityType: string) => `sync.${integrationId}.${entityType}`,
+  analysis: (integrationId: string) => `analysis.${integrationId}`,
 };
 
 class QueueManager {

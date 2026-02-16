@@ -103,8 +103,39 @@ export class AlertManager {
       }
     }
 
-    for (const { id, updates } of toUpdate) {
-      await supabase.from('entity_alerts').update(updates).eq('id', id);
+    // Batch update alerts via chunked upsert on id conflict
+    if (toUpdate.length > 0) {
+      const upsertRows = toUpdate.map(({ id, updates }) => {
+        const existing = existingMap.get(
+          (existingAlerts || []).find((a) => a.id === id)?.fingerprint || ''
+        );
+        return {
+          id,
+          tenant_id: existing?.tenant_id ?? tenantId,
+          entity_id: existing?.entity_id,
+          integration_id: existing?.integration_id ?? integrationId,
+          site_id: existing?.site_id ?? siteId ?? null,
+          alert_type: existing?.alert_type,
+          fingerprint: existing?.fingerprint,
+          created_at: existing?.created_at,
+          ...updates,
+        };
+      });
+
+      for (let i = 0; i < upsertRows.length; i += 100) {
+        const chunk = upsertRows.slice(i, i + 100);
+        const { error } = await supabase
+          .from('entity_alerts')
+          .upsert(chunk, { onConflict: 'id' });
+        if (error) {
+          Logger.log({
+            module: 'AlertManager',
+            context: 'processAlerts',
+            message: `Error upserting alerts: ${error.message}`,
+            level: 'error',
+          });
+        }
+      }
     }
 
     if (toResolve.length > 0) {

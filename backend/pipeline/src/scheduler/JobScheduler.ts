@@ -156,6 +156,8 @@ export class JobScheduler {
       .from('sync_jobs')
       .update({
         status: 'queued',
+        bullmq_job_id: bullmqJob.id,
+        scheduled_for: new Date().toISOString(),
         started_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -207,7 +209,8 @@ export class JobScheduler {
   static async scheduleNextSync(
     tenantId: string,
     integrationId: IntegrationId,
-    entityType: EntityType
+    entityType: EntityType,
+    siteId?: string | null
   ): Promise<void> {
     const config = INTEGRATION_CONFIGS[integrationId];
     if (!config) return;
@@ -226,12 +229,13 @@ export class JobScheduler {
       priority: typeConfig.priority,
       trigger: 'scheduled',
       scheduled_for: scheduledFor,
+      site_id: siteId || null,
     });
 
     Logger.log({
       module: 'JobScheduler',
       context: 'scheduleNextSync',
-      message: `Scheduled next ${integrationId}:${typeConfig.type} in ${typeConfig.rateMinutes}m`,
+      message: `Scheduled next ${integrationId}:${typeConfig.type}${siteId ? ` (site ${siteId})` : ''} in ${typeConfig.rateMinutes}m`,
       level: 'info',
     });
   }

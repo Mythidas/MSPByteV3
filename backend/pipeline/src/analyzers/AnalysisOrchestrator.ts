@@ -1,15 +1,23 @@
 import { getSupabase } from '../supabase.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
+import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
 import type { IntegrationId } from '../config.js';
-import type { AnalysisContext, Entity, Relationship, EntityState, AnalyzerResult } from '../types.js';
+import type {
+  AnalysisContext,
+  Entity,
+  Relationship,
+  EntityState,
+  AnalyzerResult,
+  SyncContext,
+} from '../types.js';
 import { BaseAnalyzer } from './BaseAnalyzer.js';
 import { AlertManager } from './AlertManager.js';
 import { TagManager } from './TagManager.js';
 
 /**
  * AnalysisOrchestrator - Coordinates all analyzers with batched data loading.
- * No BullMQ — plain class called by SyncWorker.
+ * Uses SyncContext to share loaded entities/relationships with other phases.
  * Loads context once, runs analyzers in parallel, merges results, applies changes.
  */
 export class AnalysisOrchestrator {
@@ -24,23 +32,18 @@ export class AnalysisOrchestrator {
   }
 
   async analyze(
-    tenantId: string,
-    integrationId: string,
-    integrationDbId: string,
-    syncId: string,
+    ctx: SyncContext,
     metrics: MetricsCollector,
-    siteId?: string,
-    entityType?: string,
   ): Promise<void> {
     Logger.log({
       module: 'AnalysisOrchestrator',
       context: 'analyze',
-      message: `Starting analysis for ${integrationId}`,
+      message: `Starting analysis for ${ctx.integrationId}`,
       level: 'info',
     });
 
-    // Load context ONCE
-    const context = await this.loadContext(tenantId, integrationId as IntegrationId, syncId, metrics);
+    // Load context using shared SyncContext (avoids re-SELECTs)
+    const context = await this.buildAnalysisContext(ctx, metrics);
 
     const totalEntities = Object.values(context.entities).flat().length;
     Logger.log({
@@ -81,7 +84,7 @@ export class AnalysisOrchestrator {
           });
           throw error;
         }
-      }),
+      })
     );
 
     // Merge results
@@ -90,7 +93,7 @@ export class AnalysisOrchestrator {
     const allAlerts = results.flatMap((r) => r.alerts);
 
     // Apply tags via TagManager
-    await this.tagManager.applyTags(mergedTags);
+    await this.tagManager.applyTags(ctx.tenantId, mergedTags);
 
     // Apply entity states (grouped by state for efficiency)
     if (mergedStates.size > 0) {
@@ -98,32 +101,28 @@ export class AnalysisOrchestrator {
     }
 
     // Process alerts via AlertManager
-    await this.alertManager.processAlerts(allAlerts, tenantId, integrationId, syncId, siteId);
+    await this.alertManager.processAlerts(
+      allAlerts,
+      ctx.tenantId,
+      ctx.integrationId,
+      ctx.syncId,
+      ctx.siteId,
+    );
 
     Logger.log({
       module: 'AnalysisOrchestrator',
       context: 'analyze',
-      message: `Analysis complete for ${integrationId}`,
+      message: `Analysis complete for ${ctx.integrationId}`,
       level: 'info',
     });
   }
 
-  private async loadContext(
-    tenantId: string,
-    integrationId: IntegrationId,
-    syncId: string,
+  private async buildAnalysisContext(
+    ctx: SyncContext,
     metrics: MetricsCollector,
   ): Promise<AnalysisContext> {
-    const supabase = getSupabase();
-
-    metrics.trackQuery();
-    const { data: allEntities } = await supabase
-      .from('entities')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('integration_id', integrationId);
-
-    const entities = allEntities || [];
+    const entities = await ensureAllEntitiesLoaded(ctx, metrics);
+    const rels = await ensureRelationshipsLoaded(ctx, metrics);
 
     const grouped = {
       identities: entities.filter((e) => e.entity_type === 'identity'),
@@ -134,29 +133,18 @@ export class AnalysisOrchestrator {
       companies: entities.filter((e) => e.entity_type === 'company'),
       endpoints: entities.filter((e) => e.entity_type === 'endpoint'),
       firewalls: entities.filter((e) => e.entity_type === 'firewall'),
-      backup_devices: entities.filter((e) => e.entity_type === 'backup_device'),
-      backup_customers: entities.filter((e) => e.entity_type === 'backup_customer'),
       tickets: entities.filter((e) => e.entity_type === 'ticket'),
       contracts: entities.filter((e) => e.entity_type === 'contract'),
       contract_services: entities.filter((e) => e.entity_type === 'contract_service'),
-      device_sites: entities.filter((e) => e.entity_type === 'device_site'),
     };
 
-    metrics.trackQuery();
-    const { data: relationships } = await supabase
-      .from('entity_relationships')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('integration_id', integrationId);
+    const entityMap = new Map(entities.map((e) => [e.id, e]));
 
-    const rels = (relationships || []) as Relationship[];
-    const entityMap = new Map(entities.map((e) => [e.id, e as Entity]));
-
-    const context: AnalysisContext = {
-      tenantId,
-      integrationId,
-      syncId,
-      entities: grouped as any,
+    return {
+      tenantId: ctx.tenantId,
+      integrationId: ctx.integrationId as IntegrationId,
+      syncId: ctx.syncId,
+      entities: grouped,
       relationships: rels,
 
       getEntity(id: string): Entity | undefined {
@@ -167,7 +155,7 @@ export class AnalysisOrchestrator {
         return rels.filter(
           (r) =>
             (r.parent_entity_id === entityId || r.child_entity_id === entityId) &&
-            (!type || r.relationship_type === type),
+            (!type || r.relationship_type === type)
         );
       },
 
@@ -183,14 +171,15 @@ export class AnalysisOrchestrator {
         return parentRel ? entityMap.get(parentRel.parent_entity_id) : undefined;
       },
     };
-
-    return context;
   }
 
   private mergeTags(
-    results: AnalyzerResult[],
+    results: AnalyzerResult[]
   ): Map<string, { tag: string; category?: string; source: string }[]> {
-    const merged = new Map<string, Map<string, { tag: string; category?: string; source: string }>>();
+    const merged = new Map<
+      string,
+      Map<string, { tag: string; category?: string; source: string }>
+    >();
 
     for (const result of results) {
       for (const [entityId, tags] of result.entityTags) {
@@ -205,7 +194,7 @@ export class AnalysisOrchestrator {
     }
 
     return new Map(
-      Array.from(merged.entries()).map(([id, tagMap]) => [id, Array.from(tagMap.values())]),
+      Array.from(merged.entries()).map(([id, tagMap]) => [id, Array.from(tagMap.values())])
     );
   }
 
@@ -232,7 +221,6 @@ export class AnalysisOrchestrator {
 
   /**
    * Group entity IDs by state value and issue one UPDATE per state (max 4).
-   * Fixes the old N+1 pattern of one UPDATE per entity.
    */
   private async batchApplyStates(states: Map<string, EntityState>): Promise<void> {
     const supabase = getSupabase();
@@ -249,13 +237,9 @@ export class AnalysisOrchestrator {
 
     // One UPDATE per state value (max 4: normal, low, warn, critical)
     for (const [state, entityIds] of byState) {
-      // Chunk in case of very large batches
       for (let i = 0; i < entityIds.length; i += 500) {
         const chunk = entityIds.slice(i, i + 500);
-        await supabase
-          .from('entities')
-          .update({ state, updated_at: now })
-          .in('id', chunk);
+        await supabase.from('entities').update({ state, updated_at: now }).in('id', chunk);
       }
     }
 

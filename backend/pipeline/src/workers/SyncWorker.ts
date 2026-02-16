@@ -4,17 +4,18 @@ import { queueManager, QueueNames } from '../lib/queue.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
 import { JobScheduler } from '../scheduler/JobScheduler.js';
+import { createSyncContext } from '../context.js';
+import { CompletionTracker } from '../lib/completionTracker.js';
 import type { EntityType, IntegrationId } from '../config.js';
-import type { SyncJobData } from '../types.js';
+import type { AnalysisJobData, SyncJobData } from '../types.js';
 import type { BaseAdapter } from '../adapters/BaseAdapter.js';
 import type { EntityProcessor } from '../processor/EntityProcessor.js';
 import type { BaseLinker } from '../linkers/BaseLinker.js';
-import type { AnalysisOrchestrator } from '../analyzers/AnalysisOrchestrator.js';
+import type { DattoRMMLinker } from '../linkers/DattoRMMLinker.js';
 
 /**
  * SyncWorker - Central orchestrator for a single (integrationId, entityType) pair.
- * Replaces the old multi-queue hand-off design. All stages are function calls
- * within a single BullMQ job handler.
+ * Analysis is deferred to AnalysisWorker after all entity types complete.
  */
 export class SyncWorker {
   private integrationId: IntegrationId;
@@ -22,7 +23,6 @@ export class SyncWorker {
   private adapter: BaseAdapter | null;
   private processor: EntityProcessor;
   private linker: BaseLinker | null;
-  private orchestrator: AnalysisOrchestrator;
   private started = false;
 
   constructor(
@@ -31,14 +31,12 @@ export class SyncWorker {
     adapter: BaseAdapter | null,
     processor: EntityProcessor,
     linker: BaseLinker | null,
-    orchestrator: AnalysisOrchestrator,
   ) {
     this.integrationId = integrationId;
     this.entityType = entityType;
     this.adapter = adapter;
     this.processor = processor;
     this.linker = linker;
-    this.orchestrator = orchestrator;
   }
 
   start(): void {
@@ -60,7 +58,7 @@ export class SyncWorker {
 
   private async handleJob(job: Job<SyncJobData>): Promise<void> {
     const { tenantId, integrationId, integrationDbId, entityType, syncId, syncJobId } = job.data;
-    const metrics = new MetricsCollector(); // Fresh per job — no shared state
+    const metrics = new MetricsCollector();
     const supabase = getSupabase();
 
     Logger.log({
@@ -68,6 +66,17 @@ export class SyncWorker {
       context: 'handleJob',
       message: `Starting sync for ${integrationId}:${entityType} (job ${syncJobId})`,
       level: 'info',
+    });
+
+    // Create SyncContext — shared state between phases
+    const ctx = createSyncContext({
+      tenantId,
+      integrationId,
+      integrationDbId,
+      entityType,
+      syncId,
+      syncJobId,
+      siteId: job.data.siteId ?? undefined,
     });
 
     // Mark running
@@ -93,31 +102,50 @@ export class SyncWorker {
         level: 'info',
       });
 
-      // 2. PROCESSOR: Hash-based upsert
+      // 2. PROCESSOR: Hash-based upsert → returns processed Entity[]
       metrics.startStage('processor');
-      const siteId = entities[0]?.siteId;
-      await this.processor.process(entities, tenantId, integrationId, entityType, syncId, metrics, siteId);
-      metrics.endStage('processor');
-
-      // 3. LINKER: Optional relationship linking
-      if (this.linker) {
-        metrics.startStage('linker');
-        await this.linker.linkAndReconcile(tenantId, integrationId, syncId, metrics);
-        metrics.endStage('linker');
-      }
-
-      // 4. ANALYZER: Run all analyzers
-      metrics.startStage('analyzer');
-      await this.orchestrator.analyze(
+      const siteId = job.data.siteId ?? undefined;
+      ctx.processedEntities = await this.processor.process(
+        entities,
         tenantId,
         integrationId,
-        integrationDbId,
+        entityType,
         syncId,
         metrics,
         siteId,
-        entityType,
       );
-      metrics.endStage('analyzer');
+      metrics.endStage('processor');
+
+      // 3. LINKER: Optional relationship linking (uses SyncContext)
+      if (this.linker) {
+        metrics.startStage('linker');
+        await this.linker.linkAndReconcile(ctx, metrics);
+
+        // Track expected endpoint count for fan-out integrations (DattoRMM)
+        if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker) {
+          const linker = this.linker as DattoRMMLinker;
+          // fanOutEndpointJobs already ran inside linkAndReconcile,
+          // count the expected endpoints from site_to_integration mappings
+          const expectedCount = await this.getExpectedEndpointCount(
+            tenantId,
+            integrationDbId,
+            metrics,
+          );
+          if (expectedCount > 0) {
+            await CompletionTracker.setExpectedCount(
+              tenantId,
+              integrationId,
+              'endpoint',
+              expectedCount,
+            );
+          }
+        }
+
+        metrics.endStage('linker');
+      }
+
+      // 4. Analysis is DEFERRED — track completion and trigger when all types done
+      await this.trackCompletionAndMaybeAnalyze(job.data, metrics);
 
       // 5. Mark completed + schedule next
       const completedAt = new Date().toISOString();
@@ -131,7 +159,12 @@ export class SyncWorker {
         })
         .eq('id', syncJobId);
 
-      await JobScheduler.scheduleNextSync(tenantId, integrationId as IntegrationId, entityType as EntityType);
+      await JobScheduler.scheduleNextSync(
+        tenantId,
+        integrationId as IntegrationId,
+        entityType as EntityType,
+        job.data.siteId,
+      );
 
       Logger.log({
         module: 'SyncWorker',
@@ -172,5 +205,55 @@ export class SyncWorker {
 
       throw error;
     }
+  }
+
+  private async trackCompletionAndMaybeAnalyze(
+    jobData: SyncJobData,
+    metrics: MetricsCollector,
+  ): Promise<void> {
+    const { tenantId, integrationId, integrationDbId, entityType, syncId } = jobData;
+
+    const allComplete = await CompletionTracker.markComplete(
+      tenantId,
+      integrationId,
+      entityType,
+    );
+
+    if (allComplete) {
+      Logger.log({
+        module: 'SyncWorker',
+        context: 'trackCompletionAndMaybeAnalyze',
+        message: `All entity types complete for ${integrationId}, enqueuing analysis`,
+        level: 'info',
+      });
+
+      const analysisData: AnalysisJobData = {
+        tenantId,
+        integrationId: integrationId as IntegrationId,
+        integrationDbId,
+        syncId,
+      };
+
+      await queueManager.addJob(
+        QueueNames.analysis(integrationId),
+        analysisData,
+        { jobId: `analysis-${tenantId}-${integrationId}-${Date.now()}` },
+      );
+    }
+  }
+
+  private async getExpectedEndpointCount(
+    tenantId: string,
+    integrationDbId: string,
+    metrics: MetricsCollector,
+  ): Promise<number> {
+    const supabase = getSupabase();
+    metrics.trackQuery();
+    const { data, count } = await supabase
+      .from('site_to_integration')
+      .select('id', { count: 'exact', head: true })
+      .eq('integration_id', integrationDbId)
+      .eq('tenant_id', tenantId);
+    return count ?? 0;
   }
 }

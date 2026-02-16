@@ -1,13 +1,14 @@
 import { getSupabase } from '../supabase.js';
 import { MetricsCollector } from '../lib/metrics.js';
 import { Logger } from '../lib/logger.js';
+import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
 import type { IntegrationId } from '../config.js';
-import type { Entity, RelationshipToCreate } from '../types.js';
+import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
 
 /**
  * BaseLinker - Abstract base class for relationship linkers.
  * No BullMQ — plain class called by SyncWorker (optionally).
- * Loads entities, calls concrete link(), reconciles relationships.
+ * Uses SyncContext to share loaded entities/relationships with other phases.
  */
 export abstract class BaseLinker {
   readonly integrationId: IntegrationId;
@@ -17,56 +18,41 @@ export abstract class BaseLinker {
   }
 
   /**
-   * Full link-and-reconcile flow: loads all entities + existing relationships,
+   * Full link-and-reconcile flow: uses SyncContext for shared data,
    * calls abstract link(), reconciles (create new, touch existing, delete stale).
    */
   async linkAndReconcile(
-    tenantId: string,
-    integrationId: string,
-    syncId: string,
+    ctx: SyncContext,
     metrics: MetricsCollector,
   ): Promise<void> {
-    const supabase = getSupabase();
-
     Logger.log({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
-      message: `Starting linking for ${integrationId}`,
+      message: `Starting linking for ${ctx.integrationId}`,
       level: 'info',
     });
 
-    // Load all entities for this integration + tenant
-    metrics.trackQuery();
-    const { data: entities } = await supabase
-      .from('entities')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('integration_id', integrationId);
+    // Use shared context instead of separate SELECTs
+    const entities = await ensureAllEntitiesLoaded(ctx, metrics);
 
     Logger.log({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
-      message: `Loaded ${entities?.length || 0} entities`,
+      message: `Loaded ${entities.length} entities`,
       level: 'trace',
     });
 
-    // Load existing relationships
-    metrics.trackQuery();
-    const { data: existingRelationships } = await supabase
-      .from('entity_relationships')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('integration_id', integrationId);
+    const existingRelationships = await ensureRelationshipsLoaded(ctx, metrics);
 
     Logger.log({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
-      message: `Found ${existingRelationships?.length || 0} existing relationships`,
+      message: `Found ${existingRelationships.length} existing relationships`,
       level: 'trace',
     });
 
     // Determine desired relationships
-    const desiredRelationships = await this.link((entities || []) as Entity[]);
+    const desiredRelationships = await this.link(entities);
 
     Logger.log({
       module: 'BaseLinker',
@@ -77,13 +63,14 @@ export abstract class BaseLinker {
 
     // Reconcile
     const result = await this.reconcileRelationships(
-      (existingRelationships || []) as any[],
+      existingRelationships as any[],
       desiredRelationships,
-      tenantId,
-      integrationId,
-      syncId,
+      ctx,
       metrics,
     );
+
+    // Invalidate cached relationships since we just modified them
+    ctx.relationships = null;
 
     Logger.log({
       module: 'BaseLinker',
@@ -101,13 +88,14 @@ export abstract class BaseLinker {
   private async reconcileRelationships(
     existing: any[],
     desired: RelationshipToCreate[],
-    tenantId: string,
-    integrationId: string,
-    syncId: string,
+    ctx: SyncContext,
     metrics: MetricsCollector,
   ): Promise<{ created: number; updated: number; deleted: number }> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
+
+    // sync_id FK references sync_jobs.id (PK), which is syncJobId — NOT syncId
+    const syncJobId = ctx.syncJobId ?? null;
 
     // Build map of existing by composite key
     const existingMap = new Map<string, any>();
@@ -127,14 +115,14 @@ export abstract class BaseLinker {
       const ex = existingMap.get(key);
       if (!ex) {
         toCreate.push({
-          tenant_id: tenantId,
-          integration_id: integrationId,
+          tenant_id: ctx.tenantId,
+          integration_id: ctx.integrationId,
           parent_entity_id: rel.parentEntityId,
           child_entity_id: rel.childEntityId,
           relationship_type: rel.relationshipType,
           metadata: rel.metadata || {},
           last_seen_at: now,
-          sync_id: syncId,
+          sync_id: syncJobId,
         });
       } else {
         toUpdate.push(ex.id);
@@ -153,24 +141,33 @@ export abstract class BaseLinker {
     // Execute
     if (toCreate.length > 0) {
       metrics.trackUpsert();
-      await supabase.from('entity_relationships').insert(toCreate);
+      const { error } = await supabase.from('entity_relationships').insert(toCreate);
+      if (error) {
+        throw new Error(`Failed to insert entity_relationships: ${error.message}`);
+      }
     }
 
     if (toUpdate.length > 0) {
       metrics.trackUpsert();
-      await supabase
+      const { error } = await supabase
         .from('entity_relationships')
-        .update({ last_seen_at: now, sync_id: syncId, updated_at: now })
+        .update({ last_seen_at: now, sync_id: syncJobId, updated_at: now })
         .in('id', toUpdate);
+      if (error) {
+        throw new Error(`Failed to update entity_relationships: ${error.message}`);
+      }
     }
 
     if (toDelete.length > 0) {
       metrics.trackUpsert();
       for (let i = 0; i < toDelete.length; i += 100) {
-        await supabase
+        const { error } = await supabase
           .from('entity_relationships')
           .delete()
           .in('id', toDelete.slice(i, i + 100));
+        if (error) {
+          throw new Error(`Failed to delete entity_relationships: ${error.message}`);
+        }
       }
     }
 
