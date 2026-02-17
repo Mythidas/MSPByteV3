@@ -1,6 +1,6 @@
 import crypto from 'crypto';
 import { getSupabase, getORM } from '../supabase.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '../lib/logger.js';
 import type { Entity, RawEntity } from '../types.js';
 
@@ -17,7 +17,7 @@ export class EntityProcessor {
     integrationId: string,
     entityType: string,
     syncId: string,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
     siteId?: string
   ): Promise<Entity[]> {
     Logger.log({
@@ -31,15 +31,17 @@ export class EntityProcessor {
     const allProcessed: Entity[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
-      const chunkEntities = await this.processChunk(
-        chunks[i],
-        tenantId,
-        integrationId,
-        entityType,
-        syncId,
-        metrics,
-        siteId
-      );
+      const chunkEntities = await tracker.trackSpan(`processor:chunk:${i}`, async () => {
+        return this.processChunk(
+          chunks[i],
+          tenantId,
+          integrationId,
+          entityType,
+          syncId,
+          tracker,
+          siteId
+        );
+      });
       allProcessed.push(...chunkEntities);
 
       Logger.log({
@@ -50,11 +52,11 @@ export class EntityProcessor {
       });
     }
 
-    const m = metrics.getMetrics();
+    const c = tracker.getCounters();
     Logger.log({
       module: 'EntityProcessor',
       context: 'process',
-      message: `Completed: ${m.entities_created} created, ${m.entities_updated} updated, ${m.entities_unchanged} unchanged`,
+      message: `Completed: ${c.entities_created} created, ${c.entities_updated} updated, ${c.entities_unchanged} unchanged`,
       level: 'info',
     });
 
@@ -70,7 +72,7 @@ export class EntityProcessor {
     tenantId: string,
     integrationId: string,
     entityType: string,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
     siteId?: string,
   ): Promise<number> {
     const survivingExternalIds = new Set(processedEntities.map((e) => e.external_id));
@@ -82,7 +84,7 @@ export class EntityProcessor {
     let offset = 0;
 
     while (true) {
-      metrics.trackQuery();
+      tracker.trackQuery();
       let query = supabase
         .from('entities')
         .select('id, external_id')
@@ -114,7 +116,7 @@ export class EntityProcessor {
     const { error } = await getORM().batchDelete('public', 'entities', staleIds);
     if (error) throw new Error(`Delete stale entities failed: ${error}`);
 
-    metrics.trackEntityDeleted(staleIds.length);
+    tracker.trackEntityDeleted(staleIds.length);
     Logger.log({
       module: 'EntityProcessor',
       context: 'pruneStaleEntities',
@@ -131,7 +133,7 @@ export class EntityProcessor {
     integrationId: string,
     entityType: string,
     syncId: string,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
     siteId?: string
   ): Promise<Entity[]> {
     const supabase = getSupabase();
@@ -141,7 +143,7 @@ export class EntityProcessor {
     // Fetch existing entities by external_id (select full rows for upsert + return)
     const externalIds = entities.map((e) => e.externalId);
 
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data: existing } = await supabase
       .from('entities')
       .select('*')
@@ -202,13 +204,13 @@ export class EntityProcessor {
 
     // CREATE
     if (toCreate.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       const { data: created, error } = await supabase
         .from('entities')
         .insert(toCreate)
         .select('*');
       if (error) throw new Error(`Insert entities failed: ${error.message}`);
-      metrics.trackEntityCreated(toCreate.length);
+      tracker.trackEntityCreated(toCreate.length);
       if (created) result.push(...(created as Entity[]));
 
       Logger.log({
@@ -223,7 +225,7 @@ export class EntityProcessor {
     if (toUpsert.length > 0) {
       for (let i = 0; i < toUpsert.length; i += 100) {
         const chunk = toUpsert.slice(i, i + 100);
-        metrics.trackUpsert();
+        tracker.trackUpsert();
         const { data: updated, error } = await supabase
           .from('entities')
           .upsert(chunk, { onConflict: 'id' })
@@ -231,7 +233,7 @@ export class EntityProcessor {
         if (error) throw new Error(`Upsert entities failed: ${error.message}`);
         if (updated) result.push(...(updated as Entity[]));
       }
-      metrics.trackEntityUpdated(toUpsert.length);
+      tracker.trackEntityUpdated(toUpsert.length);
       Logger.log({
         module: 'EntityProcessor',
         context: 'processChunk',
@@ -242,7 +244,7 @@ export class EntityProcessor {
 
     // TOUCH (unchanged, just bump last_seen_at)
     if (toTouch.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       const orm = getORM();
       const { error: touchError } = await orm.batchUpdate(
         'public',
@@ -251,7 +253,7 @@ export class EntityProcessor {
         { last_seen_at: now, sync_id: syncId, updated_at: now } as any
       );
       if (touchError) throw new Error(`Touch entities failed: ${touchError}`);
-      metrics.trackEntityUnchanged(toTouch.length);
+      tracker.trackEntityUnchanged(toTouch.length);
       result.push(...touchedEntities);
 
       Logger.log({

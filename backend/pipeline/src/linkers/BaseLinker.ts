@@ -1,5 +1,5 @@
 import { getORM } from '../supabase.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '../lib/logger.js';
 import {
   ensureAllEntitiesLoaded,
@@ -29,7 +29,7 @@ export abstract class BaseLinker {
    * When ctx.siteId is set (endpoint jobs), loads only site-scoped data
    * to avoid races between concurrent workers.
    */
-  async linkAndReconcile(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
+  async linkAndReconcile(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
     Logger.log({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
@@ -38,9 +38,11 @@ export abstract class BaseLinker {
     });
 
     // Use site-scoped loading when siteId is set (endpoint jobs)
-    const entities = ctx.siteId
-      ? await ensureSiteEntitiesLoaded(ctx, metrics)
-      : await ensureAllEntitiesLoaded(ctx, metrics);
+    const entities = await tracker.trackSpan('linker:load_entities', async () => {
+      return ctx.siteId
+        ? ensureSiteEntitiesLoaded(ctx, tracker)
+        : ensureAllEntitiesLoaded(ctx, tracker);
+    });
 
     Logger.log({
       module: 'BaseLinker',
@@ -49,9 +51,11 @@ export abstract class BaseLinker {
       level: 'trace',
     });
 
-    const existingRelationships = ctx.siteId
-      ? await ensureSiteRelationshipsLoaded(ctx, metrics)
-      : await ensureRelationshipsLoaded(ctx, metrics);
+    const existingRelationships = await tracker.trackSpan('linker:load_relationships', async () => {
+      return ctx.siteId
+        ? ensureSiteRelationshipsLoaded(ctx, tracker)
+        : ensureRelationshipsLoaded(ctx, tracker);
+    });
 
     Logger.log({
       module: 'BaseLinker',
@@ -61,7 +65,9 @@ export abstract class BaseLinker {
     });
 
     // Determine desired relationships
-    const desiredRelationships = await this.link(entities);
+    const desiredRelationships = await tracker.trackSpan('linker:link', async () => {
+      return this.link(entities);
+    });
 
     Logger.log({
       module: 'BaseLinker',
@@ -71,12 +77,14 @@ export abstract class BaseLinker {
     });
 
     // Reconcile
-    const result = await this.reconcileRelationships(
-      existingRelationships as any[],
-      desiredRelationships,
-      ctx,
-      metrics
-    );
+    const result = await tracker.trackSpan('linker:reconcile', async () => {
+      return this.reconcileRelationships(
+        existingRelationships as any[],
+        desiredRelationships,
+        ctx,
+        tracker
+      );
+    });
 
     // Invalidate cached relationships since we just modified them
     ctx.relationships = null;
@@ -98,7 +106,7 @@ export abstract class BaseLinker {
     existing: any[],
     desired: RelationshipToCreate[],
     ctx: SyncContext,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<{ created: number; updated: number; deleted: number }> {
     const orm = getORM();
     const now = new Date().toISOString();
@@ -150,7 +158,7 @@ export abstract class BaseLinker {
 
     // Execute using ORM batch methods
     if (toCreate.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       const { error } = await orm.batchUpsert('public', 'entity_relationships', toCreate);
       if (error) {
         throw new Error(`Failed to insert entity_relationships: ${error}`);
@@ -158,7 +166,7 @@ export abstract class BaseLinker {
     }
 
     if (toUpdate.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       const { error } = await orm.batchUpdate(
         'public',
         'entity_relationships',
@@ -171,7 +179,7 @@ export abstract class BaseLinker {
     }
 
     if (toDelete.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       const { error } = await orm.batchDelete('public', 'entity_relationships', toDelete);
       if (error) {
         throw new Error(`Failed to delete entity_relationships: ${error}`);

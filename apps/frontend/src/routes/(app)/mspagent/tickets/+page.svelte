@@ -34,6 +34,37 @@
       searchable: true,
     },
     {
+      key: 'summary',
+      title: 'Summary',
+      sortable: true,
+      searchable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search Halo ID...',
+      },
+    },
+    {
+      key: 'meta.user.name',
+      title: 'Submitter',
+      sortable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search submitter...',
+      },
+    },
+    {
+      key: 'meta.user.email',
+      title: 'Email',
+      sortable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search email...',
+      },
+    },
+    {
       key: 'created_at',
       title: 'Created At',
       sortable: true,

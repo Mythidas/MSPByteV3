@@ -1,6 +1,6 @@
 import type { Job } from 'bullmq';
 import { queueManager, QueueNames } from '../lib/queue.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '../lib/logger.js';
 import { createSyncContext } from '../context.js';
 import type { IntegrationId } from '../config.js';
@@ -41,7 +41,7 @@ export class AnalysisWorker {
 
   private async handleJob(job: Job<AnalysisJobData>): Promise<void> {
     const { tenantId, integrationId, integrationDbId, syncId } = job.data;
-    const metrics = new MetricsCollector();
+    const tracker = new PipelineTracker();
 
     Logger.log({
       module: 'AnalysisWorker',
@@ -60,7 +60,9 @@ export class AnalysisWorker {
     });
 
     try {
-      await this.orchestrator.analyze(ctx, metrics);
+      await tracker.trackSpan('stage:analysis', async () => {
+        return this.orchestrator.analyze(ctx, tracker);
+      });
 
       Logger.log({
         module: 'AnalysisWorker',

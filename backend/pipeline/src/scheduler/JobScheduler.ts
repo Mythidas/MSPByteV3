@@ -6,6 +6,8 @@ import type { SyncJobData } from '../types.js';
 import { Tables } from '@workspace/shared/types/database.js';
 
 const POLL_INTERVAL_MS = 15000;
+const CLEANUP_THROTTLE_MS = 60 * 60 * 1000; // 1 hour
+const JOB_RETENTION_DAYS = 7;
 
 /**
  * JobScheduler - Polls sync_jobs table for pending jobs and dispatches to BullMQ.
@@ -14,6 +16,7 @@ const POLL_INTERVAL_MS = 15000;
 export class JobScheduler {
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private isPolling = false;
+  private lastCleanupAt = 0;
 
   start(): void {
     Logger.log({
@@ -76,6 +79,12 @@ export class JobScheduler {
 
       for (const job of pendingJobs) {
         await this.dispatchJob(job);
+      }
+      // Throttled cleanup of old completed/failed jobs
+      const now = Date.now();
+      if (now - this.lastCleanupAt >= CLEANUP_THROTTLE_MS) {
+        this.lastCleanupAt = now;
+        await JobScheduler.cleanupOldJobs();
       }
     } catch (err) {
       Logger.log({
@@ -201,6 +210,44 @@ export class JobScheduler {
     });
 
     return ids.length;
+  }
+
+  /**
+   * Delete completed/failed sync_jobs older than JOB_RETENTION_DAYS.
+   * Never touches pending/queued/running jobs.
+   */
+  static async cleanupOldJobs(): Promise<number> {
+    const supabase = getSupabase();
+    const cutoff = new Date(Date.now() - JOB_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from('sync_jobs')
+      .delete()
+      .in('status', ['completed', 'failed'])
+      .lt('completed_at', cutoff)
+      .select('id');
+
+    if (error) {
+      Logger.log({
+        module: 'JobScheduler',
+        context: 'cleanupOldJobs',
+        message: `Error cleaning up old jobs: ${error.message}`,
+        level: 'error',
+      });
+      return 0;
+    }
+
+    const count = data?.length ?? 0;
+    if (count > 0) {
+      Logger.log({
+        module: 'JobScheduler',
+        context: 'cleanupOldJobs',
+        message: `Cleaned up ${count} old sync_jobs (older than ${JOB_RETENTION_DAYS} days)`,
+        level: 'info',
+      });
+    }
+
+    return count;
   }
 
   /**

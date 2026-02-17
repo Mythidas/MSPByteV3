@@ -1,5 +1,5 @@
 import { getSupabase } from '../supabase.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '../lib/logger.js';
 import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
 import type { IntegrationId } from '../config.js';
@@ -33,7 +33,7 @@ export class AnalysisOrchestrator {
 
   async analyze(
     ctx: SyncContext,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
   ): Promise<void> {
     Logger.log({
       module: 'AnalysisOrchestrator',
@@ -43,7 +43,9 @@ export class AnalysisOrchestrator {
     });
 
     // Load context using shared SyncContext (avoids re-SELECTs)
-    const context = await this.buildAnalysisContext(ctx, metrics);
+    const context = await tracker.trackSpan('analysis:build_context', async () => {
+      return this.buildAnalysisContext(ctx, tracker);
+    });
 
     const totalEntities = Object.values(context.entities).flat().length;
     Logger.log({
@@ -121,10 +123,10 @@ export class AnalysisOrchestrator {
 
   private async buildAnalysisContext(
     ctx: SyncContext,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
   ): Promise<AnalysisContext> {
-    const entities = await ensureAllEntitiesLoaded(ctx, metrics);
-    const rels = await ensureRelationshipsLoaded(ctx, metrics);
+    const entities = await ensureAllEntitiesLoaded(ctx, tracker);
+    const rels = await ensureRelationshipsLoaded(ctx, tracker);
 
     const grouped = {
       identities: entities.filter((e) => e.entity_type === 'identity'),

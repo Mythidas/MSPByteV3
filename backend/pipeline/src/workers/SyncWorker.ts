@@ -1,7 +1,7 @@
 import type { Job } from 'bullmq';
 import { getSupabase } from '../supabase.js';
 import { queueManager, QueueNames } from '../lib/queue.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '../lib/logger.js';
 import { JobScheduler } from '../scheduler/JobScheduler.js';
 import { createSyncContext } from '../context.js';
@@ -58,7 +58,7 @@ export class SyncWorker {
 
   private async handleJob(job: Job<SyncJobData>): Promise<void> {
     const { tenantId, integrationId, integrationDbId, entityType, syncId, syncJobId } = job.data;
-    const metrics = new MetricsCollector();
+    const tracker = new PipelineTracker();
     const supabase = getSupabase();
 
     Logger.log({
@@ -91,9 +91,9 @@ export class SyncWorker {
         throw new Error(`No adapter registered for ${integrationId}:${entityType}`);
       }
 
-      metrics.startStage('adapter');
-      const entities = await this.adapter.fetchAll(job.data, metrics);
-      metrics.endStage('adapter');
+      const entities = await tracker.trackSpan('stage:adapter', async () => {
+        return this.adapter!.fetchAll(job.data, tracker);
+      });
 
       Logger.log({
         module: 'SyncWorker',
@@ -103,28 +103,31 @@ export class SyncWorker {
       });
 
       // 2. PROCESSOR: Hash-based upsert → returns processed Entity[]
-      metrics.startStage('processor');
       const siteId = job.data.siteId ?? undefined;
-      ctx.processedEntities = await this.processor.process(
-        entities,
-        tenantId,
-        integrationId,
-        entityType,
-        syncId,
-        metrics,
-        siteId,
-      );
-      metrics.endStage('processor');
+      ctx.processedEntities = await tracker.trackSpan('stage:processor', async () => {
+        return this.processor.process(
+          entities,
+          tenantId,
+          integrationId,
+          entityType,
+          syncId,
+          tracker,
+          siteId,
+        );
+      });
 
       // 2b. CLEANUP: Remove entities no longer in API response
-      const pruned = await this.processor.pruneStaleEntities(
-        ctx.processedEntities,
-        tenantId,
-        integrationId,
-        entityType,
-        metrics,
-        siteId,
-      );
+      const pruned = await tracker.trackSpan('stage:prune', async () => {
+        return this.processor.pruneStaleEntities(
+          ctx.processedEntities,
+          tenantId,
+          integrationId,
+          entityType,
+          tracker,
+          siteId,
+        );
+      });
+
       if (pruned > 0) {
         Logger.log({
           module: 'SyncWorker',
@@ -136,34 +139,30 @@ export class SyncWorker {
 
       // 3. LINKER: Optional relationship linking (uses SyncContext)
       if (this.linker) {
-        metrics.startStage('linker');
-        await this.linker.linkAndReconcile(ctx, metrics);
+        await tracker.trackSpan('stage:linker', async () => {
+          await this.linker!.linkAndReconcile(ctx, tracker);
 
-        // Track expected endpoint count for fan-out integrations (DattoRMM)
-        if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker) {
-          const linker = this.linker as DattoRMMLinker;
-          // fanOutEndpointJobs already ran inside linkAndReconcile,
-          // count the expected endpoints from site_to_integration mappings
-          const expectedCount = await this.getExpectedEndpointCount(
-            tenantId,
-            integrationDbId,
-            metrics,
-          );
-          if (expectedCount > 0) {
-            await CompletionTracker.setExpectedCount(
+          // Track expected endpoint count for fan-out integrations (DattoRMM)
+          if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker!) {
+            const expectedCount = await this.getExpectedEndpointCount(
               tenantId,
-              integrationId,
-              'endpoint',
-              expectedCount,
+              integrationDbId,
+              tracker,
             );
+            if (expectedCount > 0) {
+              await CompletionTracker.setExpectedCount(
+                tenantId,
+                integrationId,
+                'endpoint',
+                expectedCount,
+              );
+            }
           }
-        }
-
-        metrics.endStage('linker');
+        });
       }
 
       // 4. Analysis is DEFERRED — track completion and trigger when all types done
-      await this.trackCompletionAndMaybeAnalyze(job.data, metrics);
+      await this.trackCompletionAndMaybeAnalyze(job.data);
 
       // 5. Mark completed + schedule next
       const completedAt = new Date().toISOString();
@@ -172,7 +171,7 @@ export class SyncWorker {
         .update({
           status: 'completed',
           completed_at: completedAt,
-          metrics: metrics.toJSON(),
+          metrics: tracker.toJSON() as any,
           updated_at: completedAt,
         })
         .eq('id', syncJobId);
@@ -191,7 +190,7 @@ export class SyncWorker {
         level: 'info',
       });
     } catch (error) {
-      metrics.trackError(error as Error, job.attemptsMade);
+      tracker.trackError(error as Error, job.attemptsMade);
 
       // Mark failed
       try {
@@ -200,7 +199,7 @@ export class SyncWorker {
           .update({
             status: 'failed',
             completed_at: new Date().toISOString(),
-            metrics: metrics.toJSON(),
+            metrics: tracker.toJSON() as any,
             error: (error as Error).message,
             updated_at: new Date().toISOString(),
           })
@@ -227,7 +226,6 @@ export class SyncWorker {
 
   private async trackCompletionAndMaybeAnalyze(
     jobData: SyncJobData,
-    metrics: MetricsCollector,
   ): Promise<void> {
     const { tenantId, integrationId, integrationDbId, entityType, syncId } = jobData;
 
@@ -263,10 +261,10 @@ export class SyncWorker {
   private async getExpectedEndpointCount(
     tenantId: string,
     integrationDbId: string,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
   ): Promise<number> {
     const supabase = getSupabase();
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data, count } = await supabase
       .from('site_to_integration')
       .select('id', { count: 'exact', head: true })

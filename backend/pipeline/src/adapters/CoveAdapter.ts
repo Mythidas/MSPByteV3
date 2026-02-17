@@ -1,7 +1,7 @@
 import { BaseAdapter } from './BaseAdapter.js';
 import { getSupabase } from '../supabase.js';
 import { Logger } from '../lib/logger.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
 import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index';
 import type { AdapterFetchResult, SyncJobData } from '../types.js';
@@ -13,18 +13,18 @@ export class DattoRMMAdapter extends BaseAdapter {
 
   protected async fetchData(
     jobData: SyncJobData,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<AdapterFetchResult> {
     const config = (await this.getIntegrationConfig(
       jobData.integrationDbId,
       ['apiSecretKey'],
-      metrics
+      tracker
     )) as DattoRMMConfig;
     const connector = new DattoRMMConnector(config);
     const supabase = getSupabase();
 
     // Load site_to_integration mappings for this integration+tenant
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data: mappings } = await supabase
       .from('site_to_integration')
       .select('site_id, external_id')
@@ -37,11 +37,11 @@ export class DattoRMMAdapter extends BaseAdapter {
     }
 
     if (jobData.entityType === 'company') {
-      return this.fetchSites(connector, siteMap, metrics);
+      return this.fetchSites(connector, siteMap, tracker);
     }
 
     if (jobData.entityType === 'endpoint') {
-      return this.fetchDevices(connector, jobData, siteMap, metrics);
+      return this.fetchDevices(connector, jobData, siteMap, tracker);
     }
 
     throw new Error(`DattoRMMAdapter: unknown entityType "${jobData.entityType}"`);
@@ -50,10 +50,12 @@ export class DattoRMMAdapter extends BaseAdapter {
   private async fetchSites(
     connector: DattoRMMConnector,
     siteMap: Map<string, string>,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<AdapterFetchResult> {
-    metrics.trackApiCall();
-    const { data: sites, error } = await connector.getSites();
+    tracker.trackApiCall();
+    const { data: sites, error } = await tracker.trackSpan('adapter:api:getSites', async () => {
+      return connector.getSites();
+    });
 
     if (error || !sites) {
       throw new Error(`DattoRMM getSites failed: ${error.message}`);
@@ -79,7 +81,7 @@ export class DattoRMMAdapter extends BaseAdapter {
     connector: DattoRMMConnector,
     jobData: SyncJobData,
     siteMap: Map<string, string>,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<AdapterFetchResult> {
     if (!jobData.siteId) {
       throw new Error('DattoRMMAdapter: endpoint sync requires siteId');
@@ -92,8 +94,10 @@ export class DattoRMMAdapter extends BaseAdapter {
       throw new Error(`DattoRMMAdapter: no Datto site mapping found for site_id ${jobData.siteId}`);
     }
 
-    metrics.trackApiCall();
-    const { data: devices, error } = await connector.getDevices(dattoSiteUid);
+    tracker.trackApiCall();
+    const { data: devices, error } = await tracker.trackSpan('adapter:api:getDevices', async () => {
+      return connector.getDevices(dattoSiteUid!);
+    });
 
     if (error || !devices) {
       throw new Error(`DattoRMM getDevices failed: ${error.message}`);

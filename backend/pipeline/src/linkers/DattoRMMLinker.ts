@@ -1,6 +1,6 @@
 import { BaseLinker } from './BaseLinker.js';
 import { getSupabase, getORM } from '../supabase.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '../lib/logger.js';
 import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
 
@@ -49,32 +49,30 @@ export class DattoRMMLinker extends BaseLinker {
     return relationships;
   }
 
-  async linkAndReconcile(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
+  async linkAndReconcile(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
     // Run normal link-and-reconcile
-    await super.linkAndReconcile(ctx, metrics);
+    await super.linkAndReconcile(ctx, tracker);
 
     // Post-link steps only after company sync
     if (ctx.entityType === 'company' && ctx.integrationDbId) {
-      await this.cleanupStaleMappings(ctx, metrics);
-      await this.fanOutEndpointJobs(ctx, metrics);
+      await this.cleanupStaleMappings(ctx, tracker);
+      await this.fanOutEndpointJobs(ctx, tracker);
     }
   }
 
-  /**
-   * Remove site_to_integration rows whose external_id no longer exists in Datto.
-   * Queries only company entities directly instead of using the full allEntities cache.
-   */
-  private async cleanupStaleMappings(ctx: SyncContext, metrics: MetricsCollector): Promise<void> {
+  private async cleanupStaleMappings(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
     const orm = getORM();
 
     // Load only company entities — this is a company-sync-only operation
-    metrics.trackQuery();
-    const { data, error } = await orm.select('public', 'entities', (q) =>
-      q
-        .eq('tenant_id', ctx.tenantId)
-        .eq('integration_id', ctx.integrationId)
-        .eq('entity_type', 'company')
-    );
+    tracker.trackQuery();
+    const { data, error } = await tracker.trackSpan('linker:cleanup_stale_mappings', async () => {
+      return orm.select('public', 'entities', (q) =>
+        q
+          .eq('tenant_id', ctx.tenantId)
+          .eq('integration_id', ctx.integrationId)
+          .eq('entity_type', 'company')
+      );
+    });
 
     if (error) throw new Error(`Failed to load company entities: ${error}`);
 
@@ -82,7 +80,7 @@ export class DattoRMMLinker extends BaseLinker {
     const knownExternalIds = new Set(companyEntities.map((e) => e.external_id));
 
     // Load site_to_integration mappings
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data: mappings } = await getSupabase()
       .from('site_to_integration')
       .select('id, external_id')
@@ -94,7 +92,7 @@ export class DattoRMMLinker extends BaseLinker {
       .map((m) => m.id);
 
     if (staleIds.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       const { error: deleteError } = await orm.batchDelete(
         'public',
         'site_to_integration',
@@ -111,15 +109,11 @@ export class DattoRMMLinker extends BaseLinker {
     }
   }
 
-  /**
-   * For each mapped site, ensure there's a pending endpoint sync_job.
-   * Returns the number of endpoint jobs created (used by CompletionTracker).
-   */
-  async fanOutEndpointJobs(ctx: SyncContext, metrics: MetricsCollector): Promise<number> {
+  async fanOutEndpointJobs(ctx: SyncContext, tracker: PipelineTracker): Promise<number> {
     const supabase = getSupabase();
 
     // Load site_to_integration mappings
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data: mappings } = await supabase
       .from('site_to_integration')
       .select('site_id')
@@ -129,7 +123,7 @@ export class DattoRMMLinker extends BaseLinker {
     if (!mappings || mappings.length === 0) return 0;
 
     // Check for existing active endpoint jobs for this integration+tenant
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data: existingJobs } = await supabase
       .from('sync_jobs')
       .select('site_id')
@@ -153,7 +147,7 @@ export class DattoRMMLinker extends BaseLinker {
       }));
 
     if (jobsToInsert.length > 0) {
-      metrics.trackUpsert();
+      tracker.trackUpsert();
       await supabase.from('sync_jobs').insert(jobsToInsert);
 
       Logger.log({

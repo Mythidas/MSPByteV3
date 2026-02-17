@@ -1,6 +1,6 @@
 import { getSupabase } from '../supabase.js';
 import { Logger } from '../lib/logger.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import type { IntegrationId } from '../config.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
@@ -20,15 +20,18 @@ export abstract class BaseAdapter {
   /**
    * Loops pagination internally, returns all entities across all pages.
    */
-  async fetchAll(jobData: SyncJobData, metrics: MetricsCollector): Promise<RawEntity[]> {
+  async fetchAll(jobData: SyncJobData, tracker: PipelineTracker): Promise<RawEntity[]> {
     const allEntities: RawEntity[] = [];
     let cursor: string | undefined;
     let batch = 0;
 
     do {
-      metrics.trackApiCall();
-      const result = await this.fetchData(jobData, metrics, cursor, batch++);
+      tracker.trackApiCall();
+      const result = await tracker.trackSpan(`adapter:fetch_page:${batch}`, async () => {
+        return this.fetchData(jobData, tracker, cursor, batch);
+      });
       allEntities.push(...result.entities);
+      batch++;
 
       Logger.log({
         module: 'BaseAdapter',
@@ -55,7 +58,7 @@ export abstract class BaseAdapter {
    */
   protected abstract fetchData(
     jobData: SyncJobData,
-    metrics: MetricsCollector,
+    tracker: PipelineTracker,
     cursor?: string,
     batchNumber?: number
   ): Promise<AdapterFetchResult>;
@@ -66,28 +69,30 @@ export abstract class BaseAdapter {
   protected async getIntegrationConfig(
     integrationDbId: string,
     decryptKeys: string[],
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<any> {
-    const supabase = getSupabase();
-    metrics.trackQuery();
+    return tracker.trackSpan('adapter:get_config', async () => {
+      const supabase = getSupabase();
+      tracker.trackQuery();
 
-    const { data, error } = await supabase
-      .from('integrations')
-      .select('config')
-      .eq('id', integrationDbId)
-      .single();
+      const { data, error } = await supabase
+        .from('integrations')
+        .select('config')
+        .eq('id', integrationDbId)
+        .single();
 
-    if (error || !data || !data.config) {
-      throw new Error(`Integration config not found: ${integrationDbId}`);
-    }
+      if (error || !data || !data.config) {
+        throw new Error(`Integration config not found: ${integrationDbId}`);
+      }
 
-    for (const key of decryptKeys) {
-      (data.config as any)[key] = await Encryption.decrypt(
-        (data.config as any)[key],
-        process.env.ENCRYPTION_KEY!
-      );
-    }
+      for (const key of decryptKeys) {
+        (data.config as any)[key] = await Encryption.decrypt(
+          (data.config as any)[key],
+          process.env.ENCRYPTION_KEY!
+        );
+      }
 
-    return data.config;
+      return data.config;
+    });
   }
 }

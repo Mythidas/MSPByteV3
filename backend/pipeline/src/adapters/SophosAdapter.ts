@@ -1,7 +1,7 @@
 import { BaseAdapter } from './BaseAdapter.js';
 import { getSupabase } from '../supabase.js';
 import { Logger } from '../lib/logger.js';
-import { MetricsCollector } from '../lib/metrics.js';
+import { PipelineTracker } from '../lib/tracker.js';
 import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
 import type { SophosPartnerConfig } from '@workspace/shared/types/integrations/sophos/index';
 import type { AdapterFetchResult, SyncJobData } from '../types.js';
@@ -13,18 +13,18 @@ export class SophosAdapter extends BaseAdapter {
 
   protected async fetchData(
     jobData: SyncJobData,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<AdapterFetchResult> {
     const config = (await this.getIntegrationConfig(
       jobData.integrationDbId,
       ['clientSecret'],
-      metrics
+      tracker
     )) as SophosPartnerConfig;
     const connector = new SophosPartnerConnector(config);
     const supabase = getSupabase();
 
     // Load site_to_integration mappings for this integration+tenant
-    metrics.trackQuery();
+    tracker.trackQuery();
     const { data: mappings } = await supabase
       .from('site_to_integration')
       .select('site_id, external_id')
@@ -37,11 +37,11 @@ export class SophosAdapter extends BaseAdapter {
     }
 
     if (jobData.entityType === 'company') {
-      return this.fetchTenants(connector, siteMap, metrics);
+      return this.fetchTenants(connector, siteMap, tracker);
     }
 
     if (jobData.entityType === 'endpoint') {
-      return this.fetchDevices(connector, jobData, siteMap, metrics);
+      return this.fetchDevices(connector, jobData, siteMap, tracker);
     }
 
     throw new Error(`SophosAdapter: unknown entityType "${jobData.entityType}"`);
@@ -50,10 +50,12 @@ export class SophosAdapter extends BaseAdapter {
   private async fetchTenants(
     connector: SophosPartnerConnector,
     siteMap: Map<string, string>,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<AdapterFetchResult> {
-    metrics.trackApiCall();
-    const { data: sites, error } = await connector.getTenants();
+    tracker.trackApiCall();
+    const { data: sites, error } = await tracker.trackSpan('adapter:api:getTenants', async () => {
+      return connector.getTenants();
+    });
 
     if (error || !sites) {
       throw new Error(`Sophos getTenants failed: ${error.message}`);
@@ -79,7 +81,7 @@ export class SophosAdapter extends BaseAdapter {
     connector: SophosPartnerConnector,
     jobData: SyncJobData,
     siteMap: Map<string, string>,
-    metrics: MetricsCollector
+    tracker: PipelineTracker
   ): Promise<AdapterFetchResult> {
     if (!jobData.siteId) {
       throw new Error('SophosAdapter: endpoint sync requires siteId');
@@ -91,24 +93,28 @@ export class SophosAdapter extends BaseAdapter {
     }
 
     const supabase = getSupabase();
-    metrics.trackQuery();
-    const { data: site } = await supabase
-      .from('entities')
-      .select('raw_data')
-      .eq('integration_id', jobData.integrationDbId)
-      .eq('tenant_id', jobData.tenantId)
-      .eq('external_id', sophosSiteId)
-      .single();
+    tracker.trackQuery();
+    const { data: site } = await tracker.trackSpan('adapter:db:getSiteEntity', async () => {
+      return supabase
+        .from('entities')
+        .select('raw_data')
+        .eq('integration_id', jobData.integrationDbId)
+        .eq('tenant_id', jobData.tenantId)
+        .eq('external_id', sophosSiteId!)
+        .single();
+    });
 
     if (!site) {
       throw new Error(`SophosAdapter: no Sophos site entity for site_id ${jobData.siteId}`);
     }
 
-    metrics.trackApiCall();
-    const { data: devices, error } = await connector.getEndpoints({
-      tenantId: sophosSiteId,
-      tenantName: '',
-      apiHost: (site.raw_data as any)?.apiHost || '',
+    tracker.trackApiCall();
+    const { data: devices, error } = await tracker.trackSpan('adapter:api:getEndpoints', async () => {
+      return connector.getEndpoints({
+        tenantId: sophosSiteId!,
+        tenantName: '',
+        apiHost: (site.raw_data as any)?.apiHost || '',
+      });
     });
 
     if (error || !devices) {
