@@ -20,8 +20,49 @@ use device_registration::register_device_with_server;
 use heartbeat::{start_heartbeat_task, gather_system_info, HeartbeatRequest};
 use logger::log_to_file;
 
+#[cfg(target_os = "windows")]
+fn acquire_single_instance_lock() -> Option<windows_sys::Win32::Foundation::HANDLE> {
+    use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+    use windows_sys::Win32::System::Threading::CreateMutexW;
+
+    let username = whoami::username();
+    let mutex_name: Vec<u16> = format!("Global\\MSPAgent_{}\0", username)
+        .encode_utf16()
+        .collect();
+
+    unsafe {
+        let handle = CreateMutexW(
+            std::ptr::null(),
+            0,
+            mutex_name.as_ptr(),
+        );
+
+        if handle.is_null() || GetLastError() == ERROR_ALREADY_EXISTS {
+            return None;
+        }
+
+        Some(handle)
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn acquire_single_instance_lock() -> Option<()> {
+    Some(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let _instance_lock = match acquire_single_instance_lock() {
+        Some(lock) => lock,
+        None => {
+            log_to_file(
+                "WARN".into(),
+                "Another instance is already running for this user. Exiting.".into(),
+            );
+            return;
+        }
+    };
+
     tauri::Builder::default()
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_notification::init())
