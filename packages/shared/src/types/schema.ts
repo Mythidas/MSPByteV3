@@ -926,6 +926,27 @@ export type Database = {
       [_ in never]: never
     }
     Views: {
+      d_agent_tickets_view: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          created_at: string | null
+          id: string | null
+          site_id: string | null
+          site_name: string | null
+          tenant_id: string | null
+          ticket_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tickets_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "d_agents_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       d_agents_view: {
         Row: {
           created_at: string | null
