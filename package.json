@@ -11,7 +11,7 @@
     "build": "turbo build",
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=@workspace/frontend",
-    "dev:agent": "turbo dev --filter=@workspace/agents",
+    "dev:agent": "turbo dev --filter=@workspace/agents --filter=@workspace/agent",
     "dev:pipeline": "turbo dev --filter=@workspace/pipeline",
     "infra:up": "cd backend && docker-compose up -d && docker-compose ps",
     "infra:down": "cd backend && docker-compose down",

@@ -130,6 +130,7 @@ export class HaloPSAConnector {
       } else break;
     }
 
+    console.log(assets);
     return {
       data: assets,
     };

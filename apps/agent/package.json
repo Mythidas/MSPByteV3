@@ -1,5 +1,5 @@
 {
-  "name": "mspagent",
+  "name": "@workspace/agent",
   "private": true,
   "version": "0.1.17",
   "type": "module",

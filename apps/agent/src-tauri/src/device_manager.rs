@@ -296,10 +296,12 @@ pub fn get_primary_mac() -> Option<String> {
 pub fn get_rmm_device_id() -> Option<String> {
     #[cfg(target_os = "windows")]
     {
-        use winreg::enums::*;
-        use winreg::RegKey;
+        use std::fs;
+        use winreg::{enums::*, RegKey};
 
         let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
+
+        // Primary method – registry (most reliable)
         if let Ok(subkey) = hklm.open_subkey("SOFTWARE\\CentraStage") {
             if let Ok(device_id) = subkey.get_value::<String, _>("DeviceID") {
                 let trimmed = device_id.trim();
@@ -308,6 +310,21 @@ pub fn get_rmm_device_id() -> Option<String> {
                 }
             }
         }
+
+        // Fallback – only if you really need it / have confirmed it is used
+        const SETTINGS_PATH: &str = r"C:\ProgramData\CentraStage\AEMAgent\Settings.json";
+
+        if let Ok(contents) = fs::read_to_string(SETTINGS_PATH) {
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&contents) {
+                if let Some(device_uid) = json["deviceUID"].as_str() {
+                    let trimmed = device_uid.trim();
+                    if !trimmed.is_empty() {
+                        return Some(trimmed.to_string());
+                    }
+                }
+            }
+        }
+
         None
     }
 
