@@ -357,6 +357,8 @@ export default async function (fastify: FastifyInstance) {
             site_id: site.id,
             tenant_id: site.tenant_id,
             ticket_id: String(ticketID),
+            summary: ticketInfo.summary,
+            meta: ticketInfo,
           });
         } catch (err) {
           // Log error but don't fail the request

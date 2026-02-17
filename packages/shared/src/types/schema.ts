@@ -80,7 +80,9 @@ export type Database = {
           agent_id: string
           created_at: string
           id: string
+          meta: Json | null
           site_id: string
+          summary: string | null
           tenant_id: string
           ticket_id: string
         }
@@ -88,7 +90,9 @@ export type Database = {
           agent_id: string
           created_at?: string
           id?: string
+          meta?: Json | null
           site_id: string
+          summary?: string | null
           tenant_id: string
           ticket_id: string
         }
@@ -96,7 +100,9 @@ export type Database = {
           agent_id?: string
           created_at?: string
           id?: string
+          meta?: Json | null
           site_id?: string
+          summary?: string | null
           tenant_id?: string
           ticket_id?: string
         }
