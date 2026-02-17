@@ -69,7 +69,7 @@
       throw dattoSites.error;
     }
 
-    const dattoSiteMap = new Map(dattoSites.data.map((s) => [String(s.id), s]));
+    const dattoSiteMap = new Map(dattoSites.data.map((s) => [String(s.uid), s]));
 
     return data.sites.map((site) => {
       const siteLinks = links.filter((l) => l.site_id === site.id);

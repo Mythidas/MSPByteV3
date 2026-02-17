@@ -36,10 +36,8 @@ export const load: PageServerLoad = async ({ locals }) => {
   const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
     q.eq('id', 'mspagent')
   );
-  const { data: dattoIntegration } = await locals.orm.selectSingle(
-    'public',
-    'integrations',
-    (q) => q.eq('id', 'dattormm')
+  const { data: dattoIntegration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
+    q.eq('id', 'dattormm')
   );
   const { data: sites } = await locals.orm.select('public', 'sites');
 
