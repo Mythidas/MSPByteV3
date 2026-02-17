@@ -143,7 +143,8 @@ pub fn run() {
             read_file_binary,
             read_registry_value,
             log_to_file,
-            get_os_info
+            get_os_info,
+            get_rmm_id
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

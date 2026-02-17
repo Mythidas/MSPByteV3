@@ -167,8 +167,12 @@ export default function Support() {
       );
 
       await logToFile('INFO', 'Fetching RMM ID from registry');
-      const { data: rmmId } = await getRmmId();
-      await logToFile('INFO', `RMM ID: ${rmmId || 'Not found'}`);
+      const { data: rmmId, error: rmmError } = await getRmmId();
+      if (!rmmId) {
+        await logToFile('WARN', `Failed to get RMM ID: ${rmmError?.message}`);
+      } else {
+        await logToFile('INFO', `RMM ID: ${rmmId}`);
+      }
 
       const apiUrl = `${settings.api_host}/v1.0/ticket/create`;
       await logToFile('INFO', `Submitting ticket to: ${apiUrl}`);
