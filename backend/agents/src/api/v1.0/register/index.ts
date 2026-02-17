@@ -42,7 +42,7 @@ export default async function (fastify: FastifyInstance) {
             error: {
               module: 'v1.0/register',
               context: 'POST',
-              message: 'Invalid site_uid provided',
+              message: `Invalid site_uid provided: ${site_id} | ${hostname} | ${version} | ${platform}`,
             },
           },
           400
