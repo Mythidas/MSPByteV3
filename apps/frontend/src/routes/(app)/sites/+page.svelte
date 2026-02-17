@@ -5,6 +5,7 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '$lib/utils/permissions';
+  import { goto } from '$app/navigation';
 
   type Site = Tables<'public', 'sites'>;
 
@@ -20,16 +21,6 @@
 
   // Define columns with all features
   const columns: DataTableColumn<Site>[] = $derived([
-    {
-      key: 'id',
-      title: 'ID',
-      sortable: true,
-      width: '80px',
-      filter: {
-        type: 'number',
-        operators: ['eq', 'gt', 'lt'],
-      },
-    },
     {
       key: 'name',
       title: 'Site Name',
@@ -102,7 +93,7 @@
   );
 
   function handleRowClick(row: Site) {
-    console.log('Clicked:', row);
+    goto(`/sites/${row.id}`);
   }
 </script>
 
