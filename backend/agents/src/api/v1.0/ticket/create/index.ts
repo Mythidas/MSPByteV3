@@ -7,6 +7,7 @@ import { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/asset
 import { getSupabase } from '@/lib/supabase.js';
 import { Debug } from '@workspace/shared/lib/utils/debug';
 import Encryption from '@workspace/shared/lib/utils/encryption';
+import { HaloPSAUser } from '@workspace/shared/types/integrations/halopsa/users';
 
 export default async function (fastify: FastifyInstance) {
   fastify.post('/', async (req) => {
@@ -204,37 +205,29 @@ export default async function (fastify: FastifyInstance) {
 
       // Fetch assets from PSA using the site mapping external_id
       const psaSiteId = psaSiteMapping?.external_id;
-      const assetResponse = await perf.trackSpan('psa_fetch_assets', async () => {
-        if (!body.rmm_id || !psaSiteId) {
-          return { data: [] };
+      const { data: assets, error: assetError } = await perf.trackSpan(
+        'psa_fetch_assets',
+        async () => {
+          if (!body.rmm_id || !psaSiteId) {
+            return { data: [] };
+          }
+          return await connector.getAssets(psaSiteId);
         }
-        return await connector.getAssets(psaSiteId);
-      });
+      );
 
-      if ('error' in assetResponse) {
+      if (assetError || assets.length === 0) {
         Debug.log({
           module: 'v1.0/ticket/create',
           context: 'psa_fetch_assets',
           message: 'Failed to fetch assets from PSA',
         });
-        return;
-      }
-
-      const { data: assets } = assetResponse;
-
-      if (!assets) {
+      } else {
         Debug.log({
           module: 'v1.0/ticket/create',
           context: 'POST',
-          message: 'Failed to fetch halo assets',
+          message: `Found ${assets?.length || 0} HaloPSAAssets (HaloSiteID: ${psaSiteId})`,
         });
       }
-
-      Debug.log({
-        module: 'v1.0/ticket/create',
-        context: 'POST',
-        message: `Found ${assets?.length || 0} HaloPSAAssets (HaloSiteID: ${psaSiteId})`,
-      });
 
       // Find matching asset
       const asset = perf.trackSpanSync('find_matching_asset', () => {
@@ -252,6 +245,50 @@ export default async function (fastify: FastifyInstance) {
           module: 'v1.0/ticket/create',
           context: 'POST',
           message: `HaloAsset found for ${agent.hostname} (HaloID: ${asset?.id})`,
+        });
+      }
+
+      // Fetch contacts from PSA using the site mapping external_id
+      const { data: contacts, error: contactError } = await perf.trackSpan(
+        'psa_fetch_contacts',
+        async () => {
+          if (!body.email || !psaSiteId) {
+            return { data: [] };
+          }
+          return await connector.getUsers(psaSiteId);
+        }
+      );
+
+      if (contactError || contacts.length === 0) {
+        Debug.log({
+          module: 'v1.0/ticket/create',
+          context: 'psa_fetch_contacts',
+          message: 'Failed to fetch contacts from PSA',
+        });
+      } else {
+        Debug.log({
+          module: 'v1.0/ticket/create',
+          context: 'POST',
+          message: `Found ${contacts?.length || 0} HaloPSAContacts (HaloSiteID: ${psaSiteId})`,
+        });
+      }
+
+      // Find matching asset
+      const contact = perf.trackSpanSync('find_matching_contact', () => {
+        return (contacts || []).find((a: HaloPSAUser) => {
+          if (body.email && a.emailaddress) {
+            return a.emailaddress.toLowerCase() === body.email.toLowerCase();
+          }
+
+          return false;
+        });
+      });
+
+      if (contact) {
+        Debug.log({
+          module: 'v1.0/ticket/create',
+          context: 'POST',
+          message: `HaloContact found for ${contact.name} (HaloID: ${contact.id})`,
         });
       }
 
@@ -302,7 +339,8 @@ export default async function (fastify: FastifyInstance) {
         summary: body.summary,
         details: body.description || '',
         user: {
-          name: body.name,
+          id: contact?.id,
+          name: contact ? contact.name : body.name,
           email: body.email,
           phone: body.phone,
         },

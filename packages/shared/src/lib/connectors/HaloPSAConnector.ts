@@ -7,6 +7,7 @@ import {
 } from '@workspace/shared/types/integrations/halopsa/index.js';
 import { HaloPSASite } from '@workspace/shared/types/integrations/halopsa/sites.js';
 import { HaloPSANewTicket } from '@workspace/shared/types/integrations/halopsa/tickets.js';
+import { HaloPSAUser } from '@workspace/shared/types/integrations/halopsa/users';
 
 export class HaloPSAConnector {
   constructor(private config: HaloPSAConfig) {}
@@ -135,6 +136,65 @@ export class HaloPSAConnector {
     };
   }
 
+  async getUsers(siteId: string) {
+    type APISchema = HaloPSAPagination & { users: HaloPSAUser[] };
+
+    const { data: token, error: tokenError } = await this.getToken();
+    if (tokenError) return { error: tokenError };
+
+    const params = new URLSearchParams();
+    params.set('cf_display_values_only', 'true');
+    params.set('includeinactive', 'false');
+    params.set('site_id', siteId);
+    params.set('includecolumns', 'false');
+    params.set('showcounts', 'true');
+    params.set('paginate', 'true');
+    params.set('page_size', '50');
+    params.set('page_no', '1');
+
+    const users: HaloPSAUser[] = [];
+
+    const response = await fetch(`${this.config.url}/api/users?${params}`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      return Debug.error({
+        module: 'HaloPSAConnector',
+        context: 'getUsers',
+        message: `HTTP ${response.status}: ${response.statusText}`,
+      });
+    }
+
+    const data: APISchema = await response.json();
+    users.push(...data.users);
+    params.set('page_no', `${data.page_no + 1}`);
+
+    while (users.length < data.record_count) {
+      const refetchResponse = await fetch(`${this.config.url}/api/users?${params}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (refetchResponse.ok) {
+        const refetchData: APISchema = await refetchResponse.json();
+        users.push(...refetchData.users);
+        params.set('page_no', `${refetchData.page_no + 1}`);
+      } else break;
+    }
+
+    return {
+      data: users,
+    };
+  }
+
   async createTicket(ticket: HaloPSANewTicket): Promise<APIResponse<string>> {
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) return { error: tokenError };
@@ -179,6 +239,8 @@ export class HaloPSAConnector {
           priority_id: 4,
           files: null,
           usertype: 1,
+          user_id: ticket.user.id,
+          reportedby: ticket.user.email,
           tickettype_id: 3,
           timerinuse: false,
           itil_tickettype_id: '-1',

@@ -4,6 +4,7 @@ export type HaloPSANewTicket = {
   summary: string;
   details: string;
   user: {
+    id?: number;
     name: string;
     email: string;
     phone: string;
