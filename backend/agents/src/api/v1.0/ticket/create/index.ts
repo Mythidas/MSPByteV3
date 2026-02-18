@@ -239,12 +239,6 @@ export default async function (fastify: FastifyInstance) {
       // Find matching asset
       const asset = perf.trackSpanSync('find_matching_asset', () => {
         return (assets || []).find((a: HaloPSAAsset) => {
-          Debug.log({
-            module: 'v1.0/ticket/create',
-            context: 'POST',
-            message: `Evaluating HaloPSAAsset (HaloAssetID: ${a.id}) (HaloRMMID: ${a.datto_id})`,
-          });
-
           if (body.rmm_id) {
             return a.datto_id === body.rmm_id || a.inventory_number === agent.hostname;
           }
