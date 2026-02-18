@@ -556,41 +556,44 @@ Function CreateSiteConfig
         StrCpy $R9 "Existing settings.json found - checking site_id"
         Call LogWrite
 
-        ; Read the existing file and check site_id
-        ClearErrors
-        FileOpen $8 "$COMMONPROGRAMDATA\${CONFIG_DIR_NAME}\settings.json" r
-        ${If} ${Errors}
-            StrCpy $R9 "WARNING: Could not read existing settings.json"
+        ; Use PowerShell to properly parse JSON and compare site_id
+        StrCpy $R7 "$TEMP\nsis_check_siteid_$$.ps1"
+        FileOpen $R8 $R7 w
+        FileWrite $R8 'try {$\r$\n'
+        FileWrite $R8 '    $$content = Get-Content -Path "$COMMONPROGRAMDATA\${CONFIG_DIR_NAME}\settings.json" -Raw$\r$\n'
+        FileWrite $R8 '    $$config = ConvertFrom-Json -InputObject $$content$\r$\n'
+        FileWrite $R8 '    if ($$config.site_id -eq "$SiteSecret") {$\r$\n'
+        FileWrite $R8 '        Write-Output "SITE_ID_MATCH"$\r$\n'
+        FileWrite $R8 '    } else {$\r$\n'
+        FileWrite $R8 '        Write-Output "SITE_ID_MISMATCH"$\r$\n'
+        FileWrite $R8 '    }$\r$\n'
+        FileWrite $R8 '} catch {$\r$\n'
+        FileWrite $R8 '    Write-Output "SITE_ID_ERROR: $$_"$\r$\n'
+        FileWrite $R8 '}$\r$\n'
+        FileClose $R8
+
+        nsExec::ExecToStack 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$R7"'
+        Pop $R0  ; exit code
+        Pop $R1  ; output
+        Delete $R7
+
+        ; Log the comparison result
+        StrCpy $R9 "site_id check result: $R1"
+        Call LogWrite
+
+        ; Check result
+        ${StrStr} $R3 $R1 "SITE_ID_MATCH"
+
+        ${If} $R3 != ""
+            StrCpy $R9 "site_id matches - merging config (preserving registration data)"
             Call LogWrite
+            Call MergeConfigSettings
+            Return
         ${Else}
-            ; Read file content
-            StrCpy $R1 ""
-            ${DoUntil} ${Errors}
-                FileRead $8 $R2
-                ${If} ${Errors}
-                    ${ExitDo}
-                ${EndIf}
-                StrCpy $R1 "$R1$R2"
-            ${Loop}
-            FileClose $8
-
-            ; Check if the content contains our site_id
-            Push $R1
-            Push '"site_id": "$SiteSecret"'
-            Call StrStrCheck
-            Pop $R3
-
-            ${If} $R3 != ""
-                StrCpy $R9 "site_id matches provided secret - performing composable config merge"
-                Call LogWrite
-
-                Return  ; Exit after successful merge
-            ${Else}
-                StrCpy $R9 "site_id differs from provided secret - will perform complete overwrite"
-                Call LogWrite
-                StrCpy $R9 "WARNING: Device will re-register as new (all registration data will be lost)"
-                Call LogWrite
-            ${EndIf}
+            StrCpy $R9 "site_id differs from provided secret - will perform complete overwrite"
+            Call LogWrite
+            StrCpy $R9 "WARNING: Device will re-register as new (all registration data will be lost)"
+            Call LogWrite
         ${EndIf}
     ${Else}
         StrCpy $R9 "No existing settings.json found - creating fresh config"
@@ -651,35 +654,6 @@ Function CreateSiteConfig
     ${EndIf}
 FunctionEnd
 
-; Helper function to check if string contains substring
-Function StrStrCheck
-    Exch $R0 ; needle
-    Exch
-    Exch $R1 ; haystack
-    Push $R2
-    Push $R3
-
-    StrCpy $R2 0
-    StrLen $R3 $R0
-
-    ${DoUntil} $R2 > 10000  ; Safety limit
-        StrCpy $R4 $R1 $R3 $R2
-        ${If} $R4 == $R0
-            StrCpy $R0 "found"
-            ${ExitDo}
-        ${EndIf}
-        ${If} $R4 == ""
-            StrCpy $R0 ""
-            ${ExitDo}
-        ${EndIf}
-        IntOp $R2 $R2 + 1
-    ${Loop}
-
-    Pop $R3
-    Pop $R2
-    Pop $R1
-    Exch $R0
-FunctionEnd
 
 ; Function: Check Remove Config Data (for uninstall)
 Function un.CheckRemoveConfigData
