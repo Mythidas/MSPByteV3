@@ -136,16 +136,16 @@ export class HaloPSAConnector {
     };
   }
 
-  async getUsers(siteId: string) {
+  async getUser(email?: string): Promise<APIResponse<HaloPSAUser>> {
     type APISchema = HaloPSAPagination & { users: HaloPSAUser[] };
 
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) return { error: tokenError };
 
     const params = new URLSearchParams();
+    if (email) params.set('search', email);
     params.set('cf_display_values_only', 'true');
     params.set('includeinactive', 'false');
-    params.set('site_id', siteId);
     params.set('includecolumns', 'false');
     params.set('showcounts', 'true');
     params.set('paginate', 'true');
@@ -165,33 +165,24 @@ export class HaloPSAConnector {
     if (!response.ok) {
       return Debug.error({
         module: 'HaloPSAConnector',
-        context: 'getUsers',
+        context: 'getUser',
         message: `HTTP ${response.status}: ${response.statusText}`,
       });
     }
 
     const data: APISchema = await response.json();
     users.push(...data.users);
-    params.set('page_no', `${data.page_no + 1}`);
 
-    while (users.length < data.record_count) {
-      const refetchResponse = await fetch(`${this.config.url}/api/users?${params}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+    if (users.length === 0 || !users[0]) {
+      return Debug.error({
+        module: 'HaloPSAConnector',
+        context: 'getUser',
+        message: `No user found`,
       });
-
-      if (refetchResponse.ok) {
-        const refetchData: APISchema = await refetchResponse.json();
-        users.push(...refetchData.users);
-        params.set('page_no', `${refetchData.page_no + 1}`);
-      } else break;
     }
 
     return {
-      data: users,
+      data: users[0]!,
     };
   }
 

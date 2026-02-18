@@ -249,39 +249,11 @@ export default async function (fastify: FastifyInstance) {
       }
 
       // Fetch contacts from PSA using the site mapping external_id
-      const { data: contacts, error: contactError } = await perf.trackSpan(
-        'psa_fetch_contacts',
-        async () => {
-          if (!body.email || !psaSiteId) {
-            return { data: [] };
-          }
-          return await connector.getUsers(psaSiteId);
+      const { data: contact } = await perf.trackSpan('psa_fetch_contact', async () => {
+        if (!body.email) {
+          return { data: undefined };
         }
-      );
-
-      if (contactError || contacts.length === 0) {
-        Debug.log({
-          module: 'v1.0/ticket/create',
-          context: 'psa_fetch_contacts',
-          message: 'Failed to fetch contacts from PSA',
-        });
-      } else {
-        Debug.log({
-          module: 'v1.0/ticket/create',
-          context: 'POST',
-          message: `Found ${contacts?.length || 0} HaloPSAContacts (HaloSiteID: ${psaSiteId})`,
-        });
-      }
-
-      // Find matching asset
-      const contact = perf.trackSpanSync('find_matching_contact', () => {
-        return (contacts || []).find((a: HaloPSAUser) => {
-          if (body.email && a.emailaddress) {
-            return a.emailaddress.toLowerCase() === body.email.toLowerCase();
-          }
-
-          return false;
-        });
+        return await connector.getUser(body.email);
       });
 
       if (contact) {
@@ -340,7 +312,7 @@ export default async function (fastify: FastifyInstance) {
         details: body.description || '',
         user: {
           id: contact?.id,
-          name: contact ? contact.name : body.name,
+          name: contact?.name ? contact.name : body.name,
           email: body.email,
           phone: body.phone,
         },
