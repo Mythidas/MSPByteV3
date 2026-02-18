@@ -205,7 +205,6 @@ export default async function (fastify: FastifyInstance) {
       // Fetch assets from PSA using the site mapping external_id
       const psaSiteId = psaSiteMapping?.external_id;
       const assetResponse = await perf.trackSpan('psa_fetch_assets', async () => {
-        console.log(body.rmm_id, psaSiteId);
         if (!body.rmm_id || !psaSiteId) {
           return { data: [] };
         }
