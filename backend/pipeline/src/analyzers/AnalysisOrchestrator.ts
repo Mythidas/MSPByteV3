@@ -140,6 +140,7 @@ export class AnalysisOrchestrator {
       tickets: entities.filter((e) => e.entity_type === 'ticket'),
       contracts: entities.filter((e) => e.entity_type === 'contract'),
       contract_services: entities.filter((e) => e.entity_type === 'contract_service'),
+      exchange_configs: entities.filter((e) => e.entity_type === 'exchange-config'),
     };
 
     const entityMap = new Map(entities.map((e) => [e.id, e]));

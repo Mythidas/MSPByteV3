@@ -308,7 +308,7 @@ export default function Support() {
               name="urgency"
               render={({ field }) => (
                 <FormItem className="flex flex-col w-full">
-                  <FormLabel>How urgent is your request?</FormLabel>
+                  <FormLabel>Urgency?</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={field.onChange}
@@ -334,7 +334,7 @@ export default function Support() {
               name="impact"
               render={({ field }) => (
                 <FormItem className="flex flex-col w-full">
-                  <FormLabel>How urgent is your request?</FormLabel>
+                  <FormLabel>Who is impacted?</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={field.onChange}

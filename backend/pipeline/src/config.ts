@@ -17,7 +17,8 @@ export type EntityType =
   | 'group'
   | 'role'
   | 'policy'
-  | 'ticket';
+  | 'ticket'
+  | 'exchange-config';
 
 export interface EntityTypeConfig {
   type: EntityType;
@@ -74,6 +75,7 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
       { type: 'license', rateMinutes: 120, priority: 7 },
       { type: 'role', rateMinutes: 60, priority: 5 },
       { type: 'policy', rateMinutes: 60, priority: 5 },
+      { type: 'exchange-config', rateMinutes: 1440, priority: 9 },
     ],
   },
   halopsa: {

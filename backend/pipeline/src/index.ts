@@ -15,6 +15,9 @@ import type { BaseLinker } from './linkers/BaseLinker.js';
 import { SophosAdapter } from './adapters/SophosAdapter.js';
 import { SophosLinker } from './linkers/SophosLinker.js';
 import { SophosAnalyzer } from './analyzers/SophosAnalyzer.js';
+import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
+import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
+import { Microsoft365Analyzer } from './analyzers/Microsoft365Analyzer.js';
 
 /**
  * Pipeline Entry Point
@@ -58,16 +61,22 @@ async function main() {
   const adapters: Partial<Record<IntegrationId, BaseAdapter>> = {
     dattormm: new DattoRMMAdapter(),
     'sophos-partner': new SophosAdapter(),
+    'microsoft-365': new Microsoft365Adapter(),
   };
 
   const linkers: Partial<Record<IntegrationId, BaseLinker>> = {
     dattormm: new DattoRMMLinker(),
     'sophos-partner': new SophosLinker(),
+    'microsoft-365': new Microsoft365Linker(),
   };
 
   // Shared services
   const processor = new EntityProcessor();
-  const orchestrator = new AnalysisOrchestrator([new DattoRMMAnalyzer(), new SophosAnalyzer()]);
+  const orchestrator = new AnalysisOrchestrator([
+    new DattoRMMAnalyzer(),
+    new SophosAnalyzer(),
+    new Microsoft365Analyzer(),
+  ]);
 
   // Create SyncWorker for each (integrationId, entityType) pair
   const workers: SyncWorker[] = [];

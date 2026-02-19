@@ -671,6 +671,7 @@ export type Database = {
           external_id: string
           id: string
           integration_id: string
+          meta: Json
           site_id: string
           tenant_id: string
         }
@@ -679,6 +680,7 @@ export type Database = {
           external_id: string
           id?: string
           integration_id: string
+          meta?: Json
           site_id: string
           tenant_id: string
         }
@@ -687,6 +689,7 @@ export type Database = {
           external_id?: string
           id?: string
           integration_id?: string
+          meta?: Json
           site_id?: string
           tenant_id?: string
         }

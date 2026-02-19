@@ -59,6 +59,7 @@ export interface AnalysisContext {
     tickets: Entity[];
     contracts: Entity[];
     contract_services: Entity[];
+    exchange_configs: Entity[];
   };
 
   relationships: Relationship[];
