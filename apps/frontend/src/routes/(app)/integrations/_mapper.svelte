@@ -6,7 +6,7 @@
   import Button from '$lib/components/ui/button/button.svelte';
   import Input from '$lib/components/ui/input/input.svelte';
   import Label from '$lib/components/ui/label/label.svelte';
-  import MultiSelect from '$lib/components/multi-select.svelte';
+  import SingleSelect from '$lib/components/single-select.svelte';
   import type { Tables } from '@workspace/shared/types/database';
   import { Plus } from 'lucide-svelte';
   import { ORM } from '@workspace/shared/lib/utils/orm';
@@ -33,14 +33,14 @@
     type: 'create';
     siteId: string;
     siteName: string;
-    tenantIds: string[];
+    tenantId: string;
   };
 
   let search = $state('');
   let filter = $state('all');
   let newSiteDialog = $state(false);
   let newSiteName = $state('');
-  let newSiteTenants = $state<string[]>([]);
+  let newSiteTenant = $state('');
   let importAllSites = $state(false);
   let isSaving = $state(false);
 
@@ -60,19 +60,20 @@
   });
 
   // Current selections (mutable state, tracks user modifications)
-  let currentSelections = $state<Map<string, string[]>>(new Map());
+  let currentSelections = $state<Map<string, string>>(new Map());
 
   // Get current selection for a site (falls back to original if not modified)
-  function getSelection(siteId: string): string[] {
+  function getSelection(siteId: string): string {
     if (currentSelections.has(siteId)) {
       return currentSelections.get(siteId)!;
     }
-    return originalMappings.get(siteId) || [];
+    const ids = originalMappings.get(siteId) || [];
+    return ids[0] ?? '';
   }
 
   // Set selection for a site
-  function setSelection(siteId: string, tenantIds: string[]) {
-    currentSelections.set(siteId, [...tenantIds]);
+  function setSelection(siteId: string, tenantId: string) {
+    currentSelections.set(siteId, tenantId);
     currentSelections = new Map(currentSelections);
   }
 
@@ -81,13 +82,10 @@
     // New sites always have pending changes
     if (siteId.startsWith('new-')) return true;
 
-    const original = originalMappings.get(siteId) || [];
+    const original = originalMappings.get(siteId)?.[0] ?? '';
     const current = getSelection(siteId);
 
-    // Compare as sets
-    if (original.length !== current.length) return true;
-    const originalSet = new Set(original);
-    return current.some((id) => !originalSet.has(id));
+    return original !== current;
   }
 
   // Get the type of pending change for a site
@@ -97,11 +95,11 @@
 
     if (!hasPendingChange(siteId)) return null;
 
-    const original = originalMappings.get(siteId) || [];
+    const original = originalMappings.get(siteId)?.[0] ?? '';
     const current = getSelection(siteId);
 
-    if (original.length === 0 && current.length > 0) return 'link';
-    if (original.length > 0 && current.length === 0) return 'unlink';
+    if (!original && current) return 'link';
+    if (original && !current) return 'unlink';
     return 'modify';
   }
 
@@ -114,12 +112,12 @@
       // For new sites, get from pending creates
       if (sid.startsWith('new-')) {
         const pending = pendingCreates.get(sid);
-        if (pending) {
-          pending.tenantIds.forEach((tid) => usedByOthers.add(String(tid)));
+        if (pending && pending.tenantId) {
+          usedByOthers.add(String(pending.tenantId));
         }
       } else {
         const selection = getSelection(sid);
-        selection.forEach((tid) => usedByOthers.add(String(tid)));
+        if (selection) usedByOthers.add(String(selection));
       }
     }
 
@@ -131,10 +129,10 @@
     // Get ALL tenants currently selected by OTHER sites
     const usedByOthers = new Set<string>();
 
-    // Get current site's selection so we can always include them
-    const currentSiteSelection = new Set(
-      siteId.startsWith('new-') ? pendingCreates.get(siteId)?.tenantIds || [] : getSelection(siteId)
-    );
+    // Get current site's selection so we can always include it
+    const currentSiteSelection = siteId.startsWith('new-')
+      ? (pendingCreates.get(siteId)?.tenantId ?? '')
+      : getSelection(siteId);
 
     for (const site of sites) {
       const sid = site.id.toString();
@@ -143,21 +141,20 @@
       // For new sites, get from pending creates
       if (sid.startsWith('new-')) {
         const pending = pendingCreates.get(sid);
-        if (pending) {
-          pending.tenantIds.forEach((tid) => usedByOthers.add(String(tid)));
+        if (pending && pending.tenantId) {
+          usedByOthers.add(String(pending.tenantId));
         }
       } else {
         const selection = getSelection(sid);
-        selection.forEach((tid) => usedByOthers.add(String(tid)));
+        if (selection) usedByOthers.add(String(selection));
       }
     }
 
     // Include tenants that are:
     // 1. Selected by current site (always show these)
     // 2. OR not used by any other site
-    // Convert t.id to string for comparison AND for the option value
     return tenants
-      .filter((t) => currentSiteSelection.has(String(t.id)) || !usedByOthers.has(String(t.id)))
+      .filter((t) => String(t.id) === currentSiteSelection || !usedByOthers.has(String(t.id)))
       .map((t) => ({ value: String(t.id), label: t.name }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }
@@ -197,9 +194,9 @@
       .filter((s) => {
         if (filter === 'all') return true;
         const currentSelection = s.isNew
-          ? pendingCreates.get(s.siteId)?.tenantIds || []
+          ? (pendingCreates.get(s.siteId)?.tenantId ?? '')
           : getSelection(s.siteId);
-        const isLinked = currentSelection.length > 0;
+        const isLinked = currentSelection !== '';
         return filter === 'linked' ? isLinked : !isLinked;
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -208,9 +205,9 @@
   let linkedCount = $derived(
     siteList.filter((s) => {
       const currentSelection = s.isNew
-        ? pendingCreates.get(s.siteId)?.tenantIds || []
+        ? (pendingCreates.get(s.siteId)?.tenantId ?? '')
         : getSelection(s.siteId);
-      return currentSelection.length > 0;
+      return currentSelection !== '';
     }).length
   );
   let unlinkedCount = $derived(sites.length - linkedCount);
@@ -229,42 +226,42 @@
 
   const openCreateSiteDialog = () => {
     newSiteName = '';
-    newSiteTenants = [];
+    newSiteTenant = '';
     newSiteDialog = true;
     importAllSites = false;
   };
 
-  const handleSiteSelection = (siteId: string, tenantIds: string[]) => {
-    setSelection(siteId, tenantIds);
+  const handleSiteSelection = (siteId: string, tenantId: string) => {
+    setSelection(siteId, tenantId);
   };
 
-  const handleNewSiteSelection = (siteId: string, tenantIds: string[]) => {
+  const handleNewSiteSelection = (siteId: string, tenantId: string) => {
     const pending = pendingCreates.get(siteId);
     if (pending) {
-      pending.tenantIds = [...tenantIds];
+      pending.tenantId = tenantId;
       pendingCreates = new Map(pendingCreates);
     }
   };
 
   const handleCreateSite = () => {
     if (importAllSites) {
-      const tenants = getAvailableTenants('new');
+      const availableTenants = getAvailableTenants('new');
 
-      for (const t of tenants) {
-        createSiteHelper(t.label, [t.value.toString()]);
+      for (const t of availableTenants) {
+        createSiteHelper(t.label, t.value.toString());
       }
     } else {
       if (!newSiteName.trim()) return;
 
-      createSiteHelper(newSiteName.trim(), newSiteTenants);
+      createSiteHelper(newSiteName.trim(), newSiteTenant);
     }
 
     newSiteDialog = false;
     newSiteName = '';
-    newSiteTenants = [];
+    newSiteTenant = '';
   };
 
-  const createSiteHelper = (siteName: string, tenantIds: string[]) => {
+  const createSiteHelper = (siteName: string, tenantId: string) => {
     const tempId = `new-${crypto.randomUUID()}`;
 
     // Add to pending creates
@@ -272,7 +269,7 @@
       type: 'create',
       siteId: tempId,
       siteName: siteName.trim(),
-      tenantIds: [...tenantIds],
+      tenantId,
     });
     pendingCreates = new Map(pendingCreates);
 
@@ -362,26 +359,24 @@
       // Links for newly created sites
       for (const [tempId, create] of createEntries) {
         const realSite = tempToReal.get(tempId);
-        if (!realSite || create.tenantIds.length === 0) continue;
-        for (const eId of create.tenantIds) {
-          allNewLinks.push({
-            tenant_id: tenantId,
-            site_id: realSite.id,
-            integration_id: id,
-            external_id: eId,
-          });
-        }
+        if (!realSite || !create.tenantId) continue;
+        allNewLinks.push({
+          tenant_id: tenantId,
+          site_id: realSite.id,
+          integration_id: id,
+          external_id: create.tenantId,
+        });
       }
 
       // Links for existing changed sites
       for (const site of changedExisting) {
         const current = getSelection(site.id.toString());
-        for (const eId of current) {
+        if (current) {
           allNewLinks.push({
             tenant_id: tenantId,
             site_id: site.id,
             integration_id: id,
-            external_id: eId,
+            external_id: current,
           });
         }
       }
@@ -423,13 +418,13 @@
     }
   };
 
-  const handleNewSiteTenantChange = (tenantIds: string[]) => {
-    newSiteTenants = tenantIds;
-    // Prefill site name with first selected tenant's name if name is empty
-    if (tenantIds.length > 0 && newSiteName.length === 0) {
-      const firstTenant = tenants.find((t) => t.id.toString() === tenantIds[0]);
-      if (firstTenant) {
-        newSiteName = firstTenant.name;
+  const handleNewSiteTenantChange = (tenantId: string) => {
+    newSiteTenant = tenantId;
+    // Prefill site name with selected tenant's name if name is empty
+    if (tenantId && newSiteName.length === 0) {
+      const tenant = tenants.find((t) => t.id.toString() === tenantId);
+      if (tenant) {
+        newSiteName = tenant.name;
       }
     }
   };
@@ -443,7 +438,7 @@
       if (siteId.startsWith('new-')) continue;
 
       // Skip sites that already have a selection
-      if (getSelection(siteId).length > 0) continue;
+      if (getSelection(siteId) !== '') continue;
 
       // Find the best matching tenant for this site
       let bestMatch: { tenantId: string; score: number } | null = null;
@@ -470,7 +465,7 @@
 
       // Apply the best match if found
       if (bestMatch) {
-        setSelection(siteId, [bestMatch.tenantId]);
+        setSelection(siteId, bestMatch.tenantId);
         matchedTenants.add(bestMatch.tenantId);
       }
     }
@@ -523,7 +518,7 @@
   <div class="flex flex-col size-full gap-2 pr-2 overflow-auto">
     {#each filtered as site}
       {@const currentSelection = site.isNew
-        ? pendingCreates.get(site.siteId)?.tenantIds || []
+        ? (pendingCreates.get(site.siteId)?.tenantId ?? '')
         : getSelection(site.siteId)}
       <div
         class="flex items-center justify-between gap-3 border shadow-sm rounded-lg px-4 py-3 transition-all hover:shadow-md"
@@ -544,10 +539,10 @@
             </Button>
           {/if}
           <div class="flex flex-1 min-w-0">
-            <MultiSelect
+            <SingleSelect
               options={getAvailableTenants(site.siteId)}
               selected={currentSelection}
-              placeholder="Select tenants..."
+              placeholder="Select tenant..."
               searchPlaceholder="Search tenants..."
               onchange={(newSelection) =>
                 site.isNew
@@ -579,7 +574,7 @@
     <Dialog.Header>
       <Dialog.Title>Create New Site</Dialog.Title>
       <Dialog.Description>
-        Create a new site and optionally link it to integration tenants.
+        Create a new site and optionally link it to an integration tenant.
       </Dialog.Description>
     </Dialog.Header>
     <div class="flex flex-col gap-4 py-4">
@@ -596,11 +591,11 @@
           />
         </div>
         <div class="flex flex-col gap-2">
-          <Label>Link to Tenants (Optional)</Label>
-          <MultiSelect
+          <Label>Link to Tenant (Optional)</Label>
+          <SingleSelect
             options={getAvailableTenants('new')}
-            selected={newSiteTenants}
-            placeholder="Select tenants..."
+            selected={newSiteTenant}
+            placeholder="Select tenant..."
             searchPlaceholder="Search tenants..."
             onchange={handleNewSiteTenantChange}
           />
@@ -619,7 +614,7 @@
         onclick={() => {
           newSiteDialog = false;
           newSiteName = '';
-          newSiteTenants = [];
+          newSiteTenant = '';
         }}
       >
         Cancel
