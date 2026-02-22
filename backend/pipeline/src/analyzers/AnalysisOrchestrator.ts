@@ -1,6 +1,6 @@
 import { getSupabase } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
 import type { IntegrationId } from '../config.js';
 import type {
@@ -35,11 +35,10 @@ export class AnalysisOrchestrator {
     ctx: SyncContext,
     tracker: PipelineTracker,
   ): Promise<void> {
-    Logger.log({
+    Logger.info({
       module: 'AnalysisOrchestrator',
       context: 'analyze',
       message: `Starting analysis for ${ctx.integrationId}`,
-      level: 'info',
     });
 
     // Load context using shared SyncContext (avoids re-SELECTs)
@@ -48,21 +47,19 @@ export class AnalysisOrchestrator {
     });
 
     const totalEntities = Object.values(context.entities).flat().length;
-    Logger.log({
+    Logger.trace({
       module: 'AnalysisOrchestrator',
       context: 'analyze',
       message: `Loaded context: ${totalEntities} entities, ${context.relationships.length} relationships`,
-      level: 'trace',
     });
 
     const matchedAnalyzers = this.analyzers.filter((a) => a.getName() === ctx.integrationId);
 
     if (matchedAnalyzers.length === 0) {
-      Logger.log({
+      Logger.trace({
         module: 'AnalysisOrchestrator',
         context: 'analyze',
         message: `No analyzers registered for ${ctx.integrationId}, skipping analysis`,
-        level: 'trace',
       });
       return;
     }
@@ -72,19 +69,17 @@ export class AnalysisOrchestrator {
       matchedAnalyzers.map(async (analyzer) => {
         try {
           const result = await analyzer.analyze(context);
-          Logger.log({
+          Logger.trace({
             module: 'AnalysisOrchestrator',
             context: 'analyze',
             message: `${analyzer.getName()}: ${result.alerts.length} alerts, ${result.entityTags.size} tagged, ${result.entityStates.size} states`,
-            level: 'trace',
           });
           return result;
         } catch (error) {
-          Logger.log({
+          Logger.error({
             module: 'AnalysisOrchestrator',
             context: 'analyze',
             message: `${analyzer.getName()} failed: ${error}`,
-            level: 'error',
           });
           throw error;
         }
@@ -113,11 +108,10 @@ export class AnalysisOrchestrator {
       ctx.siteId,
     );
 
-    Logger.log({
+    Logger.info({
       module: 'AnalysisOrchestrator',
       context: 'analyze',
       message: `Analysis complete for ${ctx.integrationId}`,
-      level: 'info',
     });
   }
 
@@ -248,11 +242,10 @@ export class AnalysisOrchestrator {
       }
     }
 
-    Logger.log({
+    Logger.trace({
       module: 'AnalysisOrchestrator',
       context: 'batchApplyStates',
       message: `Applied state changes to ${states.size} entities (${byState.size} batched UPDATEs)`,
-      level: 'trace',
     });
   }
 }

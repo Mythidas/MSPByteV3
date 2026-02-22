@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Debug, APIResponse } from '@workspace/shared/lib/utils/debug';
+import { Logger, APIResponse } from '@workspace/shared/lib/utils/logger';
 
 export async function getRegistryValue(path: string, key: string): Promise<APIResponse<string>> {
   try {
@@ -13,7 +13,7 @@ export async function getRegistryValue(path: string, key: string): Promise<APIRe
       data: result,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'Registry',
       context: 'getRegistryKey',
       message: `Failed to get registry value: ${err}`,

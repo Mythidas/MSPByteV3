@@ -119,10 +119,22 @@
         </a>
       {/each}
 
-      <!-- Site picker -->
-      {#if activeModule && data.sites.length > 0}
-        <div class="mx-1 h-5 w-px bg-border"></div>
-        <SitePicker sites={data.sites} groups={data.groups} />
+      <!-- Site/context picker -->
+      {#if activeModule}
+        {@const pickerTypes = activeModule.pickerTypes ?? ['site', 'group', 'parent']}
+        {@const showPicker =
+          pickerTypes.includes('connection')
+            ? data.connections.length > 0
+            : data.sites.length > 0}
+        {#if showPicker}
+          <div class="mx-1 h-5 w-px bg-border"></div>
+          <SitePicker
+            sites={data.sites}
+            groups={data.groups}
+            connections={data.connections}
+            {pickerTypes}
+          />
+        {/if}
       {/if}
 
       <!-- Spacer -->

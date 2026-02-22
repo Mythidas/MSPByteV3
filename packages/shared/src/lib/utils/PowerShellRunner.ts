@@ -44,11 +44,7 @@ export class PowerShellRunner {
 
       ps.on('close', (code: number | null) => {
         if (code !== 0) {
-          reject(
-            new Error(
-              `PowerShell exited with code ${code}. stderr: ${stderr.slice(0, 500)}`,
-            ),
-          );
+          reject(new Error(`PowerShell exited with code ${code}. stderr: ${stderr.slice(0, 500)}`));
           return;
         }
 
@@ -76,7 +72,7 @@ export class PowerShellRunner {
     clientId: string,
     certPem: string,
     organization: string,
-    cmdlet: string,
+    cmdlet: string
   ): Promise<any> {
     // Write the PEM to a temp file using [System.IO.Path]::GetTempFileName() in PS
     // to avoid passing secrets via args or env beyond what's needed
@@ -88,8 +84,11 @@ $certPath = [System.IO.Path]::GetTempFileName() + '.pem'
 [System.IO.File]::WriteAllText($certPath, $env:PS_PARAM_CERT_PEM)
 
 try {
+  $pemContent = Get-Content $certPath -Raw
+
   $cert = [System.Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem(
-    (Get-Content $certPath -Raw)
+    $pemContent,    # certPem
+    $pemContent     # keyPem — .NET will extract the key block from here
   )
 
   Connect-ExchangeOnline \`

@@ -1,4 +1,15 @@
-import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
+import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
+import { MSGraphGroup } from '@workspace/shared/types/integrations/microsoft/groups';
+import { MSGraphIdentity } from '@workspace/shared/types/integrations/microsoft/identity';
+import { MSGraphSubscribedSku } from '@workspace/shared/types/integrations/microsoft/licenses';
+import { MSGraphConditionalAccessPolicy } from '@workspace/shared/types/integrations/microsoft/policies';
+import { MSGraphRole } from '@workspace/shared/types/integrations/microsoft/roles';
+import {
+  applyFilters,
+  type ConnectorFilters,
+  type FilterClause,
+  type FieldFilter,
+} from '@workspace/shared/types/connector';
 
 export interface Microsoft365Config {
   tenantId: string;
@@ -25,7 +36,7 @@ export class Microsoft365Connector {
       if (error) return { error };
       return { data: !!token };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'checkHealth',
         message: String(err),
@@ -41,17 +52,30 @@ export class Microsoft365Connector {
     return new Microsoft365Connector(this.config, customerTenantId);
   }
 
-  async getIdentities(options: {
-    domains: string[];
-    cursor?: string;
-  }): Promise<APIResponse<{ identities: any[]; next?: string }>> {
+  /**
+   * Fetches identities from the Graph API.
+   *
+   * Filter translation:
+   * - Supported ops (eq, neq, contains, startsWith, in, lt, gt, lte, gte) → OData $filter server-side
+   * - `endsWith` → post-filter in-memory (Graph doesn't support it in $filter)
+   * - `or` with any untranslatable sub-clause → post-filter in-memory
+   * - `cursor` → used as the full nextLink URL for pagination
+   */
+  async getIdentities(
+    filters?: ConnectorFilters<MSGraphIdentity>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ identities: MSGraphIdentity[]; next?: string }>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
 
       const url =
-        options.cursor ||
-        'https://graph.microsoft.com/v1.0/users?$top=999&$select=id,displayName,userPrincipalName,mail,accountEnabled,createdDateTime,signInActivity,assignedLicenses,assignedPlans';
+        filters?.cursor ?? this.makeGraphURL('https://graph.microsoft.com/v1.0/users', filters);
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { identities: values } };
+      }
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
@@ -61,16 +85,7 @@ export class Microsoft365Connector {
         throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
 
       const json = await response.json();
-      const allUsers = json.value || [];
-
-      const identities =
-        options.domains.length > 0
-          ? allUsers.filter((u: any) =>
-              options.domains.some((d) =>
-                u.userPrincipalName?.toLowerCase().endsWith(d.toLowerCase())
-              )
-            )
-          : allUsers;
+      const identities: MSGraphIdentity[] = json.value || [];
 
       return {
         data: {
@@ -79,7 +94,7 @@ export class Microsoft365Connector {
         },
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getIdentities',
         message: String(err),
@@ -87,14 +102,14 @@ export class Microsoft365Connector {
     }
   }
 
-  async getGroups(): Promise<APIResponse<any[]>> {
+  async getGroups(): Promise<APIResponse<MSGraphGroup[]>> {
     try {
       const items = await this.getAllPaged(
         'https://graph.microsoft.com/v1.0/groups?$top=999&$select=id,displayName,description,groupTypes,mailEnabled,securityEnabled,membershipRule'
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getGroups',
         message: String(err),
@@ -105,11 +120,11 @@ export class Microsoft365Connector {
   async getGroupMembers(groupId: string): Promise<APIResponse<any[]>> {
     try {
       const items = await this.getAllPaged(
-        `https://graph.microsoft.com/v1.0/groups/${groupId}/members?$select=id,displayName,userPrincipalName,@odata.type`
+        `https://graph.microsoft.com/v1.0/groups/${groupId}/members?$select=id,displayName,userPrincipalName`
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getGroupMembers',
         message: String(err),
@@ -120,11 +135,11 @@ export class Microsoft365Connector {
   async getGroupMemberOf(groupId: string): Promise<APIResponse<any[]>> {
     try {
       const items = await this.getAllPaged(
-        `https://graph.microsoft.com/v1.0/groups/${groupId}/memberOf?$select=id,displayName,@odata.type`
+        `https://graph.microsoft.com/v1.0/groups/${groupId}/memberOf?$select=id,displayName`
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getGroupMemberOf',
         message: String(err),
@@ -132,7 +147,7 @@ export class Microsoft365Connector {
     }
   }
 
-  async getSubscribedSkus(): Promise<APIResponse<any[]>> {
+  async getSubscribedSkus(): Promise<APIResponse<MSGraphSubscribedSku[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -146,7 +161,7 @@ export class Microsoft365Connector {
       const json = await response.json();
       return { data: json.value || [] };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getSubscribedSkus',
         message: String(err),
@@ -154,14 +169,14 @@ export class Microsoft365Connector {
     }
   }
 
-  async getRoles(): Promise<APIResponse<any[]>> {
+  async getRoles(): Promise<APIResponse<MSGraphRole[]>> {
     try {
       const items = await this.getAllPaged(
         'https://graph.microsoft.com/v1.0/directoryRoles?$select=id,displayName,description,roleTemplateId'
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getRoles',
         message: String(err),
@@ -172,11 +187,11 @@ export class Microsoft365Connector {
   async getRoleMembers(roleId: string): Promise<APIResponse<any[]>> {
     try {
       const items = await this.getAllPaged(
-        `https://graph.microsoft.com/v1.0/directoryRoles/${roleId}/members?$select=id,displayName,userPrincipalName,@odata.type`
+        `https://graph.microsoft.com/v1.0/directoryRoles/${roleId}/members?$select=id,displayName,userPrincipalName`
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getRoleMembers',
         message: String(err),
@@ -184,7 +199,7 @@ export class Microsoft365Connector {
     }
   }
 
-  async getConditionalAccessPolicies(): Promise<APIResponse<any[]>> {
+  async getConditionalAccessPolicies(): Promise<APIResponse<MSGraphConditionalAccessPolicy[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -199,7 +214,7 @@ export class Microsoft365Connector {
       const json = await response.json();
       return { data: json.value || [] };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getConditionalAccessPolicies',
         message: String(err),
@@ -222,7 +237,7 @@ export class Microsoft365Connector {
       const json = await response.json();
       return { data: json.isEnabled === true };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getSecurityDefaultsEnabled',
         message: String(err),
@@ -241,7 +256,7 @@ export class Microsoft365Connector {
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getTenantDomains',
         message: String(err),
@@ -260,9 +275,103 @@ export class Microsoft365Connector {
       );
       return { data: items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getGDAPCustomers',
+        message: String(err),
+      });
+    }
+  }
+
+  /**
+   * Checks whether the enterprise app (service principal) exists in the target tenant.
+   * Used to determine if admin consent has been granted for a GDAP customer tenant.
+   */
+  async checkServicePrincipalExists(): Promise<APIResponse<boolean>> {
+    try {
+      const { data: token, error } = await this.getToken();
+      if (error) return { data: false };
+
+      const url = `https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '${this.config.clientId}'&$count=true`;
+      const response = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ConsistencyLevel: 'eventual',
+        },
+      });
+
+      if (!response.ok) return { data: false };
+
+      const json = await response.json();
+      return { data: (json.value?.length ?? 0) > 0 };
+    } catch {
+      return { data: false };
+    }
+  }
+
+  /**
+   * Returns the Object ID of the app's service principal in the target tenant, or null if not found.
+   */
+  async getServicePrincipalId(): Promise<APIResponse<string | null>> {
+    try {
+      const { data: token, error } = await this.getToken();
+      if (error) return { error };
+
+      const url = `https://graph.microsoft.com/v1.0/servicePrincipals?$filter=appId eq '${this.config.clientId}'&$select=id&$count=true`;
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: 'eventual' },
+      });
+
+      if (!response.ok) throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: json.value?.[0]?.id ?? null };
+    } catch (err) {
+      return Logger.error({
+        module: 'Microsoft365Connector',
+        context: 'getServicePrincipalId',
+        message: String(err),
+      });
+    }
+  }
+
+  /**
+   * Assigns a directory role to a service principal via the unified RBAC API.
+   * Returns true on success, false if the assignment already exists (409/400 treated as success).
+   * Requires RoleManagement.ReadWrite.Directory.
+   */
+  async assignDirectoryRole(
+    principalId: string,
+    roleDefinitionId: string
+  ): Promise<APIResponse<boolean>> {
+    try {
+      const { data: token, error } = await this.getToken();
+      if (error) return { error };
+
+      const response = await fetch(
+        'https://graph.microsoft.com/v1.0/roleManagement/directory/roleAssignments',
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            '@odata.type': '#microsoft.graph.unifiedRoleAssignment',
+            roleDefinitionId,
+            principalId,
+            directoryScopeId: '/',
+          }),
+        }
+      );
+
+      // 409/400 = already assigned — treat as success
+      if (response.ok || response.status === 409 || response.status === 400) {
+        return { data: true };
+      }
+
+      throw new Error(`${response.status} ${response.statusText}`);
+    } catch (err) {
+      return Logger.error({
+        module: 'Microsoft365Connector',
+        context: 'assignDirectoryRole',
         message: String(err),
       });
     }
@@ -289,28 +398,12 @@ export class Microsoft365Connector {
 
     try {
       const url = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-      let body: URLSearchParams;
-
-      if (this.config.refreshToken) {
-        // Delegated flow: use refresh_token grant for both MSP and customer tenants.
-        // This works across GDAP-managed tenants without creating an Enterprise App
-        // in each customer tenant.
-        body = new URLSearchParams({
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-          grant_type: 'refresh_token',
-          refresh_token: this.config.refreshToken,
-          scope: 'https://graph.microsoft.com/.default offline_access',
-        });
-      } else {
-        // Fallback: client_credentials (direct mode or partner without stored refresh_token)
-        body = new URLSearchParams({
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-          scope: 'https://graph.microsoft.com/.default',
-          grant_type: 'client_credentials',
-        });
-      }
+      const body = new URLSearchParams({
+        client_id: this.config.clientId,
+        client_secret: this.config.clientSecret,
+        scope: 'https://graph.microsoft.com/.default',
+        grant_type: 'client_credentials',
+      });
 
       const response = await fetch(url, {
         method: 'POST',
@@ -325,18 +418,11 @@ export class Microsoft365Connector {
       const json = await response.json();
       const token = json.access_token as string;
       const expiration = new Date(Date.now() + (json.expires_in - 300) * 1000);
-
       this.tokenCache.set(tenantId, { token, expiration });
-
-      // Notify caller if Microsoft rotated the refresh token
-      if (json.refresh_token && json.refresh_token !== this.config.refreshToken) {
-        this.config.refreshToken = json.refresh_token;
-        this.config.onRefreshToken?.(json.refresh_token);
-      }
 
       return { data: token };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'Microsoft365Connector',
         context: 'getToken',
         message: String(err),
@@ -365,5 +451,85 @@ export class Microsoft365Connector {
     }
 
     return items;
+  }
+
+  private genWhereClause = <T>(clause: FilterClause<T>): string | null => {
+    if ('and' in clause) {
+      const parts = clause.and.map(this.genWhereClause).filter((s): s is string => s !== null);
+      if (parts.length === 0) return null;
+      if (parts.length === 1) return parts[0];
+      return `(${parts.join(' and ')})`;
+    }
+    if ('or' in clause) {
+      const parts = clause.or.map(this.genWhereClause);
+      if (parts.some((p) => p === null)) return null;
+      if (parts.length === 0) return null;
+      if (parts.length === 1) return parts[0];
+      return `(${(parts as string[]).join(' or ')})`;
+    }
+
+    const { field, op, value } = clause as FieldFilter<MSGraphIdentity>;
+    const f = String(field);
+    switch (op) {
+      case 'eq':
+        return `${f} eq ${this.formatODataValue(value)}`;
+      case 'neq':
+        return `${f} ne ${this.formatODataValue(value)}`;
+      case 'contains':
+        return `contains(${f}, ${this.formatODataValue(value)})`;
+      case 'startsWith':
+        return `startsWith(${f}, ${this.formatODataValue(value)})`;
+      case 'endsWith':
+        return `endsWith(${f}, ${this.formatODataValue(value)})`;
+      case 'in':
+        return `${f} in (${(value as unknown[]).map(this.formatODataValue).join(', ')})`;
+      case 'lt':
+        return `${f} lt ${this.formatODataValue(value)}`;
+      case 'gt':
+        return `${f} gt ${this.formatODataValue(value)}`;
+      case 'lte':
+        return `${f} le ${this.formatODataValue(value)}`;
+      case 'gte':
+        return `${f} ge ${this.formatODataValue(value)}`;
+      default:
+        return null;
+    }
+  };
+
+  private makeGraphURL = <T>(base: string, filters?: ConnectorFilters<T>): string => {
+    const params = new URLSearchParams();
+    params.set('$top', String(filters?.limit ?? 999));
+
+    if (filters?.select) {
+      params.set('$select', (filters.select as unknown as string[]).join(','));
+    } else {
+      params.set(
+        '$select',
+        'id,displayName,userPrincipalName,mail,accountEnabled,createdDateTime,signInActivity,assignedLicenses,assignedPlans'
+      );
+    }
+
+    if (filters?.where?.length) {
+      const clauses = filters.where
+        .map((c) => this.genWhereClause(c))
+        .filter((s): s is string => s !== null);
+      if (clauses.length > 0) {
+        params.set('$filter', clauses.join(' and '));
+      }
+    }
+
+    if (filters?.sort) {
+      params.set('$orderby', `${String(filters.sort.field)} ${filters.sort.direction}`);
+    }
+
+    return `${base}?${params.toString()}`;
+  };
+
+  private formatODataValue(value: unknown): string {
+    if (value === null || value === undefined) return 'null';
+    if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+    if (typeof value === 'number') return String(value);
+    if (typeof value === 'boolean') return String(value);
+    return `'${String(value)}'`;
   }
 }

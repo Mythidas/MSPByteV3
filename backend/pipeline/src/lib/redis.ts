@@ -20,40 +20,36 @@ export function getRedisConnection(): Redis {
       maxRetriesPerRequest: null,
       retryStrategy: (times: number) => {
         const delay = Math.min(times * 50, 2000);
-        Logger.log({
+        Logger.warn({
           module: 'Redis',
           context: 'connection',
           message: `Retry attempt ${times}`,
-          level: 'warn',
         });
         return delay;
       },
     });
 
     client.on('connect', () => {
-      Logger.log({
+      Logger.info({
         module: 'Redis',
         context: 'connection',
         message: 'Connected successfully',
-        level: 'info',
       });
     });
 
     client.on('error', (err: Error) => {
-      Logger.log({
+      Logger.error({
         module: 'Redis',
         context: 'connection',
         message: `Error: ${err.message}`,
-        level: 'error',
       });
     });
 
     client.on('close', () => {
-      Logger.log({
+      Logger.warn({
         module: 'Redis',
         context: 'connection',
         message: 'Connection closed',
-        level: 'warn',
       });
     });
   }
@@ -65,11 +61,10 @@ export async function disconnectRedis(): Promise<void> {
   if (client) {
     await client.quit();
     client = null;
-    Logger.log({
+    Logger.info({
       module: 'Redis',
       context: 'disconnect',
       message: 'Disconnected',
-      level: 'info',
     });
   }
 }

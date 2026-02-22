@@ -1,6 +1,6 @@
 import { getSupabase } from '../supabase.js';
 import { queueManager, QueueNames } from '../lib/queue.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { INTEGRATION_CONFIGS, type IntegrationId, type EntityType } from '../config.js';
 import type { SyncJobData } from '../types.js';
 import { Tables } from '@workspace/shared/types/database.js';
@@ -19,11 +19,10 @@ export class JobScheduler {
   private lastCleanupAt = 0;
 
   start(): void {
-    Logger.log({
+    Logger.info({
       module: 'JobScheduler',
       context: 'start',
       message: `Starting scheduler (polling every ${POLL_INTERVAL_MS}ms)`,
-      level: 'info',
     });
 
     this.pollTimer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
@@ -35,11 +34,10 @@ export class JobScheduler {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
-    Logger.log({
+    Logger.info({
       module: 'JobScheduler',
       context: 'stop',
       message: 'Scheduler stopped',
-      level: 'info',
     });
   }
 
@@ -59,22 +57,20 @@ export class JobScheduler {
         .limit(20);
 
       if (error) {
-        Logger.log({
+        Logger.error({
           module: 'JobScheduler',
           context: 'poll',
           message: `Error polling sync_jobs: ${error.message}`,
-          level: 'error',
         });
         return;
       }
 
       if (!pendingJobs || pendingJobs.length === 0) return;
 
-      Logger.log({
+      Logger.trace({
         module: 'JobScheduler',
         context: 'poll',
         message: `Found ${pendingJobs.length} pending jobs`,
-        level: 'trace',
       });
 
       for (const job of pendingJobs) {
@@ -87,11 +83,10 @@ export class JobScheduler {
         await JobScheduler.cleanupOldJobs();
       }
     } catch (err) {
-      Logger.log({
+      Logger.error({
         module: 'JobScheduler',
         context: 'poll',
         message: `Poll error: ${err}`,
-        level: 'error',
       });
     } finally {
       this.isPolling = false;
@@ -105,22 +100,20 @@ export class JobScheduler {
 
     const config = INTEGRATION_CONFIGS[integrationId];
     if (!config) {
-      Logger.log({
+      Logger.warn({
         module: 'JobScheduler',
         context: 'dispatchJob',
         message: `Unknown integration: ${integrationId}`,
-        level: 'warn',
       });
       return;
     }
 
     // Require entity_type — no fan-out from null
     if (!entityType) {
-      Logger.log({
+      Logger.warn({
         module: 'JobScheduler',
         context: 'dispatchJob',
         message: `Skipping sync_job ${syncJob.id}: entity_type is required`,
-        level: 'warn',
       });
       return;
     }
@@ -145,6 +138,7 @@ export class JobScheduler {
       syncId: syncJob.sync_id,
       syncJobId: syncJob.id,
       siteId: syncJob.site_id,
+      connectionId: syncJob.connection_id ?? null,
     };
 
     // Idempotent dispatch via jobId
@@ -153,11 +147,10 @@ export class JobScheduler {
       jobId: String(syncJob.id),
     });
 
-    Logger.log({
+    Logger.info({
       module: 'JobScheduler',
       context: 'dispatchJob',
       message: `Dispatched ${integrationId}:${entityType} → BullMQ job ${bullmqJob.id}`,
-      level: 'info',
     });
 
     // Update sync_job status to 'queued'
@@ -185,11 +178,10 @@ export class JobScheduler {
       .in('status', ['running', 'queued']);
 
     if (error) {
-      Logger.log({
+      Logger.error({
         module: 'JobScheduler',
         context: 'recoverStuckJobs',
         message: `Error finding stuck jobs: ${error.message}`,
-        level: 'error',
       });
       return 0;
     }
@@ -202,11 +194,10 @@ export class JobScheduler {
       .update({ status: 'pending', updated_at: new Date().toISOString() })
       .in('id', ids);
 
-    Logger.log({
+    Logger.info({
       module: 'JobScheduler',
       context: 'recoverStuckJobs',
       message: `Recovered ${ids.length} stuck jobs (reset to pending)`,
-      level: 'info',
     });
 
     return ids.length;
@@ -228,22 +219,20 @@ export class JobScheduler {
       .select('id');
 
     if (error) {
-      Logger.log({
+      Logger.error({
         module: 'JobScheduler',
         context: 'cleanupOldJobs',
         message: `Error cleaning up old jobs: ${error.message}`,
-        level: 'error',
       });
       return 0;
     }
 
     const count = data?.length ?? 0;
     if (count > 0) {
-      Logger.log({
+      Logger.info({
         module: 'JobScheduler',
         context: 'cleanupOldJobs',
         message: `Cleaned up ${count} old sync_jobs (older than ${JOB_RETENTION_DAYS} days)`,
-        level: 'info',
       });
     }
 
@@ -257,7 +246,8 @@ export class JobScheduler {
     tenantId: string,
     integrationId: IntegrationId,
     entityType: EntityType,
-    siteId?: string | null
+    siteId?: string | null,
+    connectionId?: string | null,
   ): Promise<void> {
     const config = INTEGRATION_CONFIGS[integrationId];
     if (!config) return;
@@ -277,13 +267,51 @@ export class JobScheduler {
       trigger: 'scheduled',
       scheduled_for: scheduledFor,
       site_id: siteId || null,
+      connection_id: connectionId || null,
     });
 
-    Logger.log({
+    Logger.info({
       module: 'JobScheduler',
       context: 'scheduleNextSync',
-      message: `Scheduled next ${integrationId}:${typeConfig.type}${siteId ? ` (site ${siteId})` : ''} in ${typeConfig.rateMinutes}m`,
-      level: 'info',
+      message: `Scheduled next ${integrationId}:${typeConfig.type}${siteId ? ` (site ${siteId})` : ''}${connectionId ? ` (connection ${connectionId})` : ''} in ${typeConfig.rateMinutes}m`,
+    });
+  }
+
+  /**
+   * Enqueues immediate sync jobs for all entity types of a given integration,
+   * scoped to a specific connection (GDAP tenant).
+   */
+  static async scheduleConnectionSync(
+    tenantId: string,
+    integrationId: IntegrationId,
+    connectionId: string,
+  ): Promise<void> {
+    const config = INTEGRATION_CONFIGS[integrationId];
+    if (!config) return;
+
+    const supabase = getSupabase();
+    const now = new Date().toISOString();
+
+    await Promise.all(
+      config.supportedTypes.map(({ type, priority }) =>
+        supabase.from('sync_jobs').insert({
+          tenant_id: tenantId,
+          integration_id: integrationId,
+          entity_type: type,
+          status: 'pending',
+          priority,
+          trigger: 'manual',
+          scheduled_for: now,
+          site_id: null,
+          connection_id: connectionId,
+        }),
+      ),
+    );
+
+    Logger.info({
+      module: 'JobScheduler',
+      context: 'scheduleConnectionSync',
+      message: `Enqueued ${config.supportedTypes.length} initial sync jobs for ${integrationId} connection ${connectionId}`,
     });
   }
 }

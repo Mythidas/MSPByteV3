@@ -13,7 +13,7 @@ import {
 import { listen } from '@tauri-apps/api/event';
 import { fetch } from '@tauri-apps/plugin-http';
 import { getSettings, getRmmId } from '@/lib/agent.ts';
-import { APIResponse } from '@workspace/shared/lib/utils/debug';
+import { APIResponse } from '@workspace/shared/lib/utils/logger';
 import { hideWindow, showWindow } from '@/lib/window.ts';
 import {
   Form,

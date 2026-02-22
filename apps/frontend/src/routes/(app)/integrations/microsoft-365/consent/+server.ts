@@ -1,11 +1,15 @@
 import { redirect } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET } from '$env/static/private';
-import { PUBLIC_ORIGIN } from '$env/static/public';
-import { Encryption } from '$lib/server/encryption';
+import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
+import { Microsoft365RoleManager } from '@workspace/shared/lib/services/microsoft/RoleManager';
+import { REQUIRED_DIRECTORY_ROLES } from '@workspace/shared/config/microsoft';
+import { Logger } from '@workspace/shared/lib/utils/logger';
+import { writeAuditLog, writeDiagnosticLog } from '@workspace/shared/lib/utils/audit';
+import { safeErrorMessage } from '@workspace/shared/lib/utils/errors';
+import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-  const code = url.searchParams.get('code');
+  const msTenantId = url.searchParams.get('tenant');
   const stateRaw = url.searchParams.get('state');
   const errorParam = url.searchParams.get('error');
 
@@ -14,62 +18,74 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     return redirect(302, `/integrations/microsoft-365?error=${encodeURIComponent(desc)}`);
   }
 
-  if (!code || !stateRaw) {
+  if (!msTenantId || !stateRaw) {
     return redirect(302, '/integrations/microsoft-365?error=missing_params');
   }
 
-  let state: { mspbyteTenantId?: string };
+  let state: { mspbyteTenantId?: string; gdapTenantId?: string };
   try {
     state = JSON.parse(stateRaw);
   } catch {
     return redirect(302, '/integrations/microsoft-365?error=invalid_state');
   }
 
-  if (!state.mspbyteTenantId) {
-    return redirect(302, '/integrations/microsoft-365?error=missing_tenant');
-  }
-
-  // CSRF check: state tenant must match the logged-in user's tenant
   if (state.mspbyteTenantId !== locals.user?.tenant_id) {
     return redirect(302, '/integrations/microsoft-365?error=state_mismatch');
   }
 
-  // Exchange auth code for tokens
-  const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: MICROSOFT_CLIENT_ID,
-      client_secret: MICROSOFT_CLIENT_SECRET,
-      code,
-      grant_type: 'authorization_code',
-      redirect_uri: `${PUBLIC_ORIGIN}/integrations/microsoft-365/consent`,
-      scope: 'openid offline_access https://graph.microsoft.com/.default',
-    }).toString(),
-  });
+  if (state.gdapTenantId) {
+    // Customer tenant GDAP consent — assign required directory roles then redirect
+    const connector = new Microsoft365Connector({
+      tenantId: msTenantId,
+      clientId: MICROSOFT_CLIENT_ID,
+      clientSecret: MICROSOFT_CLIENT_SECRET,
+      mode: 'partner',
+    }).forTenant(state.gdapTenantId);
 
-  if (!tokenRes.ok) {
-    return redirect(302, '/integrations/microsoft-365?error=token_exchange_failed');
-  }
+    const roleManager = new Microsoft365RoleManager(connector);
+    const { assigned, failed } = await roleManager.ensureDirectoryRoles(REQUIRED_DIRECTORY_ROLES);
 
-  const tokens = await tokenRes.json();
-  const refreshToken: string = tokens.refresh_token;
+    if (assigned.length > 0) {
+      Logger.info({
+        module: 'consent',
+        context: 'ensureDirectoryRoles',
+        message: `Assigned [${assigned.join(', ')}] to ${state.gdapTenantId}`,
+      });
+    }
+    if (failed.length > 0) {
+      Logger.warn({
+        module: 'consent',
+        context: 'ensureDirectoryRoles',
+        message: `Failed to assign [${failed.join(', ')}] to ${state.gdapTenantId}`,
+      });
+      await writeDiagnosticLog(locals.supabase, {
+        tenant_id: state.mspbyteTenantId!,
+        level: 'warn',
+        module: 'consent',
+        context: 'ensureDirectoryRoles',
+        message: `Failed to assign roles [${failed.join(', ')}] to ${state.gdapTenantId}`,
+        meta: { failed, gdapTenantId: state.gdapTenantId },
+      });
+    }
 
-  if (!refreshToken) {
-    return redirect(302, '/integrations/microsoft-365?error=no_refresh_token');
-  }
+    // Write audit log for role assignment result
+    await writeAuditLog(locals.supabase, {
+      tenant_id: state.mspbyteTenantId!,
+      actor: 'system',
+      action: 'role_assigned',
+      target_type: 'integration_connection',
+      target_id: state.gdapTenantId,
+      result: failed.length === 0 ? 'success' : assigned.length > 0 ? 'success' : 'failure',
+      detail: { assigned, failed, gdapTenantId: state.gdapTenantId },
+    });
 
-  // Extract MSP tenant ID from the id_token JWT (middle segment, base64url-decode)
-  let msEntraTenantId: string;
-  try {
-    const idTokenPayload = JSON.parse(
-      Buffer.from(tokens.id_token.split('.')[1], 'base64url').toString()
+    return redirect(
+      302,
+      `/integrations/microsoft-365?tab=connections&consentedTenant=${encodeURIComponent(state.gdapTenantId)}`
     );
-    msEntraTenantId = idTokenPayload.tid;
-  } catch {
-    return redirect(302, '/integrations/microsoft-365?error=invalid_id_token');
   }
 
+  // MSP-level consent — save tenant ID and refresh token
   try {
     await locals.orm.upsert('public', 'integrations', [
       {
@@ -77,18 +93,19 @@ export const GET: RequestHandler = async ({ url, locals }) => {
         tenant_id: state.mspbyteTenantId,
         config: {
           mode: 'partner',
-          tenantId: msEntraTenantId,
-          refreshToken: Encryption.encrypt(refreshToken),
+          tenantId: msTenantId,
         },
         updated_at: new Date().toISOString(),
       },
     ]);
   } catch (err) {
-    return redirect(
-      302,
-      `/integrations/microsoft-365?error=${encodeURIComponent(String(err))}`,
-    );
+    Logger.error({
+      module: 'consent',
+      context: 'upsertIntegration',
+      message: safeErrorMessage(err),
+    });
+    return redirect(302, `/integrations/microsoft-365?error=${encodeURIComponent(String(err))}`);
   }
 
-  return redirect(302, '/integrations/microsoft-365?tab=mappings');
+  return redirect(302, '/integrations/microsoft-365?tab=connections');
 };

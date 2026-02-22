@@ -1,5 +1,5 @@
 import { getSupabase } from '../supabase.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Alert } from '../types.js';
 
 /**
@@ -18,11 +18,10 @@ export class AlertManager {
     const supabase = getSupabase();
     const now = new Date().toISOString();
 
-    Logger.log({
+    Logger.info({
       module: 'AlertManager',
       context: 'processAlerts',
       message: `Processing ${alerts.length} alerts for ${integrationId}`,
-      level: 'info',
     });
 
     // Load existing alerts for this integration + tenant
@@ -83,22 +82,20 @@ export class AlertManager {
       }
     }
 
-    Logger.log({
+    Logger.trace({
       module: 'AlertManager',
       context: 'processAlerts',
       message: `Categorized: ${toCreate.length} create, ${toUpdate.length} update, ${toResolve.length} resolve`,
-      level: 'trace',
     });
 
     // Execute
     if (toCreate.length > 0) {
       const { error } = await supabase.from('entity_alerts').insert(toCreate);
       if (error) {
-        Logger.log({
+        Logger.error({
           module: 'AlertManager',
           context: 'processAlerts',
           message: `Error creating alerts: ${error.message}`,
-          level: 'error',
         });
       }
     }
@@ -128,11 +125,10 @@ export class AlertManager {
           .from('entity_alerts')
           .upsert(chunk, { onConflict: 'id' });
         if (error) {
-          Logger.log({
+          Logger.error({
             module: 'AlertManager',
             context: 'processAlerts',
             message: `Error upserting alerts: ${error.message}`,
-            level: 'error',
           });
         }
       }
@@ -147,11 +143,10 @@ export class AlertManager {
 
     const result = { created: toCreate.length, updated: toUpdate.length, resolved: toResolve.length };
 
-    Logger.log({
+    Logger.info({
       module: 'AlertManager',
       context: 'processAlerts',
       message: `Complete: ${result.created} created, ${result.updated} updated, ${result.resolved} resolved`,
-      level: 'info',
     });
 
     return result;

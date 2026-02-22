@@ -24,12 +24,14 @@
   ],
   "scripts": {
     "clean": "rm -rf dist",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
     "@workspace/ts-config": "workspace:*",
     "tsc-alias": "^1.8.16",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^4.0.18"
   }
 }

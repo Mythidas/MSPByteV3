@@ -5,11 +5,23 @@
   import Label from '$lib/components/ui/label/label.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
   import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { LoaderCircle, CircleAlert, CircleCheck, Trash2, ExternalLink } from '@lucide/svelte';
+  import {
+    LoaderCircle,
+    CircleAlert,
+    CircleCheck,
+    Trash2,
+    ExternalLink,
+    ShieldAlert,
+    ShieldCheck,
+    ArrowLeft,
+    Settings,
+    RefreshCw,
+  } from '@lucide/svelte';
   import { superForm } from 'sveltekit-superforms';
   import { zod4Client } from 'sveltekit-superforms/adapters';
   import { toast } from 'svelte-sonner';
   import { isMaskedSecret } from '$lib/utils/forms';
+  import SingleSelect from '$lib/components/single-select.svelte';
   import { browser } from '$app/environment';
   import { deserialize } from '$app/forms';
   import type { PageProps } from './$types';
@@ -17,7 +29,6 @@
 
   let { data }: PageProps = $props();
 
-  // Track current mode independently so toggling is instant
   // svelte-ignore state_referenced_locally
   let currentMode = $state<'direct' | 'partner'>(
     (data.integration?.config as any)?.mode ?? 'direct'
@@ -44,7 +55,7 @@
     currentMode === 'direct' && isMaskedSecret(($formData as any).clientSecret ?? '')
   );
 
-  // Read initial tab from URL (consent callback redirects with ?tab=mappings)
+  // Read initial tab from URL
   let currentTab = $state(
     browser
       ? (new URLSearchParams(window.location.search).get('tab') ?? 'configuration')
@@ -53,22 +64,169 @@
 
   // Partner mode state
   let connectingMSP = $state(false);
-  let loadingGDAP = $state(false);
+  let refreshingConnections = $state(false);
   let savingMappings = $state(false);
-  let gdapTenants = $state<{ tenantId: string; displayName: string; domains: string[] }[]>([]);
-  let gdapLoaded = $state(false);
-  let gdapStatus = $state<Record<string, 'idle' | 'testing' | 'ok' | 'fail'>>({});
 
-  // Domain → siteId assignments (initialized from saved config)
-  // svelte-ignore state_referenced_locally
-  let domainAssignments = $state<Record<string, string>>(
-    Object.fromEntries((data.domainMappings ?? []).map((m: any) => [m.domain, m.siteId ?? '']))
+  // Connection list filter/search state
+  let searchQuery = $state('');
+  let activeFilter = $state<'all' | 'needs-consent' | 'active' | 'has-unmapped' | 'has-orphans'>(
+    'all'
   );
 
-  // Sync mode toggle to form data
+  // Orphan detail state
+  let orphanedEntities = $state<{ id: string; display_name: string | null; raw_data: any }[]>([]);
+  let orphanedTotal = $state(0);
+  let loadingOrphans = $state(false);
+  let orphanAssignments = $state<Record<string, string>>({});
+  let savingAssignments = $state(false);
+
+  // Connections from DB (initial + refreshed)
+  // svelte-ignore state_referenced_locally
+  let connections = $state<
+    {
+      id: string;
+      external_id: string;
+      name: string;
+      status: string;
+      meta: any;
+      integration_id: string;
+      tenant_id: string;
+      created_at: string;
+      updated_at: string;
+    }[]
+  >((data.connections ?? []) as any[]);
+
+  // Which connection external_id is expanded
+  let expandedConnectionId = $state<string | null>(null);
+
+  // Domain assignments: { [connectionExternalId]: { [domain]: siteId } }
+  // Initialized from DB-persisted domain mappings
+  // svelte-ignore state_referenced_locally
+  let domainAssignments = $state<Record<string, Record<string, string>>>(
+    Object.fromEntries(
+      Object.entries(data.domainMappings ?? {}).map(([extId, domainMap]) => [
+        extId,
+        { ...(domainMap as Record<string, string>) },
+      ])
+    )
+  );
+
+  const expandedConnection = $derived(
+    connections.find((c) => c.external_id === expandedConnectionId) ?? null
+  );
+
+  const expandedDomains = $derived<string[]>((expandedConnection?.meta as any)?.domains ?? []);
+
+  const unmappedCount = $derived(
+    expandedConnectionId
+      ? expandedDomains.filter((d) => !domainAssignments[expandedConnectionId!]?.[d]).length
+      : 0
+  );
+
+  function getUnmappedCount(conn: (typeof connections)[0]): number {
+    const domains: string[] = (conn.meta as any)?.domains ?? [];
+    const assignments = domainAssignments[conn.external_id] ?? {};
+    return domains.filter((d) => !assignments[d]).length;
+  }
+
+  const filteredConnections = $derived.by(() => {
+    let list = connections;
+    if (searchQuery)
+      list = list.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (activeFilter === 'needs-consent') list = list.filter((c) => c.status === 'pending');
+    else if (activeFilter === 'active') list = list.filter((c) => c.status === 'active');
+    else if (activeFilter === 'has-unmapped') list = list.filter((c) => getUnmappedCount(c) > 0);
+    else if (activeFilter === 'has-orphans')
+      list = list.filter((c) => (data.orphanCounts[c.external_id] ?? 0) > 0);
+    return list;
+  });
+
   function selectMode(mode: 'direct' | 'partner') {
     currentMode = mode;
     ($formData as any).mode = mode;
+  }
+
+  // Expand a connection — ensure its domain assignments object is initialized
+  function expandConnection(externalId: string) {
+    if (!domainAssignments[externalId]) {
+      domainAssignments[externalId] = {};
+    }
+    const conn = connections.find((c) => c.external_id === externalId);
+    const domains: string[] = (conn?.meta as any)?.domains ?? [];
+    for (const domain of domains) {
+      if (!(domain in domainAssignments[externalId])) {
+        domainAssignments[externalId][domain] =
+          (data.domainMappings as any)?.[externalId]?.[domain] ?? '';
+      }
+    }
+    // Reset orphan state when switching connections
+    orphanedEntities = [];
+    orphanedTotal = 0;
+    orphanAssignments = {};
+    expandedConnectionId = externalId;
+  }
+
+  async function handleLoadOrphans(offset = 0) {
+    if (!expandedConnectionId) return;
+    loadingOrphans = true;
+    try {
+      const body = new FormData();
+      body.set('externalId', expandedConnectionId);
+      body.set('offset', String(offset));
+      const response = await fetch('?/getOrphanedEntities', { method: 'POST', body });
+      const result = deserialize(await response.text());
+      if (result.type === 'failure' || result.type === 'error') {
+        const errMsg =
+          result.type === 'failure'
+            ? (result.data as any)?.error
+            : result.type === 'error'
+              ? String(result.error)
+              : 'Unknown error';
+        toast.error(errMsg ?? 'Failed to load orphaned entities');
+        return;
+      }
+      const { entities, total } = (result.type === 'success' ? (result.data as any) : null) ?? {};
+      if (offset === 0) {
+        orphanedEntities = entities ?? [];
+      } else {
+        orphanedEntities = [...orphanedEntities, ...(entities ?? [])];
+      }
+      orphanedTotal = total ?? 0;
+    } catch (err) {
+      toast.error(`Failed: ${String(err)}`);
+    } finally {
+      loadingOrphans = false;
+    }
+  }
+
+  async function handleSaveAssignments() {
+    savingAssignments = true;
+    try {
+      const assignments = Object.entries(orphanAssignments)
+        .filter(([, siteId]) => siteId)
+        .map(([entityId, siteId]) => ({ entityId, siteId }));
+
+      const body = new FormData();
+      body.set('assignments', JSON.stringify(assignments));
+      const response = await fetch('?/assignEntitySites', { method: 'POST', body });
+      const result = deserialize(await response.text());
+      if (result.type === 'failure' || result.type === 'error') {
+        const errMsg =
+          result.type === 'failure'
+            ? (result.data as any)?.error
+            : result.type === 'error'
+              ? String(result.error)
+              : 'Unknown error';
+        toast.error(errMsg ?? 'Failed to save assignments');
+        return;
+      }
+      toast.success('Assignments saved successfully');
+      await handleLoadOrphans(0);
+    } catch (err) {
+      toast.error(`Failed: ${String(err)}`);
+    } finally {
+      savingAssignments = false;
+    }
   }
 
   async function handleDelete() {
@@ -108,7 +266,7 @@
         return;
       }
 
-      const consentUrl = result.type === 'success' ? (result.data as string) : '';
+      const consentUrl = result.type === 'success' ? (result.data as unknown as string) : '';
 
       if (consentUrl) {
         window.open(consentUrl, '_blank', 'noopener,noreferrer');
@@ -123,8 +281,41 @@
     }
   }
 
-  async function handleLoadGDAP() {
-    loadingGDAP = true;
+  $effect(() => {
+    if (data.consentedTenant) {
+      toast.success('Enterprise app consented — click Refresh to load updated status.');
+    }
+    if (data.consentError) {
+      toast.error(data.consentError);
+    }
+  });
+
+  async function handleGDAPConsent(gdapTenantId: string) {
+    const body = new FormData();
+    body.set('gdapTenantId', gdapTenantId);
+    const response = await fetch('?/generateGDAPConsentUrl', { method: 'POST', body });
+    const result = deserialize(await response.text());
+
+    if (result.type === 'failure' || result.type === 'error') {
+      const errMsg =
+        result.type === 'failure'
+          ? (result.data as any)?.error
+          : result.type === 'error'
+            ? String(result.error)
+            : 'Unknown error';
+      toast.error(errMsg ?? 'Failed to generate consent URL');
+      return;
+    }
+
+    const consentUrl = result.type === 'success' ? (result.data as unknown as string) : '';
+    if (consentUrl) {
+      window.open(consentUrl, '_blank', 'noopener,noreferrer');
+      toast.info('Consent page opened in a new tab. Return here after granting access.');
+    }
+  }
+
+  async function handleRefreshConnections() {
+    refreshingConnections = true;
     try {
       const response = await fetch('?/listGDAPTenants', { method: 'POST', body: new FormData() });
       const result = deserialize(await response.text());
@@ -136,65 +327,60 @@
             : result.type === 'error'
               ? String(result.error)
               : 'Unknown error';
-        toast.error(errMsg ?? 'Failed to load GDAP customers');
+        toast.error(errMsg ?? 'Failed to refresh connections');
         return;
       }
 
-      gdapTenants = (result.data as any)?.gdapTenants ?? [];
-      gdapLoaded = true;
+      const updated = (result.type === 'success' ? (result.data as any) : null)?.connections ?? [];
+      connections = updated;
 
-      // Pre-populate domain assignments from saved mappings for newly discovered domains
-      for (const tenant of gdapTenants) {
-        for (const domain of tenant.domains) {
-          if (!(domain in domainAssignments)) {
-            domainAssignments[domain] = '';
+      // Preserve existing assignments; initialize any new domains
+      for (const conn of updated) {
+        const domains: string[] = (conn.meta as any)?.domains ?? [];
+        if (!domainAssignments[conn.external_id]) {
+          domainAssignments[conn.external_id] = {};
+        }
+        for (const domain of domains) {
+          if (!(domain in domainAssignments[conn.external_id])) {
+            domainAssignments[conn.external_id][domain] = '';
           }
         }
       }
 
-      toast.success(`Found ${gdapTenants.length} GDAP customer tenant(s)`);
+      // If the expanded connection changed (e.g., domains updated), keep it expanded
+      if (
+        expandedConnectionId &&
+        !updated.find((c: any) => c.external_id === expandedConnectionId)
+      ) {
+        expandedConnectionId = null;
+      }
+
+      toast.success(`${updated.length} GDAP connection(s) synced`);
     } catch (err) {
       toast.error(`Failed: ${String(err)}`);
     } finally {
-      loadingGDAP = false;
+      refreshingConnections = false;
     }
   }
 
-  async function testGDAPTenant(tenantId: string) {
-    gdapStatus[tenantId] = 'testing';
-    try {
-      const body = new FormData();
-      body.append('gdapTenantId', tenantId);
-      const response = await fetch('?/testGDAPTenant', { method: 'POST', body });
-      const result = deserialize(await response.text());
-      gdapStatus[tenantId] = result.type === 'success' ? 'ok' : 'fail';
-      if (result.type === 'failure') {
-        toast.error((result.data as any)?.error ?? 'GDAP access test failed');
-      }
-    } catch (err) {
-      gdapStatus[tenantId] = 'fail';
-      toast.error(`Test failed: ${String(err)}`);
-    }
-  }
-
-  async function handleSaveMappings() {
+  async function handleSaveMappings(connectionExternalId: string) {
     savingMappings = true;
     try {
-      // Group domains by site+tenant pair
-      const linkMap = new Map<string, { siteId: string; gdapTenantId: string; domains: string[] }>();
-      for (const [domain, siteId] of Object.entries(domainAssignments)) {
-        if (!siteId) continue; // "Don't sync"
-        const tenant = gdapTenants.find((t) => t.domains.includes(domain));
-        if (!tenant) continue;
-        const key = `${siteId}:${tenant.tenantId}`;
-        if (!linkMap.has(key)) {
-          linkMap.set(key, { siteId, gdapTenantId: tenant.tenantId, domains: [] });
-        }
-        linkMap.get(key)!.domains.push(domain);
+      const assignments = domainAssignments[connectionExternalId] ?? {};
+
+      // Group domains by site
+      const siteMap = new Map<string, string[]>();
+      for (const [domain, siteId] of Object.entries(assignments)) {
+        if (!siteId) continue;
+        if (!siteMap.has(siteId)) siteMap.set(siteId, []);
+        siteMap.get(siteId)!.push(domain);
       }
 
+      const siteLinks = [...siteMap.entries()].map(([siteId, domains]) => ({ siteId, domains }));
+
       const body = new FormData();
-      body.append('siteLinks', JSON.stringify([...linkMap.values()]));
+      body.append('connectionExternalId', connectionExternalId);
+      body.append('siteLinks', JSON.stringify(siteLinks));
 
       const response = await fetch('?/saveMappings', { method: 'POST', body });
       const result = deserialize(await response.text());
@@ -217,7 +403,6 @@
       savingMappings = false;
     }
   }
-
 </script>
 
 <div class="flex flex-col relative size-full items-center p-4 gap-2">
@@ -240,7 +425,7 @@
       <div class="flex bg-card w-full h-fit py-2 px-2 shadow rounded">
         <Tabs.List>
           <Tabs.Trigger value="configuration">Configuration</Tabs.Trigger>
-          <Tabs.Trigger value="mappings" disabled={!data.integration}>Mappings</Tabs.Trigger>
+          <Tabs.Trigger value="connections" disabled={!data.integration}>Connections</Tabs.Trigger>
         </Tabs.List>
       </div>
 
@@ -287,11 +472,9 @@
           </div>
 
           <form method="POST" action="?/save" class="space-y-6" use:enhance>
-            <!-- Hidden mode field -->
             <input type="hidden" name="mode" value={currentMode} />
 
             {#if currentMode === 'direct'}
-              <!-- Direct mode fields -->
               <div class="space-y-4">
                 <div class="space-y-2">
                   <Label for="tenantId">
@@ -388,7 +571,6 @@
                   </p>
                 {/if}
 
-                <!-- MSP tenant connection status -->
                 <div class="border-t pt-3 space-y-2">
                   {#if data.partnerTenantId}
                     <div class="flex items-center gap-2">
@@ -448,31 +630,246 @@
         </Tabs.Content>
 
         <!-- ================================================================ -->
-        <!-- MAPPINGS TAB                                                       -->
+        <!-- CONNECTIONS TAB                                                    -->
         <!-- ================================================================ -->
-        <Tabs.Content value="mappings" class="w-full h-full overflow-hidden">
+        <Tabs.Content value="connections" class="w-full h-full overflow-hidden">
           {#if data.integration}
-            {#if currentMode === 'partner'}
-              <!-- Partner mode: GDAP domain-to-site mapping -->
+            {#if expandedConnectionId && expandedConnection}
+              <!-- ── CONNECTION DETAIL VIEW ── -->
               <div class="flex flex-col size-full gap-4 overflow-hidden">
-                <div class="flex items-center justify-between shrink-0">
-                  <div>
-                    <h3 class="font-medium">GDAP Customer Mappings</h3>
-                    <p class="text-sm text-muted-foreground">
-                      Assign each customer domain to a MSPByte site for identity sync.
+                <!-- Detail header -->
+                <div class="flex items-center gap-3 shrink-0">
+                  <button
+                    type="button"
+                    class="text-muted-foreground hover:text-foreground transition-colors"
+                    onclick={() => (expandedConnectionId = null)}
+                  >
+                    <ArrowLeft class="h-4 w-4" />
+                  </button>
+                  <div class="flex-1 min-w-0">
+                    <h3 class="font-semibold truncate">{expandedConnection.name}</h3>
+                    <p class="text-xs font-mono text-muted-foreground truncate">
+                      {expandedConnection.external_id}
                     </p>
                   </div>
                   <Button
                     size="sm"
-                    variant="outline"
-                    disabled={loadingGDAP || !data.partnerTenantId}
-                    onclick={handleLoadGDAP}
+                    disabled={savingMappings}
+                    onclick={() => handleSaveMappings(expandedConnection.external_id)}
                   >
-                    {#if loadingGDAP}
+                    {#if savingMappings}
                       <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
                     {/if}
-                    {gdapLoaded ? 'Refresh' : 'Load GDAP Customers'}
+                    Save Mappings
                   </Button>
+                </div>
+
+                {#if expandedDomains.length === 0}
+                  <div
+                    class="flex flex-col items-center justify-center flex-1 gap-2 text-center text-muted-foreground"
+                  >
+                    <CircleAlert class="h-8 w-8 opacity-40" />
+                    <p class="text-sm font-medium">No domains cached</p>
+                    <p class="text-xs">
+                      Refresh connections after granting consent to load domains from this tenant.
+                    </p>
+                  </div>
+                {:else}
+                  <div class="flex-1 overflow-auto space-y-1">
+                    <!-- Column headers -->
+                    <div class="grid grid-cols-2 gap-2 px-2 pb-1 border-b">
+                      <span
+                        class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                      >
+                        Domain
+                      </span>
+                      <span
+                        class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                      >
+                        Mapped Site
+                      </span>
+                    </div>
+
+                    {#each expandedDomains as domain (domain)}
+                      {@const isMapped =
+                        !!domainAssignments[expandedConnection.external_id]?.[domain]}
+                      <div
+                        class="grid grid-cols-2 gap-2 items-center px-2 py-1.5 rounded hover:bg-muted/40"
+                      >
+                        <div class="flex items-center gap-1.5 min-w-0">
+                          <span
+                            class="text-sm font-mono truncate {isMapped
+                              ? 'text-foreground'
+                              : 'text-muted-foreground'}"
+                          >
+                            {domain}
+                          </span>
+                          {#if !isMapped}
+                            <CircleAlert class="h-3 w-3 text-warning shrink-0" />
+                          {/if}
+                        </div>
+                        <SingleSelect
+                          placeholder="-- Unmapped --"
+                          options={data.sites.map((s) => ({ value: s.id, label: s.name }))}
+                          bind:selected={domainAssignments[expandedConnection.external_id][domain]}
+                        />
+                      </div>
+                    {/each}
+
+                    {#if unmappedCount > 0}
+                      <div
+                        class="mt-3 flex items-center gap-2 rounded-md bg-warning/10 text-warning px-3 py-2"
+                      >
+                        <CircleAlert class="h-4 w-4 shrink-0" />
+                        <p class="text-xs">
+                          {unmappedCount} unmapped domain{unmappedCount === 1 ? '' : 's'} — identities
+                          from these domains will sync without a site assignment.
+                        </p>
+                      </div>
+                    {/if}
+
+                    <!-- Orphaned Identities section -->
+                    <div class="mt-4 border-t pt-4 space-y-3">
+                      <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                          <h4 class="text-sm font-medium">Orphaned Identities</h4>
+                          {#if orphanedTotal > 0}
+                            <Badge
+                              class="bg-destructive/15 text-destructive border-destructive/30"
+                              variant="outline"
+                            >
+                              {orphanedTotal}
+                            </Badge>
+                          {/if}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={loadingOrphans}
+                          onclick={() => handleLoadOrphans(0)}
+                        >
+                          {#if loadingOrphans}
+                            <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                          {/if}
+                          Load
+                        </Button>
+                      </div>
+
+                      {#if orphanedEntities.length > 0}
+                        <!-- Column headers -->
+                        <div class="grid grid-cols-2 gap-2 px-2 pb-1 border-b">
+                          <span
+                            class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                          >
+                            UPN / Display Name
+                          </span>
+                          <span
+                            class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
+                          >
+                            Assign to Site
+                          </span>
+                        </div>
+
+                        {#each orphanedEntities as entity (entity.id)}
+                          <div class="grid grid-cols-2 gap-2 items-center px-2 py-1 rounded hover:bg-muted/40">
+                            <p class="text-xs font-mono truncate text-muted-foreground">
+                              {entity.raw_data?.userPrincipalName ?? entity.display_name ?? entity.id}
+                            </p>
+                            <SingleSelect
+                              placeholder="-- Assign Site --"
+                              options={data.sites.map((s) => ({ value: s.id, label: s.name }))}
+                              bind:selected={orphanAssignments[entity.id]}
+                            />
+                          </div>
+                        {/each}
+
+                        <div class="flex items-center justify-between pt-2">
+                          {#if orphanedEntities.length < orphanedTotal}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={loadingOrphans}
+                              onclick={() => handleLoadOrphans(orphanedEntities.length)}
+                            >
+                              {#if loadingOrphans}
+                                <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                              {/if}
+                              Load More ({orphanedTotal - orphanedEntities.length} remaining)
+                            </Button>
+                          {:else}
+                            <span class="text-xs text-muted-foreground">
+                              {orphanedEntities.length} of {orphanedTotal} loaded
+                            </span>
+                          {/if}
+                          <Button
+                            size="sm"
+                            disabled={savingAssignments ||
+                              Object.values(orphanAssignments).every((v) => !v)}
+                            onclick={handleSaveAssignments}
+                          >
+                            {#if savingAssignments}
+                              <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                            {/if}
+                            Save Assignments
+                          </Button>
+                        </div>
+                      {:else if !loadingOrphans}
+                        <p class="text-xs text-muted-foreground px-2">
+                          Click "Load" to fetch identities without a site assignment.
+                        </p>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {:else}
+              <!-- ── CONNECTION LIST VIEW ── -->
+              <div class="flex flex-col size-full gap-3 overflow-hidden">
+                <div class="flex flex-col gap-2 shrink-0">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <h3 class="font-medium">GDAP Connections</h3>
+                      <p class="text-sm text-muted-foreground">
+                        Customer tenants via delegated admin relationships.
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={refreshingConnections || !data.partnerTenantId}
+                      onclick={handleRefreshConnections}
+                    >
+                      {#if refreshingConnections}
+                        <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                      {/if}
+                      {connections.length > 0 ? 'Refresh' : 'Load Connections'}
+                    </Button>
+                  </div>
+                  <Input
+                    bind:value={searchQuery}
+                    placeholder="Search by name..."
+                    class="h-8 text-sm"
+                  />
+                  <div class="flex gap-1 flex-wrap">
+                    {#each [
+                      { key: 'all', label: 'All' },
+                      { key: 'needs-consent', label: 'Needs Consent' },
+                      { key: 'active', label: 'Active' },
+                      { key: 'has-unmapped', label: 'Has Unmapped' },
+                      { key: 'has-orphans', label: 'Has Orphans' },
+                    ] as chip}
+                      <button
+                        type="button"
+                        class="px-2.5 py-1 text-xs rounded-full border transition-colors {activeFilter ===
+                        chip.key
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'}"
+                        onclick={() => (activeFilter = chip.key as typeof activeFilter)}
+                      >
+                        {chip.label}
+                      </button>
+                    {/each}
+                  </div>
                 </div>
 
                 {#if !data.partnerTenantId}
@@ -482,135 +879,112 @@
                     <CircleAlert class="h-4 w-4 shrink-0" />
                     <p class="text-sm">
                       Connect MSPByte to Microsoft first (Configuration tab) before loading GDAP
-                      customers.
+                      connections.
                     </p>
                   </div>
                 {/if}
 
-                <div class="flex flex-col gap-3 overflow-auto flex-1 pr-1">
-                  {#if gdapLoaded && gdapTenants.length === 0}
+                <div class="flex flex-col gap-2 overflow-auto flex-1 pr-1">
+                  {#if connections.length === 0}
                     <div
                       class="flex items-center justify-center h-32 text-muted-foreground text-sm"
                     >
-                      No active GDAP relationships found.
+                      No connections loaded — click "Load Connections" to discover GDAP customers.
+                    </div>
+                  {:else if filteredConnections.length === 0}
+                    <div
+                      class="flex items-center justify-center h-32 text-muted-foreground text-sm"
+                    >
+                      No connections match your search or filter.
                     </div>
                   {/if}
 
-                  {#if !gdapLoaded && Object.keys(domainAssignments).length > 0}
-                    <!-- Show saved assignments before GDAP is loaded -->
-                    <div class="border rounded-lg p-4 space-y-2">
-                      <p class="text-sm font-medium text-muted-foreground">Saved assignments</p>
-                      {#each Object.entries(domainAssignments) as [domain, siteId] (domain)}
-                        {#if siteId}
-                          <div class="flex items-center gap-2 text-sm">
-                            <span class="font-mono text-xs">{domain}</span>
-                            <span class="text-muted-foreground">→</span>
-                            <span class="text-xs">
-                              {data.sites.find((s) => s.id === siteId)?.name ?? siteId}
-                            </span>
-                          </div>
-                        {/if}
-                      {/each}
-                    </div>
-                  {/if}
+                  {#each filteredConnections as conn (conn.id)}
+                    {@const isActive = conn.status === 'active'}
+                    {@const domains = (conn.meta as any)?.domains ?? []}
+                    {@const connUnmapped = getUnmappedCount(conn)}
+                    {@const connOrphans = data.orphanCounts[conn.external_id] ?? 0}
+                    <div
+                      class="flex items-center gap-3 border rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors"
+                    >
+                      <!-- Shield status icon -->
+                      {#if isActive}
+                        <ShieldCheck class="h-5 w-5 text-primary shrink-0" />
+                      {:else}
+                        <ShieldAlert class="h-5 w-5 text-warning shrink-0" />
+                      {/if}
 
-                  {#each gdapTenants as tenant (tenant.tenantId)}
-                    <div class="border rounded-lg p-4 space-y-3">
-                      <!-- Header row -->
-                      <div class="flex items-start justify-between gap-2">
-                        <div class="min-w-0">
-                          <p class="font-semibold text-sm">{tenant.displayName}</p>
-                          <p class="text-xs font-mono text-muted-foreground truncate">
-                            {tenant.tenantId}
-                          </p>
-                        </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            class="text-xs px-2 py-0.5 rounded border transition-colors
-                              {gdapStatus[tenant.tenantId] === 'ok'
-                                ? 'border-primary/30 bg-primary/10 text-primary'
-                                : gdapStatus[tenant.tenantId] === 'fail'
-                                  ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                                  : 'border-border bg-background text-muted-foreground hover:text-foreground'}"
-                            onclick={() => testGDAPTenant(tenant.tenantId)}
-                            disabled={gdapStatus[tenant.tenantId] === 'testing'}
-                          >
-                            {#if gdapStatus[tenant.tenantId] === 'testing'}
-                              Testing...
-                            {:else if gdapStatus[tenant.tenantId] === 'ok'}
-                              Connected
-                            {:else if gdapStatus[tenant.tenantId] === 'fail'}
-                              Failed
-                            {:else}
-                              Test Access
-                            {/if}
-                          </button>
-                          <Badge class="bg-primary/15 text-primary border-primary/30" variant="outline">
-                            {tenant.domains.length} domain{tenant.domains.length === 1 ? '' : 's'}
-                          </Badge>
-                        </div>
+                      <!-- Name + tenant ID -->
+                      <div class="flex-1 min-w-0">
+                        <p class="text-sm font-semibold truncate">{conn.name}</p>
+                        <p class="text-xs font-mono text-muted-foreground truncate">
+                          {conn.external_id}
+                        </p>
                       </div>
 
-                      {#if tenant.domains.length === 0}
-                        <div class="flex items-center gap-2 rounded-md bg-warning/10 text-warning px-3 py-2">
-                          <CircleAlert class="h-4 w-4 shrink-0" />
-                          <p class="text-xs">
-                            No verified domains found — users from this tenant cannot be filtered by
-                            site
-                          </p>
-                        </div>
+                      <!-- Domain count badge (active only) -->
+                      {#if isActive && domains.length > 0}
+                        <Badge
+                          class="bg-primary/15 text-primary border-primary/30"
+                          variant="outline"
+                        >
+                          {domains.length} domain{domains.length === 1 ? '' : 's'}
+                        </Badge>
+                      {/if}
+
+                      <!-- Unmapped domains badge -->
+                      {#if connUnmapped > 0}
+                        <Badge
+                          class="bg-warning/15 text-warning border-warning/30"
+                          variant="outline"
+                        >
+                          {connUnmapped} unmapped
+                        </Badge>
+                      {/if}
+
+                      <!-- Orphaned entities badge -->
+                      {#if connOrphans > 0}
+                        <Badge
+                          class="bg-destructive/15 text-destructive border-destructive/30"
+                          variant="outline"
+                        >
+                          {connOrphans} orphaned
+                        </Badge>
+                      {/if}
+
+                      <!-- Action button -->
+                      {#if isActive}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          class="text-muted-foreground hover:text-foreground"
+                          onclick={() => handleGDAPConsent(conn.external_id)}
+                        >
+                          <RefreshCw class="h-3 w-3 mr-1" />
+                          Reconsent
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onclick={() => expandConnection(conn.external_id)}
+                        >
+                          <Settings class="h-3 w-3 mr-1" />
+                          Configure Mappings
+                        </Button>
                       {:else}
-                        <div class="space-y-2">
-                          {#each tenant.domains as domain (domain)}
-                            <div class="flex items-center gap-2">
-                              <span
-                                class="text-sm font-mono flex-1 truncate {domainAssignments[domain]
-                                  ? 'text-foreground'
-                                  : 'text-muted-foreground'}"
-                              >
-                                {domain}
-                              </span>
-                              <select
-                                class="text-sm border rounded px-2 py-1 bg-background text-foreground min-w-48"
-                                bind:value={domainAssignments[domain]}
-                              >
-                                <option value="">Don't sync</option>
-                                {#each data.sites as site (site.id)}
-                                  <option value={site.id}>{site.name}</option>
-                                {/each}
-                              </select>
-                            </div>
-                          {/each}
-                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          class="border-warning/30 text-warning hover:bg-warning/10"
+                          onclick={() => handleGDAPConsent(conn.external_id)}
+                        >
+                          <ExternalLink class="h-3 w-3 mr-1" />
+                          Grant Consent
+                        </Button>
                       {/if}
                     </div>
                   {/each}
                 </div>
-
-                {#if gdapLoaded}
-                  <div class="shrink-0 pt-2 border-t flex justify-end">
-                    <Button size="sm" disabled={savingMappings} onclick={handleSaveMappings}>
-                      {#if savingMappings}
-                        <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
-                      {/if}
-                      Save Mappings
-                    </Button>
-                  </div>
-                {/if}
-              </div>
-            {:else}
-              <!-- Direct mode: standard domain-based mapper -->
-              <div
-                class="flex flex-col items-center justify-center h-full gap-2 text-center text-muted-foreground"
-              >
-                <p class="text-sm">
-                  Direct mode uses domain mappings configured in the integration config.
-                </p>
-                <p class="text-xs">
-                  Site-to-tenant mappings are created automatically based on user principal name
-                  domains.
-                </p>
               </div>
             {/if}
           {/if}

@@ -1,4 +1,5 @@
 import type { Permission } from '$lib/utils/permissions';
+import type { ScopeType } from '$lib/utils/scope-filter';
 
 export type ModuleNavLink = {
   href: string;
@@ -11,6 +12,7 @@ export type ModuleConfig = {
   label: string;
   basePath: string;
   permission: Permission | null;
+  pickerTypes?: ScopeType[];
   navLinks: ModuleNavLink[];
 };
 
@@ -61,6 +63,23 @@ export const MODULES: ModuleConfig[] = [
       { href: '/sophos-partner/alerts', label: 'Alerts', permission: null },
       { href: '/sophos-partner/endpoints', label: 'Endpoints', permission: null },
       { href: '/sophos-partner/companies', label: 'Companies', permission: null },
+    ],
+  },
+  {
+    id: 'microsoft-365',
+    label: 'Microsoft 365',
+    basePath: '/microsoft-365',
+    permission: 'Assets.Read',
+    pickerTypes: ['connection', 'site', 'group', 'parent'],
+    navLinks: [
+      { href: '/microsoft-365/alerts', label: 'Alerts', permission: null },
+      { href: '/microsoft-365/overview', label: 'Overview', permission: null },
+      { href: '/microsoft-365/users', label: 'Users', permission: null },
+      { href: '/microsoft-365/groups', label: 'Groups', permission: null },
+      { href: '/microsoft-365/licenses', label: 'Licenses', permission: null },
+      { href: '/microsoft-365/roles', label: 'Roles', permission: null },
+      { href: '/microsoft-365/policies', label: 'Policies', permission: null },
+      { href: '/microsoft-365/exchange', label: 'Exchange', permission: null },
     ],
   },
 ];

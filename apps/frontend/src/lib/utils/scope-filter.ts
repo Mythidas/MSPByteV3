@@ -1,6 +1,7 @@
-export type ScopeType = 'site' | 'group' | 'parent';
+export type ScopeType = 'site' | 'group' | 'parent' | 'connection';
 
 export type SiteRef = { id: string; name: string; parent_id: string | null };
+export type ConnectionRef = { id: string; name: string };
 export type GroupRef = { id: string; name: string };
 export type SiteToGroupRef = { site_id: string; group_id: string };
 
@@ -27,6 +28,17 @@ export function getSiteIdsForScope(
     default:
       return null;
   }
+}
+
+/**
+ * Returns the connection_id to filter by, or null if scope is not 'connection'.
+ */
+export function getConnectionIdForScope(
+  scope: string | null,
+  scopeId: string | null,
+): string | null {
+  if (scope === 'connection' && scopeId) return scopeId;
+  return null;
 }
 
 /** Derive the list of "parent" sites — those that have at least one child. */

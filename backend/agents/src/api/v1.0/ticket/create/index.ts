@@ -5,7 +5,7 @@ import { PerformanceTracker } from '@workspace/shared/lib/utils/performance.js';
 import { logAgentApiCall } from '@/lib/agentLogger.js';
 import { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/assets.js';
 import { getSupabase } from '@/lib/supabase.js';
-import { Debug } from '@workspace/shared/lib/utils/debug';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import Encryption from '@workspace/shared/lib/utils/encryption';
 import { HaloPSAUser } from '@workspace/shared/types/integrations/halopsa/users';
 
@@ -30,7 +30,7 @@ export default async function (fastify: FastifyInstance) {
       if (!siteID || !deviceID) {
         statusCode = 401;
         errorMessage = 'API headers invalid';
-        return Debug.response(
+        return Logger.response(
           {
             error: {
               module: 'v1.0/ticket/create',
@@ -103,7 +103,7 @@ export default async function (fastify: FastifyInstance) {
       if (!psaConfig || !site || !agent) {
         statusCode = 404;
         errorMessage = 'PSA records not valid';
-        return Debug.response(
+        return Logger.response(
           {
             error: {
               module: 'v1.0/ticket/create',
@@ -115,7 +115,7 @@ export default async function (fastify: FastifyInstance) {
         );
       }
 
-      Debug.log({
+      Logger.info({
         module: 'v1.0/ticket/create',
         context: 'POST',
         message: `Creating ticket for agent ${agent.hostname} (DeviceID: ${agent.id}) (SiteID: ${siteID})`,
@@ -216,13 +216,13 @@ export default async function (fastify: FastifyInstance) {
       );
 
       if (assetError || assets.length === 0) {
-        Debug.log({
+        Logger.info({
           module: 'v1.0/ticket/create',
           context: 'psa_fetch_assets',
           message: 'Failed to fetch assets from PSA',
         });
       } else {
-        Debug.log({
+        Logger.info({
           module: 'v1.0/ticket/create',
           context: 'POST',
           message: `Found ${assets?.length || 0} HaloPSAAssets (HaloSiteID: ${psaSiteId})`,
@@ -241,7 +241,7 @@ export default async function (fastify: FastifyInstance) {
       });
 
       if (asset) {
-        Debug.log({
+        Logger.info({
           module: 'v1.0/ticket/create',
           context: 'POST',
           message: `HaloAsset found for ${agent.hostname} (HaloID: ${asset?.id})`,
@@ -257,7 +257,7 @@ export default async function (fastify: FastifyInstance) {
       });
 
       if (contact) {
-        Debug.log({
+        Logger.info({
           module: 'v1.0/ticket/create',
           context: 'POST',
           message: `HaloContact found for ${contact.name} (HaloID: ${contact.id})`,
@@ -279,7 +279,7 @@ export default async function (fastify: FastifyInstance) {
           if (data) {
             body.link = data;
 
-            Debug.log({
+            Logger.info({
               module: 'v1.0/ticket/create',
               context: 'POST',
               message: `Image uploaded to HaloPSA for ${agent.hostname} (Link: ${body.link})`,
@@ -331,7 +331,7 @@ export default async function (fastify: FastifyInstance) {
       if (!createdTicketID) {
         statusCode = 500;
         errorMessage = 'Failed to create ticket';
-        return Debug.response(
+        return Logger.response(
           {
             error: {
               module: 'v1.0/ticket/create',
@@ -345,7 +345,7 @@ export default async function (fastify: FastifyInstance) {
 
       ticketID = createdTicketID;
 
-      Debug.log({
+      Logger.info({
         module: 'v1.0/ticket/create',
         context: 'POST',
         message: `Ticket create in HaloPSA for ${agent.hostname} (TicketID: ${ticketID})`,
@@ -366,7 +366,7 @@ export default async function (fastify: FastifyInstance) {
           });
         } catch (err) {
           // Log error but don't fail the request
-          Debug.log({
+          Logger.info({
             module: 'v1.0/ticket/create',
             context: 'log_ticket_usage',
             message: `Failed to log ticket usage: ${err}`,
@@ -398,7 +398,7 @@ export default async function (fastify: FastifyInstance) {
         perf
       );
 
-      return Debug.response(
+      return Logger.response(
         {
           data: ticketID,
         },
@@ -443,7 +443,7 @@ export default async function (fastify: FastifyInstance) {
         }
       }
 
-      return Debug.response(
+      return Logger.response(
         {
           error: {
             module: 'v1.0/ticket/create',

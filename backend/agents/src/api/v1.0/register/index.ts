@@ -1,7 +1,7 @@
 import { generateAgentGuid } from '@/lib/utils.js';
 import { getSupabase } from '@/lib/supabase.js';
 import { FastifyInstance } from 'fastify';
-import { Debug } from '@workspace/shared/lib/utils/debug';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 
 export default async function (fastify: FastifyInstance) {
   fastify.post('/', async (req) => {
@@ -20,7 +20,7 @@ export default async function (fastify: FastifyInstance) {
         };
 
       if (!site_id || !hostname || !version || !platform) {
-        return Debug.response(
+        return Logger.response(
           {
             error: {
               module: 'v1.0/register',
@@ -37,7 +37,7 @@ export default async function (fastify: FastifyInstance) {
       const { data: site } = await supabase.from('sites').select().eq('id', site_id).single();
 
       if (!site) {
-        return Debug.response(
+        return Logger.response(
           {
             error: {
               module: 'v1.0/register',
@@ -90,7 +90,7 @@ export default async function (fastify: FastifyInstance) {
             .single();
 
       if (!result.data) {
-        return Debug.response(
+        return Logger.response(
           {
             error: {
               module: 'v1.0/register',
@@ -102,7 +102,7 @@ export default async function (fastify: FastifyInstance) {
         );
       }
 
-      return Debug.response(
+      return Logger.response(
         {
           data: {
             device_id: result.data.id,
@@ -112,13 +112,13 @@ export default async function (fastify: FastifyInstance) {
         200
       );
     } catch (err) {
-      Debug.error({
+      Logger.error({
         context: '/v1.0/register',
         module: 'POST',
         message: `Failed to register agent: ${err}`,
       });
 
-      return Debug.response(
+      return Logger.response(
         {
           error: {
             module: 'v1.0/register',

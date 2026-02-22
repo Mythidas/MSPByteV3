@@ -24,6 +24,7 @@ export interface EntityTypeConfig {
   type: EntityType;
   rateMinutes: number;
   priority: number;
+  fanOut?: boolean; // true = created by linker fan-out; reconciler skips these
 }
 
 export interface IntegrationConfig {
@@ -47,7 +48,7 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
     id: 'sophos-partner',
     supportedTypes: [
       { type: 'company', rateMinutes: 60, priority: 5 },
-      { type: 'endpoint', rateMinutes: 15, priority: 3 },
+      { type: 'endpoint', rateMinutes: 15, priority: 3, fanOut: true },
     ],
   },
   dattormm: {
@@ -55,7 +56,7 @@ export const INTEGRATION_CONFIGS: Record<IntegrationId, IntegrationConfig> = {
     id: 'dattormm',
     supportedTypes: [
       { type: 'company', rateMinutes: 60, priority: 5 },
-      { type: 'endpoint', rateMinutes: 15, priority: 3 },
+      { type: 'endpoint', rateMinutes: 15, priority: 3, fanOut: true },
     ],
   },
   cove: {

@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
+import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
 import Encryption from '@workspace/shared/lib/utils/encryption';
 import { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/assets.js';
 import {
@@ -44,7 +44,7 @@ export class HaloPSAConnector {
     });
 
     if (!response.ok) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'getSites',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -104,7 +104,7 @@ export class HaloPSAConnector {
     });
 
     if (!response.ok) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'getAssets',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -163,7 +163,7 @@ export class HaloPSAConnector {
     });
 
     if (!response.ok) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'getUser',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -174,7 +174,7 @@ export class HaloPSAConnector {
     users.push(...data.users);
 
     if (users.length === 0 || !users[0]) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'getUser',
         message: `No user found`,
@@ -253,7 +253,7 @@ export class HaloPSAConnector {
     });
 
     if (!response.ok) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'createTicket',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -285,7 +285,7 @@ export class HaloPSAConnector {
     });
 
     if (!response.ok) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'uploadImage',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -309,7 +309,7 @@ export class HaloPSAConnector {
     });
 
     if (!response.ok) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'validateSiteId',
         message: `HTTP ${response.status}: ${response.statusText}`,
@@ -339,7 +339,7 @@ export class HaloPSAConnector {
       });
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: 'HaloPSAConnector',
           context: 'getToken',
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -349,7 +349,7 @@ export class HaloPSAConnector {
       const data: { access_token: string } = await response.json();
       return { data: data.access_token };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'HaloPSAConnector',
         context: 'getToken',
         message: `Failed to get token: ${err}`,

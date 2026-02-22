@@ -2,7 +2,7 @@ import type { Job } from 'bullmq';
 import { getSupabase } from '../supabase.js';
 import { queueManager, QueueNames } from '../lib/queue.js';
 import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { JobScheduler } from '../scheduler/JobScheduler.js';
 import { createSyncContext } from '../context.js';
 import { CompletionTracker } from '../lib/completionTracker.js';
@@ -48,11 +48,10 @@ export class SyncWorker {
     });
 
     this.started = true;
-    Logger.log({
+    Logger.info({
       module: 'SyncWorker',
       context: 'start',
       message: `Worker started for ${this.integrationId}:${this.entityType}`,
-      level: 'info',
     });
   }
 
@@ -61,11 +60,10 @@ export class SyncWorker {
     const tracker = new PipelineTracker();
     const supabase = getSupabase();
 
-    Logger.log({
+    Logger.info({
       module: 'SyncWorker',
       context: 'handleJob',
-      message: `Starting sync for ${integrationId}:${entityType} (job ${syncJobId})`,
-      level: 'info',
+      message: `[${syncJobId}] Starting sync for ${integrationId}:${entityType}`,
     });
 
     // Create SyncContext — shared state between phases
@@ -91,30 +89,50 @@ export class SyncWorker {
         throw new Error(`No adapter registered for ${integrationId}:${entityType}`);
       }
 
-      const entities = await tracker.trackSpan('stage:adapter', async () => {
-        return this.adapter!.fetchAll(job.data, tracker);
-      });
+      let entities: any[];
+      try {
+        entities = await tracker.trackSpan('stage:adapter', async () => {
+          return this.adapter!.fetchAll(job.data, tracker);
+        });
+      } catch (adapterError) {
+        Logger.error({
+          module: 'SyncWorker',
+          context: 'handleJob',
+          message: `[${syncJobId}] Stage adapter failed: ${(adapterError as Error).message}`,
+        });
+        throw adapterError;
+      }
 
-      Logger.log({
+      Logger.info({
         module: 'SyncWorker',
         context: 'handleJob',
-        message: `Fetched ${entities.length} entities`,
-        level: 'info',
+        message: `[${syncJobId}] Fetched ${entities.length} entities`,
       });
 
       // 2. PROCESSOR: Hash-based upsert → returns processed Entity[]
       const siteId = job.data.siteId ?? undefined;
-      ctx.processedEntities = await tracker.trackSpan('stage:processor', async () => {
-        return this.processor.process(
-          entities,
-          tenantId,
-          integrationId,
-          entityType,
-          syncId,
-          tracker,
-          siteId,
-        );
-      });
+      const connectionId = job.data.connectionId ?? undefined;
+      try {
+        ctx.processedEntities = await tracker.trackSpan('stage:processor', async () => {
+          return this.processor.process(
+            entities,
+            tenantId,
+            integrationId,
+            entityType,
+            syncId,
+            tracker,
+            siteId,
+            connectionId,
+          );
+        });
+      } catch (processorError) {
+        Logger.error({
+          module: 'SyncWorker',
+          context: 'handleJob',
+          message: `[${syncJobId}] Stage processor failed: ${(processorError as Error).message}`,
+        });
+        throw processorError;
+      }
 
       // 2b. CLEANUP: Remove entities no longer in API response
       const pruned = await tracker.trackSpan('stage:prune', async () => {
@@ -125,40 +143,49 @@ export class SyncWorker {
           entityType,
           tracker,
           siteId,
+          connectionId,
         );
       });
 
       if (pruned > 0) {
-        Logger.log({
+        Logger.info({
           module: 'SyncWorker',
           context: 'handleJob',
-          message: `Pruned ${pruned} stale ${entityType} entities`,
-          level: 'info',
+          message: `[${syncJobId}] Pruned ${pruned} stale ${entityType} entities`,
         });
       }
 
       // 3. LINKER: Optional relationship linking (uses SyncContext)
       if (this.linker) {
-        await tracker.trackSpan('stage:linker', async () => {
-          await this.linker!.linkAndReconcile(ctx, tracker);
+        try {
+          await tracker.trackSpan('stage:linker', async () => {
+            await this.linker!.linkAndReconcile(ctx, tracker);
 
-          // Track expected endpoint count for fan-out integrations (DattoRMM)
-          if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker!) {
-            const expectedCount = await this.getExpectedEndpointCount(
-              tenantId,
-              integrationDbId,
-              tracker,
-            );
-            if (expectedCount > 0) {
-              await CompletionTracker.setExpectedCount(
+            // Track expected endpoint count for fan-out integrations (DattoRMM)
+            if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker!) {
+              const expectedCount = await this.getExpectedEndpointCount(
                 tenantId,
-                integrationId,
-                'endpoint',
-                expectedCount,
+                integrationDbId,
+                tracker,
               );
+              if (expectedCount > 0) {
+                await CompletionTracker.setExpectedCount(
+                  tenantId,
+                  integrationId,
+                  'endpoint',
+                  expectedCount,
+                );
+              }
             }
-          }
-        });
+          });
+        } catch (linkerError) {
+          Logger.error({
+            module: 'SyncWorker',
+            context: 'handleJob',
+            message: `[${syncJobId}] Stage linker failed: ${(linkerError as Error).message}`,
+          });
+          throw linkerError;
+        }
       }
 
       // 4. Analysis is DEFERRED — track completion and trigger when all types done
@@ -181,13 +208,13 @@ export class SyncWorker {
         integrationId as IntegrationId,
         entityType as EntityType,
         job.data.siteId,
+        job.data.connectionId,
       );
 
-      Logger.log({
+      Logger.info({
         module: 'SyncWorker',
         context: 'handleJob',
-        message: `Sync completed for ${integrationId}:${entityType} (job ${syncJobId})`,
-        level: 'info',
+        message: `[${syncJobId}] Sync completed for ${integrationId}:${entityType}`,
       });
     } catch (error) {
       tracker.trackError(error as Error, job.attemptsMade);
@@ -205,19 +232,17 @@ export class SyncWorker {
           })
           .eq('id', syncJobId);
       } catch (updateError) {
-        Logger.log({
+        Logger.error({
           module: 'SyncWorker',
           context: 'handleJob',
           message: `Failed to update sync_job: ${updateError}`,
-          level: 'error',
         });
       }
 
-      Logger.log({
+      Logger.error({
         module: 'SyncWorker',
         context: 'handleJob',
-        message: `Sync failed for ${integrationId}:${entityType}: ${(error as Error).message}`,
-        level: 'error',
+        message: `[${syncJobId}] Sync failed for ${integrationId}:${entityType}: ${(error as Error).message}`,
       });
 
       throw error;
@@ -236,11 +261,10 @@ export class SyncWorker {
     );
 
     if (allComplete) {
-      Logger.log({
+      Logger.info({
         module: 'SyncWorker',
         context: 'trackCompletionAndMaybeAnalyze',
         message: `All entity types complete for ${integrationId}, enqueuing analysis`,
-        level: 'info',
       });
 
       const analysisData: AnalysisJobData = {

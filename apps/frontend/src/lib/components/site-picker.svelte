@@ -6,20 +6,25 @@
   import * as Popover from '$lib/components/ui/popover/index.js';
   import * as Command from '$lib/components/ui/command/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
-  import { Check, ChevronsUpDown, MapPin } from '@lucide/svelte';
+  import { Check, ChevronsUpDown, MapPin, Network } from '@lucide/svelte';
   import {
     getParentSites,
     type SiteRef,
     type GroupRef,
     type ScopeType,
+    type ConnectionRef,
   } from '$lib/utils/scope-filter';
 
   let {
     sites = [],
     groups = [],
+    connections = [],
+    pickerTypes = ['site', 'group', 'parent'],
   }: {
     sites: SiteRef[];
     groups: GroupRef[];
+    connections: ConnectionRef[];
+    pickerTypes: ScopeType[];
   } = $props();
 
   let open = $state(false);
@@ -30,7 +35,7 @@
 
   let parentSites = $derived(getParentSites(sites));
 
-  let scopeType = $derived(scope ?? 'site');
+  let scopeType = $derived((scope ?? pickerTypes[0]) as ScopeType);
 
   let options = $derived.by((): { id: string; name: string }[] => {
     switch (scopeType) {
@@ -38,6 +43,8 @@
         return groups;
       case 'parent':
         return parentSites;
+      case 'connection':
+        return connections;
       default:
         return sites;
     }
@@ -55,6 +62,8 @@
         return 'All Groups';
       case 'parent':
         return 'All Parents';
+      case 'connection':
+        return 'All Tenants';
       default:
         return 'All Sites';
     }
@@ -66,8 +75,23 @@
         return 'Search groups...';
       case 'parent':
         return 'Search parents...';
+      case 'connection':
+        return 'Search tenants...';
       default:
         return 'Search sites...';
+    }
+  });
+
+  let scopeTypeLabel = $derived.by(() => {
+    switch (scopeType) {
+      case 'group':
+        return 'Group';
+      case 'parent':
+        return 'Parent';
+      case 'connection':
+        return 'Tenant';
+      default:
+        return 'Site';
     }
   });
 
@@ -109,12 +133,14 @@
     }}
   >
     <Select.Trigger size="sm" class="w-25">
-      {scopeType === 'site' ? 'Site' : scopeType === 'group' ? 'Group' : 'Parent'}
+      {scopeTypeLabel}
     </Select.Trigger>
     <Select.Content>
-      <Select.Item value="site" label="Site">Site</Select.Item>
-      <Select.Item value="group" label="Group">Group</Select.Item>
-      <Select.Item value="parent" label="Parent">Parent</Select.Item>
+      {#each pickerTypes as pt}
+        <Select.Item value={pt} label={pt === 'site' ? 'Site' : pt === 'group' ? 'Group' : pt === 'parent' ? 'Parent' : 'Tenant'}>
+          {pt === 'site' ? 'Site' : pt === 'group' ? 'Group' : pt === 'parent' ? 'Parent' : 'Tenant'}
+        </Select.Item>
+      {/each}
     </Select.Content>
   </Select.Root>
 
@@ -129,7 +155,11 @@
           aria-expanded={open}
           class="w-45 justify-between"
         >
-          <MapPin class="size-3.5 shrink-0 opacity-50" />
+          {#if scopeType === 'connection'}
+            <Network class="size-3.5 shrink-0 opacity-50" />
+          {:else}
+            <MapPin class="size-3.5 shrink-0 opacity-50" />
+          {/if}
           <span class="truncate">{selectedLabel ?? placeholder}</span>
           <ChevronsUpDown class="size-3.5 shrink-0 opacity-50" />
         </Button>

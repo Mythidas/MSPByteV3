@@ -1,5 +1,5 @@
 import { getSupabase } from '../supabase.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 
 /**
  * TagManager - Manages entity_tags table.
@@ -62,21 +62,19 @@ export class TagManager {
           ignoreDuplicates: true,
         });
         if (error) {
-          Logger.log({
+          Logger.error({
             module: 'TagManager',
             context: 'applyTags',
             message: `Error inserting tags: ${error.message}`,
-            level: 'error',
           });
         }
       }
     }
 
-    Logger.log({
+    Logger.trace({
       module: 'TagManager',
       context: 'applyTags',
       message: `Applied ${validInserts.length} tags to ${entityTags.size} entities`,
-      level: 'trace',
     });
   }
 }

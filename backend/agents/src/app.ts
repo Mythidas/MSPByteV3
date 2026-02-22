@@ -6,7 +6,7 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import autoload from '@fastify/autoload';
 import fastifyStatic from '@fastify/static';
-import { Debug } from '@workspace/shared/lib/utils/debug';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 
 // Compute __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
@@ -45,7 +45,7 @@ await fastify.register(fastifyStatic, {
 const port = process.env.PORT || 3001;
 await fastify.listen({ port: port as number, host: '0.0.0.0' });
 
-Debug.log({
+Logger.info({
   module: 'app',
   context: 'startup',
   message: `Server listening on port ${port}`,
@@ -53,7 +53,7 @@ Debug.log({
 
 // Graceful shutdown handlers
 async function shutdown(signal: string) {
-  Debug.log({
+  Logger.info({
     module: 'app',
     context: 'shutdown',
     message: `Received ${signal}, shutting down gracefully...`,
@@ -62,7 +62,7 @@ async function shutdown(signal: string) {
   // Close Fastify server
   await fastify.close();
 
-  Debug.log({
+  Logger.info({
     module: 'app',
     context: 'shutdown',
     message: 'Shutdown complete',

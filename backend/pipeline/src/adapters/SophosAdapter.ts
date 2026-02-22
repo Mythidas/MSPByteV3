@@ -1,6 +1,6 @@
 import { BaseAdapter } from './BaseAdapter.js';
 import { getSupabase } from '../supabase.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { PipelineTracker } from '../lib/tracker.js';
 import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
 import type { SophosPartnerConfig } from '@workspace/shared/types/integrations/sophos/index';
@@ -61,11 +61,10 @@ export class SophosAdapter extends BaseAdapter {
       throw new Error(`Sophos getTenants failed: ${error.message}`);
     }
 
-    Logger.log({
+    Logger.info({
       module: 'SophosAdapter',
       context: 'fetchTenants',
       message: `Fetched ${sites.length} Sophos tenants`,
-      level: 'info',
     });
 
     const entities = sites.map((site) => ({
@@ -121,11 +120,10 @@ export class SophosAdapter extends BaseAdapter {
       throw new Error(`Sophos getEndpoints failed: ${error.message}`);
     }
 
-    Logger.log({
+    Logger.info({
       module: 'SophosAdapter',
       context: 'fetchDevices',
       message: `Fetched ${devices.length} devices for site ${sophosSiteId}`,
-      level: 'info',
     });
 
     const entities = devices.map((device) => ({

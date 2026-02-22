@@ -31,11 +31,10 @@ export class CompletionTracker {
     const key = `${this.baseKey(tenantId, integrationId)}:expected:${entityType}`;
     await redis.set(key, count.toString(), 'EX', TTL_SECONDS);
 
-    Logger.log({
+    Logger.trace({
       module: 'CompletionTracker',
       context: 'setExpectedCount',
       message: `Set expected count for ${integrationId}:${entityType} = ${count}`,
-      level: 'trace',
     });
   }
 
@@ -62,11 +61,10 @@ export class CompletionTracker {
       const completed = await redis.incr(counterKey);
       await redis.expire(counterKey, TTL_SECONDS);
 
-      Logger.log({
+      Logger.trace({
         module: 'CompletionTracker',
         context: 'markComplete',
         message: `Fan-out ${integrationId}:${entityType} progress: ${completed}/${expectedCount}`,
-        level: 'trace',
       });
 
       if (completed < parseInt(expectedCount, 10)) {
@@ -102,11 +100,10 @@ export class CompletionTracker {
       ];
       await redis.del(...keysToDelete);
 
-      Logger.log({
+      Logger.info({
         module: 'CompletionTracker',
         context: 'markComplete',
         message: `All types complete for ${integrationId}, cleaned up tracking keys`,
-        level: 'info',
       });
     }
 

@@ -1,6 +1,6 @@
 import { getORM } from './supabase.js';
 import { PipelineTracker } from './lib/tracker.js';
-import { Logger } from './lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Entity, Relationship, SyncContext } from './types.js';
 
 export function createSyncContext(params: {
@@ -38,11 +38,10 @@ export async function ensureAllEntitiesLoaded(
 
   ctx.allEntities = (data?.rows || []) as Entity[];
 
-  Logger.log({
+  Logger.trace({
     module: 'SyncContext',
     context: 'ensureAllEntitiesLoaded',
     message: `Loaded ${ctx.allEntities.length} entities (cached)`,
-    level: 'trace',
   });
 
   return ctx.allEntities;
@@ -66,11 +65,10 @@ export async function ensureRelationshipsLoaded(
 
   ctx.relationships = (data?.rows || []) as Relationship[];
 
-  Logger.log({
+  Logger.trace({
     module: 'SyncContext',
     context: 'ensureRelationshipsLoaded',
     message: `Loaded ${ctx.relationships.length} relationships (cached)`,
-    level: 'trace',
   });
 
   return ctx.relationships;
@@ -127,11 +125,10 @@ export async function ensureSiteEntitiesLoaded(
 
   ctx.allEntities = combined;
 
-  Logger.log({
+  Logger.trace({
     module: 'SyncContext',
     context: 'ensureSiteEntitiesLoaded',
     message: `Loaded ${siteEntities.length} site entities + ${companyEntities.length} company entities for site ${ctx.siteId}`,
-    level: 'trace',
   });
 
   return ctx.allEntities;
@@ -162,11 +159,10 @@ export async function ensureSiteRelationshipsLoaded(
 
   ctx.relationships = (data?.rows || []) as Relationship[];
 
-  Logger.log({
+  Logger.trace({
     module: 'SyncContext',
     context: 'ensureSiteRelationshipsLoaded',
     message: `Loaded ${ctx.relationships.length} relationships for site ${ctx.siteId}`,
-    level: 'trace',
   });
 
   return ctx.relationships;

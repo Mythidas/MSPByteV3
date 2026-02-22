@@ -3,6 +3,7 @@ import { AutoTaskConnector } from '@workspace/shared/lib/connectors/AutoTaskConn
 import { CoveConnector } from '@workspace/shared/lib/connectors/CoveConnector';
 import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
 import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { SiteReport, Mismatch, MismatchType, ReconciliationReport } from './types';
 import type { RequestHandler } from './$types';
 
@@ -22,7 +23,7 @@ export const GET: RequestHandler = async ({ locals }) => {
       }
 
       try {
-        console.log('Starting reconciliation report generation...');
+        Logger.info({ module: 'reconciliation', context: 'start', message: 'Starting reconciliation report generation' });
 
         // 1. Load all sites from database
         const { data: sites, error: sitesError } = await locals.supabase
@@ -31,7 +32,7 @@ export const GET: RequestHandler = async ({ locals }) => {
           .order('name');
 
         if (sitesError) {
-          console.error('Error loading sites:', sitesError);
+          Logger.error({ module: 'reconciliation', context: 'loadSites', message: String(sitesError) });
           return sendError('Failed to load sites');
         }
 
@@ -45,7 +46,7 @@ export const GET: RequestHandler = async ({ locals }) => {
           .in('id', ['autotask', 'sophos-partner', 'dattormm', 'cove']);
 
         if (integrationsError) {
-          console.error('Error loading integrations:', integrationsError);
+          Logger.error({ module: 'reconciliation', context: 'loadIntegrations', message: String(integrationsError) });
           return sendError('Failed to load integrations');
         }
 
@@ -69,7 +70,7 @@ export const GET: RequestHandler = async ({ locals }) => {
           .select('*');
 
         if (linksError) {
-          console.error('Error loading links:', linksError);
+          Logger.error({ module: 'reconciliation', context: 'loadLinks', message: String(linksError) });
           return sendError('Failed to load integration links');
         }
 
@@ -250,7 +251,7 @@ export const GET: RequestHandler = async ({ locals }) => {
               },
             });
           } catch (err) {
-            console.error(`Failed to process site: ${site.name}`, err);
+            Logger.error({ module: 'reconciliation', context: 'processSite', message: `Failed to process site ${site.name}: ${err}` });
             siteReports.push({
               id: site.id.toString(),
               name: site.name,
@@ -292,7 +293,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 
         controller.close();
       } catch (error) {
-        console.error('Error generating reconciliation report:', error);
+        Logger.error({ module: 'reconciliation', context: 'generate', message: `Error generating reconciliation report: ${error}` });
         controller.enqueue(
           encoder.encode(`data: ${JSON.stringify({ error: 'Internal server error' })}\n\n`)
         );

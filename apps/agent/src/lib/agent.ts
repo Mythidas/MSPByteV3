@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import { Debug, APIResponse } from '@workspace/shared/lib/utils/debug';
+import { Logger, APIResponse } from '@workspace/shared/lib/utils/logger';
 
 export type AgentSettings = {
   site_id: string;
@@ -31,7 +31,7 @@ export async function getSettings(): Promise<APIResponse<AgentSettings>> {
       data: content,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'Agent',
       context: 'getSettings',
       message: `Failed to get agent settings: ${err}`,
@@ -48,7 +48,7 @@ export async function getSystemInfo(): Promise<APIResponse<SystemInfo>> {
       data: content,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'Agent',
       context: 'getSystemInfo',
       message: `Failed to get system info`,
@@ -63,7 +63,7 @@ export async function getRmmId(): Promise<APIResponse<string>> {
 
     return { data: content };
   } catch {
-    return Debug.error({
+    return Logger.error({
       module: 'Agent',
       context: 'getRmmId',
       message: 'Failed to get RMM ID',

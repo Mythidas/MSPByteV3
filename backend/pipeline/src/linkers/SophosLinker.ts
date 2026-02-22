@@ -1,7 +1,7 @@
 import { BaseLinker } from './BaseLinker.js';
 import { getSupabase, getORM } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
 
 export class SophosLinker extends BaseLinker {
@@ -39,11 +39,10 @@ export class SophosLinker extends BaseLinker {
       });
     }
 
-    Logger.log({
+    Logger.info({
       module: 'SophosLinker',
       context: 'link',
       message: `Determined ${relationships.length} device→site relationships`,
-      level: 'info',
     });
 
     return relationships;
@@ -100,11 +99,10 @@ export class SophosLinker extends BaseLinker {
       );
       if (deleteError) throw new Error(`Failed to delete stale mappings: ${deleteError}`);
 
-      Logger.log({
+      Logger.info({
         module: 'SophosLinker',
         context: 'cleanupStaleMappings',
         message: `Deleted ${staleIds.length} stale site_to_integration mappings`,
-        level: 'info',
       });
     }
   }
@@ -150,11 +148,10 @@ export class SophosLinker extends BaseLinker {
       tracker.trackUpsert();
       await supabase.from('sync_jobs').insert(jobsToInsert);
 
-      Logger.log({
+      Logger.info({
         module: 'SophosLinker',
         context: 'fanOutEndpointJobs',
         message: `Created ${jobsToInsert.length} endpoint sync jobs`,
-        level: 'info',
       });
     }
 

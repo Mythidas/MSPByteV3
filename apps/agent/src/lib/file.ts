@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { Debug, APIResponse } from '@workspace/shared/lib/utils/debug';
+import { Logger, APIResponse } from '@workspace/shared/lib/utils/logger';
 
 export async function takeScreenshot(): Promise<APIResponse<string>> {
   try {
@@ -10,7 +10,7 @@ export async function takeScreenshot(): Promise<APIResponse<string>> {
       data: result,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'File',
       context: 'takeScreenshot',
       message: `Failed to take screenshot: ${err}`,
@@ -39,7 +39,7 @@ export async function chooseImageDialog(): Promise<APIResponse<string>> {
       data: file,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'File',
       context: 'chooseImageDialog',
       message: String(err),
@@ -85,7 +85,7 @@ export async function readFileText(path: string): Promise<APIResponse<string>> {
       data: content,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'File',
       context: 'readFileBase64',
       message: `Failed to read file: ${err}`,
@@ -103,7 +103,7 @@ export async function readFileBase64(path: string): Promise<APIResponse<string>>
       data: content,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'File',
       context: 'readFileBase64',
       message: `Failed to read file: ${err}`,
@@ -121,7 +121,7 @@ export async function readFileBinary(path: string): Promise<APIResponse<number[]
       data: content,
     };
   } catch (err) {
-    return Debug.error({
+    return Logger.error({
       module: 'File',
       context: 'readFileBinary',
       message: `Failed to read file: ${err}`,

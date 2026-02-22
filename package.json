@@ -9,6 +9,7 @@
   ],
   "scripts": {
     "build": "turbo build",
+    "test": "turbo test",
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=@workspace/frontend",
     "dev:agent": "turbo dev --filter=@workspace/agents --filter=@workspace/agent",

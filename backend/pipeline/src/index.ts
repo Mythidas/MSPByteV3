@@ -1,10 +1,11 @@
-import { Logger } from './lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { disconnectRedis } from './lib/redis.js';
 import { queueManager } from './lib/queue.js';
 import { INTEGRATION_CONFIGS, type IntegrationId } from './config.js';
 import { EntityProcessor } from './processor/EntityProcessor.js';
 import { AnalysisOrchestrator } from './analyzers/AnalysisOrchestrator.js';
 import { JobScheduler } from './scheduler/JobScheduler.js';
+import { JobReconciler } from './scheduler/JobReconciler.js';
 import { SyncWorker } from './workers/SyncWorker.js';
 import { AnalysisWorker } from './workers/AnalysisWorker.js';
 import { DattoRMMAdapter } from './adapters/DattoRMMAdapter.js';
@@ -33,11 +34,10 @@ import { Microsoft365Analyzer } from './analyzers/Microsoft365Analyzer.js';
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || 'info';
 
-  Logger.log({
+  Logger.info({
     module: 'Pipeline',
     context: 'main',
     message: 'Starting pipeline...',
-    level: 'info',
   });
 
   // Validate environment
@@ -50,11 +50,10 @@ async function main() {
 
   // Recover stuck jobs from previous crash
   const recovered = await JobScheduler.recoverStuckJobs();
-  Logger.log({
+  Logger.info({
     module: 'Pipeline',
     context: 'main',
     message: `Recovered ${recovered} stuck jobs`,
-    level: 'info',
   });
 
   // Concrete adapters and linkers keyed by integrationId
@@ -95,11 +94,10 @@ async function main() {
     }
   }
 
-  Logger.log({
+  Logger.info({
     module: 'Pipeline',
     context: 'main',
     message: `Started ${workers.length} sync workers`,
-    level: 'info',
   });
 
   // Create one AnalysisWorker per integration
@@ -110,52 +108,53 @@ async function main() {
     analysisWorkers.push(analysisWorker);
   }
 
-  Logger.log({
+  Logger.info({
     module: 'Pipeline',
     context: 'main',
     message: `Started ${analysisWorkers.length} analysis workers`,
-    level: 'info',
   });
+
+  // Start job reconciler — ensures missing jobs are created before the scheduler polls
+  const reconciler = new JobReconciler();
+  await reconciler.reconcile();
+  reconciler.start();
 
   // Start job scheduler
   const scheduler = new JobScheduler();
   scheduler.start();
 
-  Logger.log({
+  Logger.info({
     module: 'Pipeline',
     context: 'main',
     message: 'Pipeline started successfully. Press Ctrl+C to stop.',
-    level: 'info',
   });
 
   // Graceful shutdown
   const shutdown = async (signal: string) => {
-    Logger.log({
+    Logger.info({
       module: 'Pipeline',
       context: 'shutdown',
       message: `Received ${signal}, shutting down gracefully...`,
-      level: 'info',
     });
 
     try {
+      reconciler.stop();
       scheduler.stop();
       await queueManager.closeAll();
       await disconnectRedis();
 
-      Logger.log({
+      Logger.info({
         module: 'Pipeline',
         context: 'shutdown',
         message: 'Graceful shutdown complete',
-        level: 'info',
       });
 
       process.exit(0);
     } catch (error) {
-      Logger.log({
+      Logger.error({
         module: 'Pipeline',
         context: 'shutdown',
         message: `Error during shutdown: ${error}`,
-        level: 'error',
       });
       process.exit(1);
     }
@@ -166,11 +165,10 @@ async function main() {
 }
 
 main().catch((error) => {
-  Logger.log({
+  Logger.fatal({
     module: 'Pipeline',
     context: 'main',
     message: `Fatal error: ${error}`,
-    level: 'fatal',
   });
   console.error('Fatal error:', error);
   process.exit(1);

@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
+import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
 import {
   AutoTaskDataSourceConfig,
   AutoTaskCompany,
@@ -41,7 +41,7 @@ export class AutoTaskConnector {
         data: response.data,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getCompanies',
         message: String(err),
@@ -73,7 +73,7 @@ export class AutoTaskConnector {
         data: response.data,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getContracts',
         message: String(err),
@@ -121,7 +121,7 @@ export class AutoTaskConnector {
         data,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getContractServices',
         message: String(err),
@@ -156,7 +156,7 @@ export class AutoTaskConnector {
         data: response.data,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getContractServiceUnits',
         message: String(err),
@@ -195,7 +195,7 @@ export class AutoTaskConnector {
         data: response.data,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getContractServiceBundleUnits',
         message: String(err),
@@ -221,7 +221,7 @@ export class AutoTaskConnector {
         data: response.data,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getQuoteItem',
         message: String(err),
@@ -241,7 +241,7 @@ export class AutoTaskConnector {
       });
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: 'AutoTaskConnector',
           context: 'getAPIData',
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -252,7 +252,7 @@ export class AutoTaskConnector {
 
       return { data: data.items };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'AutoTaskConnector',
         context: 'getAPIData',
         message: String(err),

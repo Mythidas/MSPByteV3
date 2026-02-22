@@ -1,6 +1,6 @@
 import { BaseAdapter } from './BaseAdapter.js';
 import { getSupabase } from '../supabase.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { PipelineTracker } from '../lib/tracker.js';
 import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
 import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index';
@@ -61,11 +61,10 @@ export class DattoRMMAdapter extends BaseAdapter {
       throw new Error(`DattoRMM getSites failed: ${error.message}`);
     }
 
-    Logger.log({
+    Logger.info({
       module: 'DattoRMMAdapter',
       context: 'fetchSites',
       message: `Fetched ${sites.length} Datto sites`,
-      level: 'info',
     });
 
     const entities = sites.map((site) => ({
@@ -103,11 +102,10 @@ export class DattoRMMAdapter extends BaseAdapter {
       throw new Error(`DattoRMM getDevices failed: ${error.message}`);
     }
 
-    Logger.log({
+    Logger.info({
       module: 'DattoRMMAdapter',
       context: 'fetchDevices',
       message: `Fetched ${devices.length} devices for site ${dattoSiteUid}`,
-      level: 'info',
     });
 
     const isValidDevice = (str: string) => {

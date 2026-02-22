@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
+import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
 import {
   Schemas,
   TableOrView,
@@ -66,7 +66,7 @@ export class ORM {
         error: undefined,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `count_${String(table)}`,
         message: String(err),
@@ -110,7 +110,7 @@ export class ORM {
         } as DataResponse<Tables<S, T>>,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `select_${String(table)}`,
         message: String(err),
@@ -168,7 +168,7 @@ export class ORM {
         },
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `paginated_${String(table)}`,
         message: String(err),
@@ -278,7 +278,7 @@ export class ORM {
         data: data as Tables<S, T>,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `select_${String(table)}`,
         message: String(err),
@@ -306,7 +306,7 @@ export class ORM {
         data: data as Tables<S, T>[],
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `insert_${String(table)}`,
         message: String(err),
@@ -335,7 +335,7 @@ export class ORM {
         data: data as Tables<S, T>,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `update_${String(table)}`,
         message: String(err),
@@ -366,7 +366,7 @@ export class ORM {
         data: data as Tables<S, T>[],
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `upsert_${String(table)}`,
         message: String(err),
@@ -396,7 +396,7 @@ export class ORM {
         data: null,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `delete_${String(table)}`,
         message: String(err),
@@ -429,7 +429,7 @@ export class ORM {
 
       return { data: allResults };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `batchInsert_${String(table)}`,
         message: String(err),
@@ -465,7 +465,7 @@ export class ORM {
 
       return { data: allResults };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `batchUpsert_${String(table)}`,
         message: String(err),
@@ -493,7 +493,7 @@ export class ORM {
 
       return { data: null };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `batchUpdate_${String(table)}`,
         message: String(err),
@@ -520,7 +520,7 @@ export class ORM {
 
       return { data: null };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: 'supabase',
         context: `batchDelete_${String(table)}`,
         message: String(err),

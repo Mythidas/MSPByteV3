@@ -1,5 +1,5 @@
 import { getSupabase } from '../supabase.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { PipelineTracker } from '../lib/tracker.js';
 import type { IntegrationId } from '../config.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
@@ -33,21 +33,19 @@ export abstract class BaseAdapter {
       allEntities.push(...result.entities);
       batch++;
 
-      Logger.log({
+      Logger.trace({
         module: 'BaseAdapter',
         context: 'fetchAll',
         message: `Batch ${batch}: fetched ${result.entities.length} ${jobData.entityType} entities`,
-        level: 'trace',
       });
 
       cursor = result.pagination?.hasMore ? result.pagination.cursor : undefined;
     } while (cursor);
 
-    Logger.log({
+    Logger.info({
       module: 'BaseAdapter',
       context: 'fetchAll',
       message: `Total: ${allEntities.length} ${jobData.entityType} entities fetched`,
-      level: 'info',
     });
 
     return allEntities;

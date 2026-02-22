@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "build": "tsc --noEmit"
+    "build": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
@@ -16,6 +17,7 @@
     "ioredis": "^5.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "vitest": "^4.0.18"
   }
 }

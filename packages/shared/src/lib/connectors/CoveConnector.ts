@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from "@workspace/shared/lib/utils/debug";
+import { APIResponse, Logger } from "@workspace/shared/lib/utils/logger";
 import { CoveConnectorConfig } from "@workspace/shared/types/integrations/cove";
 import {
   CoveChildPartner,
@@ -96,7 +96,7 @@ export class CoveConnector {
               finalResult.push(...childData.result.result.Children);
             }
           } catch (err) {
-            Debug.error({
+            Logger.error({
               module: "CoveConnector",
               context: "getCustomers",
               message: String(err),
@@ -111,7 +111,7 @@ export class CoveConnector {
         ),
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "CoveConnector",
         context: "getCustomers",
         message: String(err),
@@ -169,7 +169,7 @@ export class CoveConnector {
 
       return { data: statistics };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "CoveConnector",
         context: "getDevices",
         message: String(err),
@@ -220,7 +220,7 @@ export class CoveConnector {
       this.token = data.visa as string;
       return this.token;
     } catch (err) {
-      Debug.error({
+      Logger.error({
         module: "CoveConnector",
         context: "getVisa",
         message: String(err),

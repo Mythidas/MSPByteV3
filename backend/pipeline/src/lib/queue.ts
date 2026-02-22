@@ -28,20 +28,18 @@ class QueueManager {
       const queue = new Queue(queueName, this.getDefaultOpts());
 
       queue.on('error', (error: Error) => {
-        Logger.log({
+        Logger.error({
           module: 'QueueManager',
           context: 'queue',
           message: `Queue error [${queueName}]: ${error.message}`,
-          level: 'error',
         });
       });
 
       this.queues.set(queueName, queue);
-      Logger.log({
+      Logger.trace({
         module: 'QueueManager',
         context: 'queue',
         message: `Queue created: ${queueName}`,
-        level: 'trace',
       });
     }
 
@@ -72,28 +70,25 @@ class QueueManager {
       queueName,
       async (job: Job<T>) => {
         const startTime = Date.now();
-        Logger.log({
+        Logger.info({
           module: 'QueueManager',
           context: 'worker',
           message: `Processing job [${queueName}] ${job.id}`,
-          level: 'info',
         });
 
         try {
           const result = await processor(job);
-          Logger.log({
+          Logger.info({
             module: 'QueueManager',
             context: 'worker',
             message: `Job completed [${queueName}] ${job.id} in ${Date.now() - startTime}ms`,
-            level: 'info',
           });
           return result;
         } catch (error) {
-          Logger.log({
+          Logger.error({
             module: 'QueueManager',
             context: 'worker',
             message: `Job failed [${queueName}] ${job.id} after ${Date.now() - startTime}ms: ${error}`,
-            level: 'error',
           });
           throw error;
         }
@@ -106,59 +101,53 @@ class QueueManager {
     );
 
     worker.on('failed', (job: Job | undefined, error: Error) => {
-      Logger.log({
+      Logger.error({
         module: 'QueueManager',
         context: 'worker',
         message: `Worker failed job [${queueName}] ${job?.id}: ${error.message}`,
-        level: 'error',
       });
     });
 
     worker.on('error', (error: Error) => {
-      Logger.log({
+      Logger.error({
         module: 'QueueManager',
         context: 'worker',
         message: `Worker error [${queueName}]: ${error.message}`,
-        level: 'error',
       });
     });
 
     this.workers.set(workerKey, worker);
-    Logger.log({
+    Logger.info({
       module: 'QueueManager',
       context: 'createWorker',
       message: `Worker created for queue: ${queueName}`,
-      level: 'info',
     });
 
     return worker;
   }
 
   async closeAll(): Promise<void> {
-    Logger.log({
+    Logger.info({
       module: 'QueueManager',
       context: 'closeAll',
       message: 'Closing all queues and workers...',
-      level: 'info',
     });
 
     for (const [key, worker] of this.workers.entries()) {
       await worker.close();
-      Logger.log({
+      Logger.trace({
         module: 'QueueManager',
         context: 'closeAll',
         message: `Worker closed: ${key}`,
-        level: 'trace',
       });
     }
 
     for (const [name, queue] of this.queues.entries()) {
       await queue.close();
-      Logger.log({
+      Logger.trace({
         module: 'QueueManager',
         context: 'closeAll',
         message: `Queue closed: ${name}`,
-        level: 'trace',
       });
     }
 

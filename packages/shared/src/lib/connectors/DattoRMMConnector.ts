@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from '@workspace/shared/lib/utils/debug';
+import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
 import {
   DattoRMMConfig,
   DattoRMMPagination,
@@ -37,7 +37,7 @@ export class DattoRMMConnector {
         });
 
         if (!response.ok) {
-          return Debug.error({
+          return Logger.error({
             module: 'DattoRMMConnector',
             context: 'getSites',
             message: `HTTP ${response.status}: ${response.statusText}`,
@@ -64,7 +64,7 @@ export class DattoRMMConnector {
 
       return { data: sites };
     } catch (error) {
-      return Debug.error({
+      return Logger.error({
         module: 'DattoRMMConnector',
         context: 'getSites',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -90,7 +90,7 @@ export class DattoRMMConnector {
         });
 
         if (!response.ok) {
-          return Debug.error({
+          return Logger.error({
             module: 'DattoRMMConnector',
             context: 'getDevices',
             message: `HTTP ${response.status}: ${response.statusText}`,
@@ -117,7 +117,7 @@ export class DattoRMMConnector {
 
       return { data: devices };
     } catch (error) {
-      return Debug.error({
+      return Logger.error({
         module: 'DattoRMMConnector',
         context: 'getDevices',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -144,7 +144,7 @@ export class DattoRMMConnector {
       });
 
       if (!variablesResponse.ok && variablesResponse.status !== 404) {
-        return Debug.error({
+        return Logger.error({
           module: 'DattoRMMConnector',
           context: 'setSiteVariable',
           message: `Failed to fetch variables: HTTP ${variablesResponse.status}: ${variablesResponse.statusText}`,
@@ -196,7 +196,7 @@ export class DattoRMMConnector {
       }
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: 'DattoRMMConnector',
           context: 'setSiteVariable',
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -205,7 +205,7 @@ export class DattoRMMConnector {
 
       return { data: true };
     } catch (error) {
-      return Debug.error({
+      return Logger.error({
         module: 'DattoRMMConnector',
         context: 'setSiteVariable',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -240,7 +240,7 @@ export class DattoRMMConnector {
           // Variable doesn't exist
           return { data: null };
         }
-        return Debug.error({
+        return Logger.error({
           module: 'DattoRMMConnector',
           context: 'getSiteVariable',
           message: `HTTP ${variablesResponse.status}: ${variablesResponse.statusText}`,
@@ -259,7 +259,7 @@ export class DattoRMMConnector {
 
       return { data: matchingVariable?.value || null };
     } catch (error) {
-      return Debug.error({
+      return Logger.error({
         module: 'DattoRMMConnector',
         context: 'getSiteVariable',
         message: error instanceof Error ? error.message : 'Unknown error',
@@ -274,7 +274,7 @@ export class DattoRMMConnector {
       const apiSecretKey = this.config.apiSecretKey;
 
       if (!apiKey || !apiSecretKey) {
-        return Debug.error({
+        return Logger.error({
           module: 'DattoRMMConnector',
           context: 'getToken',
           message: 'Failed to decrypt API credentials',
@@ -295,7 +295,7 @@ export class DattoRMMConnector {
       });
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: 'DattoRMMConnector',
           context: 'getToken',
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -305,7 +305,7 @@ export class DattoRMMConnector {
       const data = (await response.json()) as { access_token: string };
       return { data: data.access_token };
     } catch (error) {
-      return Debug.error({
+      return Logger.error({
         module: 'DattoRMMConnector',
         context: 'getToken',
         message: error instanceof Error ? error.message : 'Unknown error',

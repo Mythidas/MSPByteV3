@@ -8,9 +8,10 @@ import { microsoft365ConfigSchema } from './_forms';
 import { Encryption } from '$lib/server/encryption';
 import { PUBLIC_ORIGIN } from '$env/static/public';
 import { MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET } from '$env/static/private';
-import { Debug } from '@workspace/shared/lib/utils/debug';
+import { Logger } from '@workspace/shared/lib/utils/logger';
+import { safeErrorMessage } from '@workspace/shared/lib/utils/errors';
 
-export const load: PageServerLoad = async ({ locals }) => {
+export const load: PageServerLoad = async ({ locals, url }) => {
   const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
     q.eq('id', 'microsoft-365')
   );
@@ -32,17 +33,48 @@ export const load: PageServerLoad = async ({ locals }) => {
 
   const form = await superValidate(formDefaults, zod4(microsoft365ConfigSchema));
 
-  // Reconstruct domainMappings from site_to_integration.meta.domains
+  // Load persisted GDAP connections from DB
+  const { data: connectionsData } = await locals.orm.select(
+    'public',
+    'integration_connections',
+    (q) => q.eq('integration_id', 'microsoft-365').eq('tenant_id', locals.user?.tenant_id || '')
+  );
+  const connections = connectionsData?.rows ?? [];
+
+  // Load domain→site mappings from site_to_integration, keyed by external_id
   const { data: links } = await locals.orm.select('public', 'site_to_integration', (q) =>
     q.eq('integration_id', 'microsoft-365').eq('tenant_id', locals.user?.tenant_id || '')
   );
 
-  const domainMappings: { domain: string; siteId: string }[] = [];
+  // domainMappings: { [externalId]: { [domain]: siteId } }
+  const domainMappings: Record<string, Record<string, string>> = {};
   for (const link of links?.rows ?? []) {
+    const externalId = link.external_id;
+    if (!domainMappings[externalId]) domainMappings[externalId] = {};
     for (const domain of (link.meta as any)?.domains ?? []) {
-      domainMappings.push({ domain, siteId: link.site_id });
+      domainMappings[externalId][domain] = link.site_id;
     }
   }
+
+  const consentedTenant = url.searchParams.get('consentedTenant') ?? null;
+  const consentError = url.searchParams.get('error') ?? null;
+
+  // Load orphan counts (entities with site_id = null) per connection
+  const orphanCounts = Object.fromEntries(
+    await Promise.all(
+      connections.map(async (conn) => {
+        const { data: count } = await locals.orm.getCount('public', 'entities', (q) =>
+          q
+            .eq('integration_id', 'microsoft-365')
+            .eq('tenant_id', locals.user?.tenant_id || '')
+            .eq('entity_type', 'identity')
+            .is('site_id', null)
+            .eq('raw_data->>_gdapTenantId', conn.external_id)
+        );
+        return [conn.external_id, count ?? 0] as [string, number];
+      })
+    )
+  );
 
   return {
     integration,
@@ -50,7 +82,13 @@ export const load: PageServerLoad = async ({ locals }) => {
     form,
     partnerClientId: MICROSOFT_CLIENT_ID ?? null,
     partnerTenantId: (config?.tenantId as string | undefined) ?? null,
+    connections: connections.sort((a, b) =>
+      a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+    ),
     domainMappings,
+    consentedTenant,
+    consentError,
+    orphanCounts,
   };
 };
 
@@ -75,12 +113,10 @@ export const actions: Actions = {
           );
         }
 
-        // Use saved MSP tenant ID from config (set after consent)
         const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
           q.eq('id', 'microsoft-365')
         );
         const savedTenantId = (integration?.config as any)?.tenantId ?? '';
-
         const savedRefreshToken = (integration?.config as any)?.refreshToken
           ? Encryption.decrypt((integration?.config as any).refreshToken)
           : undefined;
@@ -131,7 +167,7 @@ export const actions: Actions = {
 
       return message(form, 'Connection successful!');
     } catch (err) {
-      return message(form, `Connection failed: ${String(err)}`, { status: 500 });
+      return message(form, `Connection failed: ${safeErrorMessage(err)}`, { status: 500 });
     }
   },
 
@@ -144,7 +180,6 @@ export const actions: Actions = {
 
     try {
       if (form.data.mode === 'partner') {
-        // Partner mode: preserve existing config (tenantId from consent) — just update mode flag
         const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
           q.eq('id', 'microsoft-365')
         );
@@ -189,9 +224,7 @@ export const actions: Actions = {
         return message(
           form,
           'Cannot save: Connection test failed. Please verify your credentials.',
-          {
-            status: 400,
-          }
+          { status: 400 }
         );
       }
 
@@ -212,7 +245,7 @@ export const actions: Actions = {
 
       return message(form, 'Configuration saved successfully!');
     } catch (err) {
-      return message(form, `Failed to save: ${String(err)}`, { status: 500 });
+      return message(form, `Failed to save: ${safeErrorMessage(err)}`, { status: 500 });
     }
   },
 
@@ -228,7 +261,7 @@ export const actions: Actions = {
 
       return { success: true };
     } catch (err) {
-      return fail(500, { error: String(err) });
+      return fail(500, { error: safeErrorMessage(err) });
     }
   },
 
@@ -243,68 +276,41 @@ export const actions: Actions = {
         });
       }
 
-      // Authorization Code flow — delegated permissions work across GDAP tenants
-      // without requiring an Enterprise App in each customer tenant.
-      const consentUrl = new URL('https://login.microsoftonline.com/common/oauth2/v2.0/authorize');
+      const consentUrl = new URL('https://login.microsoftonline.com/common/adminconsent');
       consentUrl.searchParams.set('client_id', clientId);
-      consentUrl.searchParams.set('response_type', 'code');
       consentUrl.searchParams.set('redirect_uri', `${origin}/integrations/microsoft-365/consent`);
-      consentUrl.searchParams.set('response_mode', 'query');
-      consentUrl.searchParams.set(
-        'scope',
-        'openid offline_access https://graph.microsoft.com/.default'
-      );
       consentUrl.searchParams.set(
         'state',
         JSON.stringify({ mspbyteTenantId: locals.user?.tenant_id })
       );
-      consentUrl.searchParams.set('prompt', 'consent');
 
       return consentUrl.href;
     } catch (err) {
-      return fail(500, { error: String(err) });
+      return fail(500, { error: safeErrorMessage(err) });
     }
   },
 
-  testGDAPTenant: async ({ request, locals }) => {
+  generateGDAPConsentUrl: async ({ request, locals }) => {
     try {
       const formData = await request.formData();
       const gdapTenantId = formData.get('gdapTenantId') as string;
+      if (!gdapTenantId) return fail(400, { error: 'gdapTenantId is required' });
 
-      if (!gdapTenantId) {
-        return fail(400, { error: 'gdapTenantId is required' });
-      }
+      const clientId = MICROSOFT_CLIENT_ID;
+      const origin = PUBLIC_ORIGIN;
+      if (!clientId || !origin) return fail(500, { error: 'Missing env vars' });
 
-      const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
-        q.eq('id', 'microsoft-365')
+      const consentUrl = new URL(`https://login.microsoftonline.com/${gdapTenantId}/adminconsent`);
+      consentUrl.searchParams.set('client_id', clientId);
+      consentUrl.searchParams.set('redirect_uri', `${origin}/integrations/microsoft-365/consent`);
+      consentUrl.searchParams.set(
+        'state',
+        JSON.stringify({ mspbyteTenantId: locals.user?.tenant_id, gdapTenantId })
       );
-      const config = integration?.config as any;
-      const refreshToken = config?.refreshToken
-        ? Encryption.decrypt(config.refreshToken)
-        : undefined;
 
-      if (!refreshToken) {
-        return fail(400, {
-          error: 'No refresh token stored. Please reconnect MSPByte to Microsoft.',
-        });
-      }
-
-      const connector = new Microsoft365Connector({
-        tenantId: config.tenantId,
-        clientId: MICROSOFT_CLIENT_ID,
-        clientSecret: MICROSOFT_CLIENT_SECRET,
-        mode: 'partner',
-        refreshToken,
-      });
-
-      const { data: domains, error } = await connector.forTenant(gdapTenantId).getTenantDomains();
-      if (error) {
-        return fail(400, { error: `GDAP access failed: ${error.message}` });
-      }
-
-      return { success: true, domainCount: (domains ?? []).length };
+      return consentUrl.href;
     } catch (err) {
-      return fail(500, { error: String(err) });
+      return fail(500, { error: safeErrorMessage(err) });
     }
   },
 
@@ -318,12 +324,6 @@ export const actions: Actions = {
       const mspTenantId = config?.tenantId as string | undefined;
 
       if (!mspTenantId) {
-        Debug.error({
-          module: 'M365Integration',
-          context: 'listGDAPTenants',
-          message:
-            'MSPByte is not connected to Microsoft. Click "Connect MSPByte to Microsoft" first.',
-        });
         return fail(400, {
           error:
             'MSPByte is not connected to Microsoft. Click "Connect MSPByte to Microsoft" first.',
@@ -334,11 +334,6 @@ export const actions: Actions = {
       const clientSecret = MICROSOFT_CLIENT_SECRET;
 
       if (!clientId || !clientSecret) {
-        Debug.error({
-          module: 'M365Integration',
-          context: 'listGDAPTenants',
-          message: 'MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET env vars are required',
-        });
         return fail(500, {
           error: 'MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET env vars are required',
         });
@@ -358,39 +353,100 @@ export const actions: Actions = {
 
       const { data: gdapCustomers, error: gdapError } = await connector.getGDAPCustomers();
       if (gdapError || !gdapCustomers.length) {
-        Debug.error({
-          module: 'M365Integration',
-          context: 'listGDAPTenants',
-          message: `Failed to list GDAP customers: ${gdapError?.message}`,
-        });
         return fail(500, { error: `Failed to list GDAP customers: ${gdapError?.message}` });
       }
 
-      // De-duplicate by customer tenant ID and fetch domains for each
+      const currentTenant = locals.user?.tenant_id || '';
+
+      // Load existing connections from DB
+      const { data: existingData } = await locals.orm.select(
+        'public',
+        'integration_connections',
+        (q) => q.eq('integration_id', 'microsoft-365').eq('tenant_id', currentTenant)
+      );
+      const existingConnections = existingData?.rows ?? [];
+      const existingByExternalId = new Map(existingConnections.map((c) => [c.external_id, c]));
+
+      // De-duplicate GDAP customers by tenant ID
       const seen = new Set<string>();
-      const results: { tenantId: string; displayName: string; domains: string[] }[] = [];
+      const tenantEntries: { tenantId: string; displayName: string }[] = [];
 
       for (const customer of gdapCustomers) {
         const tenantId = customer.customer?.tenantId as string | undefined;
         if (!tenantId || seen.has(tenantId)) continue;
         seen.add(tenantId);
-
-        const customerConnector = connector.forTenant(tenantId);
-        const { data: domains } = await customerConnector.getTenantDomains();
-
-        results.push({
+        tenantEntries.push({
           tenantId,
-          displayName: customer.displayName ?? 'Unknown',
-          domains: (domains ?? [])
-            .filter((d: any) => d.isVerified)
-            .map((d: any) => d.id as string)
-            .filter(Boolean),
+          displayName: customer?.customer?.displayName ?? customer?.displayName ?? 'Unknown',
         });
       }
 
-      return { gdapTenants: results };
+      // Upsert each tenant: insert if new (status='pending'), update domains if active
+      await Promise.all(
+        tenantEntries.map(async ({ tenantId, displayName }) => {
+          const existing = existingByExternalId.get(tenantId);
+
+          if (!existing) {
+            // New connection — insert as pending
+            const { error } = await locals.orm.insert('public', 'integration_connections', [
+              {
+                integration_id: 'microsoft-365',
+                external_id: tenantId,
+                tenant_id: currentTenant,
+                name: displayName,
+                status: 'pending',
+                meta: {},
+                updated_at: new Date().toISOString(),
+              },
+            ]);
+
+            if (error) {
+              Logger.error({
+                module: 'M365Integration',
+                context: 'listGDAPTenants',
+                message: `Failed to insert connection for ${tenantId}: ${error.message}`,
+              });
+            }
+          } else if (existing.status === 'active') {
+            // Active connection — refresh domains from Graph API
+            const { data: domainList } = await connector.forTenant(tenantId).getTenantDomains();
+
+            const defaultDomain = (domainList ?? []).find((d) => d.isDefault)?.id ?? '';
+            const domains = (domainList ?? [])
+              .filter((d: any) => d.isVerified)
+              .map((d: any) => d.id as string)
+              .filter(Boolean);
+
+            await locals.orm.update('public', 'integration_connections', existing.id, {
+              name: displayName,
+              meta: { ...((existing.meta as any) ?? {}), domains, defaultDomain },
+              updated_at: new Date().toISOString(),
+            });
+          } else {
+            // Pending — just update display name in case it changed
+            await locals.orm.update('public', 'integration_connections', existing.id, {
+              name: displayName,
+              updated_at: new Date().toISOString(),
+            });
+          }
+        })
+      );
+
+      // Return updated connections from DB
+      const { data: updatedData } = await locals.orm.select(
+        'public',
+        'integration_connections',
+        (q) => q.eq('integration_id', 'microsoft-365').eq('tenant_id', currentTenant)
+      );
+
+      return {
+        connections:
+          updatedData?.rows.sort((a, b) =>
+            a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+          ) ?? [],
+      };
     } catch (err) {
-      return fail(500, { error: String(err) });
+      return fail(500, { error: safeErrorMessage(err) });
     }
   },
 
@@ -398,8 +454,13 @@ export const actions: Actions = {
     try {
       const formData = await request.formData();
       const siteLinksRaw = formData.get('siteLinks') as string;
+      const connectionExternalId = formData.get('connectionExternalId') as string;
 
-      let siteLinks: { siteId: string; gdapTenantId: string; domains: string[] }[];
+      if (!connectionExternalId) {
+        return fail(400, { error: 'connectionExternalId is required' });
+      }
+
+      let siteLinks: { siteId: string; domains: string[] }[];
 
       try {
         siteLinks = JSON.parse(siteLinksRaw || '[]');
@@ -409,17 +470,22 @@ export const actions: Actions = {
 
       const currentTenant = locals.user?.tenant_id || '';
 
-      // Delete all existing links for this integration+tenant
+      // Delete existing links for this specific connection
       await locals.orm.delete('public', 'site_to_integration', (q) =>
-        q.eq('integration_id', 'microsoft-365').eq('tenant_id', currentTenant)
+        q
+          .eq('integration_id', 'microsoft-365')
+          .eq('tenant_id', currentTenant)
+          .eq('external_id', connectionExternalId)
       );
 
-      // Insert new links with meta.domains
-      for (const { siteId, gdapTenantId, domains } of siteLinks) {
+      // Insert new links grouped by site
+      for (const { siteId, domains } of siteLinks) {
+        if (!siteId || domains.length === 0) continue;
+
         const { error } = await locals.orm.upsert('public', 'site_to_integration', [
           {
             site_id: siteId,
-            external_id: gdapTenantId,
+            external_id: connectionExternalId,
             integration_id: 'microsoft-365',
             tenant_id: currentTenant,
             meta: { domains },
@@ -433,7 +499,69 @@ export const actions: Actions = {
 
       return { success: true, message: 'Mappings saved successfully' };
     } catch (err) {
-      return fail(500, { error: String(err) });
+      return fail(500, { error: safeErrorMessage(err) });
+    }
+  },
+
+  getOrphanedEntities: async ({ request, locals }) => {
+    try {
+      const formData = await request.formData();
+      const externalId = formData.get('externalId') as string;
+      const offset = parseInt((formData.get('offset') as string) ?? '0', 10);
+
+      if (!externalId) return fail(400, { error: 'externalId is required' });
+
+      const { data } = await locals.orm.selectPaginated(
+        'public',
+        'entities',
+        { page: Math.floor(offset / 50), size: 50 },
+        (q) =>
+          q
+            .eq('integration_id', 'microsoft-365')
+            .eq('tenant_id', locals.user?.tenant_id || '')
+            .eq('entity_type', 'identity')
+            .is('site_id', null)
+            .eq('raw_data->>_gdapTenantId', externalId)
+      );
+
+      return { entities: data?.rows ?? [], total: data?.total ?? 0 };
+    } catch (err) {
+      return fail(500, { error: safeErrorMessage(err) });
+    }
+  },
+
+  assignEntitySites: async ({ request, locals }) => {
+    try {
+      const formData = await request.formData();
+      const assignmentsRaw = formData.get('assignments') as string;
+
+      if (!assignmentsRaw) return fail(400, { error: 'assignments is required' });
+
+      let assignments: { entityId: string; siteId: string }[];
+      try {
+        assignments = JSON.parse(assignmentsRaw);
+      } catch {
+        return fail(400, { error: 'Invalid JSON in assignments' });
+      }
+
+      // Group by siteId for batch update
+      const bySite = new Map<string, string[]>();
+      for (const { entityId, siteId } of assignments) {
+        if (!siteId) continue;
+        if (!bySite.has(siteId)) bySite.set(siteId, []);
+        bySite.get(siteId)!.push(entityId);
+      }
+
+      for (const [siteId, ids] of bySite) {
+        const { error } = await locals.orm.batchUpdate('public', 'entities', ids, {
+          site_id: siteId,
+        });
+        if (error) return fail(500, { error: `Failed to update entities: ${error.message}` });
+      }
+
+      return { success: true };
+    } catch (err) {
+      return fail(500, { error: safeErrorMessage(err) });
     }
   },
 };

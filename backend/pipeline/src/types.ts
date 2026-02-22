@@ -114,6 +114,7 @@ export interface RawEntity {
   externalId: string;
   displayName?: string;
   siteId?: string;
+  connectionId?: string;
   rawData: any;
 }
 
@@ -138,6 +139,7 @@ export interface SyncJobData {
   syncJobId: string;
 
   siteId: string | null;
+  connectionId: string | null;
 }
 
 // ============================================================================

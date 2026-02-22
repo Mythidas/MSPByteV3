@@ -1,5 +1,5 @@
 import { BaseLinker } from './BaseLinker.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
 import type { Entity, RelationshipToCreate } from '../types.js';
 
@@ -26,11 +26,10 @@ export class Microsoft365Linker extends BaseLinker {
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
 
     if (!clientId || !clientSecret) {
-      Logger.log({
+      Logger.warn({
         module: 'Microsoft365Linker',
         context: 'link',
         message: 'MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET not set — skipping member linking',
-        level: 'warn',
       });
       return relationships;
     }
@@ -59,11 +58,10 @@ export class Microsoft365Linker extends BaseLinker {
         const { data: members, error } = await connector.getGroupMembers(group.external_id);
 
         if (error) {
-          Logger.log({
+          Logger.warn({
             module: 'Microsoft365Linker',
             context: 'link',
             message: `Failed to get members for group ${group.external_id}: ${error.message}`,
-            level: 'warn',
           });
           continue;
         }
@@ -86,11 +84,10 @@ export class Microsoft365Linker extends BaseLinker {
         const { data: members, error } = await connector.getRoleMembers(role.external_id);
 
         if (error) {
-          Logger.log({
+          Logger.warn({
             module: 'Microsoft365Linker',
             context: 'link',
             message: `Failed to get members for role ${role.external_id}: ${error.message}`,
-            level: 'warn',
           });
           continue;
         }
@@ -109,11 +106,10 @@ export class Microsoft365Linker extends BaseLinker {
       }
     }
 
-    Logger.log({
+    Logger.info({
       module: 'Microsoft365Linker',
       context: 'link',
       message: `Determined ${relationships.length} group/role → identity relationships`,
-      level: 'info',
     });
 
     return relationships;

@@ -1,4 +1,4 @@
-import { APIResponse, Debug } from "@workspace/shared/lib/utils/debug";
+import { APIResponse, Logger } from "@workspace/shared/lib/utils/logger";
 import {
   SophosPartnerConfig,
   SophosPartnerTenant,
@@ -51,7 +51,7 @@ export class SophosPartnerConnector {
         );
 
         if (!response.ok) {
-          return Debug.error({
+          return Logger.error({
             module: "SophosPartnerConnector",
             context: "getTenants",
             message: `HTTP ${response.status}: ${response.statusText}`,
@@ -72,7 +72,7 @@ export class SophosPartnerConnector {
         data: tenants.sort((a, b) => a.name.localeCompare(b.name)),
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartnerConnector",
         context: "getTenants",
         message: String(err),
@@ -99,7 +99,7 @@ export class SophosPartnerConnector {
       });
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: "SophosPartnerConnector",
           context: "getEndpoints",
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -113,7 +113,7 @@ export class SophosPartnerConnector {
         data: [...data.items],
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartnerConnector",
         context: "getEndpoints",
         message: String(err),
@@ -181,7 +181,7 @@ export class SophosPartnerConnector {
         data: [...data.items],
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartner",
         context: "getEndpoints",
         message: String(err),
@@ -225,7 +225,7 @@ export class SophosPartnerConnector {
         data: result.items,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartnerConnector",
         context: "getFirewallLicenses",
         message: String(err),
@@ -256,7 +256,7 @@ export class SophosPartnerConnector {
         data: result,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartnerConnector",
         context: "getLicenses",
         message: String(err),
@@ -276,7 +276,7 @@ export class SophosPartnerConnector {
       });
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: "SophosPartnerConnector",
           context: "getPartnerID",
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -289,7 +289,7 @@ export class SophosPartnerConnector {
         data: data.id,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartnerConnector",
         context: "getPartnerID",
         message: String(err),
@@ -327,7 +327,7 @@ export class SophosPartnerConnector {
       );
 
       if (!response.ok) {
-        return Debug.error({
+        return Logger.error({
           module: "SophosPartnerConnector",
           context: "getToken",
           message: `HTTP ${response.status}: ${response.statusText}`,
@@ -344,7 +344,7 @@ export class SophosPartnerConnector {
         data: data.access_token,
       };
     } catch (err) {
-      return Debug.error({
+      return Logger.error({
         module: "SophosPartnerConnector",
         context: "getToken",
         message: String(err),

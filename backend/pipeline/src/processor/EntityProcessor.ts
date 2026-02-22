@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { getSupabase, getORM } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Entity, RawEntity } from '../types.js';
 
 /**
@@ -18,13 +18,13 @@ export class EntityProcessor {
     entityType: string,
     syncId: string,
     tracker: PipelineTracker,
-    siteId?: string
+    siteId?: string,
+    connectionId?: string
   ): Promise<Entity[]> {
-    Logger.log({
+    Logger.info({
       module: 'EntityProcessor',
       context: 'process',
       message: `Processing ${entities.length} ${entityType} entities`,
-      level: 'info',
     });
 
     const chunks = chunkArray(entities, 100);
@@ -39,25 +39,24 @@ export class EntityProcessor {
           entityType,
           syncId,
           tracker,
-          siteId
+          siteId,
+          connectionId
         );
       });
       allProcessed.push(...chunkEntities);
 
-      Logger.log({
+      Logger.trace({
         module: 'EntityProcessor',
         context: 'process',
         message: `Processed chunk ${i + 1}/${chunks.length}`,
-        level: 'trace',
       });
     }
 
     const c = tracker.getCounters();
-    Logger.log({
+    Logger.info({
       module: 'EntityProcessor',
       context: 'process',
       message: `Completed: ${c.entities_created} created, ${c.entities_updated} updated, ${c.entities_unchanged} unchanged`,
-      level: 'info',
     });
 
     return allProcessed;
@@ -74,6 +73,7 @@ export class EntityProcessor {
     entityType: string,
     tracker: PipelineTracker,
     siteId?: string,
+    connectionId?: string
   ): Promise<number> {
     const survivingExternalIds = new Set(processedEntities.map((e) => e.external_id));
     const supabase = getSupabase();
@@ -96,6 +96,9 @@ export class EntityProcessor {
       if (siteId) {
         query = query.eq('site_id', siteId);
       }
+      if (connectionId) {
+        query = query.eq('connection_id', connectionId);
+      }
 
       const { data, error } = await query;
       if (error) throw new Error(`Fetch entities for prune failed: ${error.message}`);
@@ -117,11 +120,10 @@ export class EntityProcessor {
     if (error) throw new Error(`Delete stale entities failed: ${error}`);
 
     tracker.trackEntityDeleted(staleIds.length);
-    Logger.log({
+    Logger.info({
       module: 'EntityProcessor',
       context: 'pruneStaleEntities',
       message: `Deleted ${staleIds.length} stale ${entityType} entities`,
-      level: 'info',
     });
 
     return staleIds.length;
@@ -134,7 +136,8 @@ export class EntityProcessor {
     entityType: string,
     syncId: string,
     tracker: PipelineTracker,
-    siteId?: string
+    siteId?: string,
+    connectionId?: string
   ): Promise<Entity[]> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -160,7 +163,7 @@ export class EntityProcessor {
     const touchedEntities: Entity[] = [];
 
     for (const entity of entities) {
-      const dataHash = calculateHash(entity.rawData);
+      const dataHash = calculateHash({ ...entity.rawData, displayName: entity.displayName });
       const ex = existingMap.get(entity.externalId);
       const displayName = entity.displayName || extractDisplayName(entity.rawData) || null;
 
@@ -169,6 +172,7 @@ export class EntityProcessor {
           tenant_id: tenantId,
           integration_id: integrationId,
           site_id: entity.siteId || siteId || null,
+          connection_id: entity.connectionId || connectionId || null,
           entity_type: entityType,
           external_id: entity.externalId,
           display_name: displayName,
@@ -205,19 +209,15 @@ export class EntityProcessor {
     // CREATE
     if (toCreate.length > 0) {
       tracker.trackUpsert();
-      const { data: created, error } = await supabase
-        .from('entities')
-        .insert(toCreate)
-        .select('*');
+      const { data: created, error } = await supabase.from('entities').insert(toCreate).select('*');
       if (error) throw new Error(`Insert entities failed: ${error.message}`);
       tracker.trackEntityCreated(toCreate.length);
       if (created) result.push(...(created as Entity[]));
 
-      Logger.log({
+      Logger.trace({
         module: 'EntityProcessor',
         context: 'processChunk',
         message: `Created ${toCreate.length} entities`,
-        level: 'trace',
       });
     }
 
@@ -234,11 +234,10 @@ export class EntityProcessor {
         if (updated) result.push(...(updated as Entity[]));
       }
       tracker.trackEntityUpdated(toUpsert.length);
-      Logger.log({
+      Logger.trace({
         module: 'EntityProcessor',
         context: 'processChunk',
         message: `Updated ${toUpsert.length} entities`,
-        level: 'trace',
       });
     }
 
@@ -246,21 +245,19 @@ export class EntityProcessor {
     if (toTouch.length > 0) {
       tracker.trackUpsert();
       const orm = getORM();
-      const { error: touchError } = await orm.batchUpdate(
-        'public',
-        'entities',
-        toTouch,
-        { last_seen_at: now, sync_id: syncId, updated_at: now } as any
-      );
+      const { error: touchError } = await orm.batchUpdate('public', 'entities', toTouch, {
+        last_seen_at: now,
+        sync_id: syncId,
+        updated_at: now,
+      } as any);
       if (touchError) throw new Error(`Touch entities failed: ${touchError}`);
       tracker.trackEntityUnchanged(toTouch.length);
       result.push(...touchedEntities);
 
-      Logger.log({
+      Logger.trace({
         module: 'EntityProcessor',
         context: 'processChunk',
         message: `Touched ${toTouch.length} unchanged entities`,
-        level: 'trace',
       });
     }
 

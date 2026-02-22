@@ -1,6 +1,6 @@
 import { getORM } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '../lib/logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import {
   ensureAllEntitiesLoaded,
   ensureRelationshipsLoaded,
@@ -30,11 +30,10 @@ export abstract class BaseLinker {
    * to avoid races between concurrent workers.
    */
   async linkAndReconcile(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
-    Logger.log({
+    Logger.info({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
       message: `Starting linking for ${ctx.integrationId}${ctx.siteId ? ` (site: ${ctx.siteId})` : ''}`,
-      level: 'info',
     });
 
     // Use site-scoped loading when siteId is set (endpoint jobs)
@@ -44,11 +43,10 @@ export abstract class BaseLinker {
         : ensureAllEntitiesLoaded(ctx, tracker);
     });
 
-    Logger.log({
+    Logger.trace({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
       message: `Loaded ${entities.length} entities`,
-      level: 'trace',
     });
 
     const existingRelationships = await tracker.trackSpan('linker:load_relationships', async () => {
@@ -57,11 +55,10 @@ export abstract class BaseLinker {
         : ensureRelationshipsLoaded(ctx, tracker);
     });
 
-    Logger.log({
+    Logger.trace({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
       message: `Found ${existingRelationships.length} existing relationships`,
-      level: 'trace',
     });
 
     // Determine desired relationships
@@ -69,11 +66,10 @@ export abstract class BaseLinker {
       return this.link(entities);
     });
 
-    Logger.log({
+    Logger.trace({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
       message: `Linker determined ${desiredRelationships.length} desired relationships`,
-      level: 'trace',
     });
 
     // Reconcile
@@ -89,11 +85,10 @@ export abstract class BaseLinker {
     // Invalidate cached relationships since we just modified them
     ctx.relationships = null;
 
-    Logger.log({
+    Logger.info({
       module: 'BaseLinker',
       context: 'linkAndReconcile',
       message: `Reconciliation: ${result.created} created, ${result.updated} updated, ${result.deleted} deleted`,
-      level: 'info',
     });
   }
 

@@ -14,6 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          id: string
+          tenant_id: string
+          actor: string
+          action: string
+          target_type: string
+          target_id: string
+          result: string
+          detail: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          actor: string
+          action: string
+          target_type: string
+          target_id: string
+          result: string
+          detail?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          actor?: string
+          action?: string
+          target_type?: string
+          target_id?: string
+          result?: string
+          detail?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_logs: {
+        Row: {
+          id: string
+          tenant_id: string
+          level: string
+          module: string
+          context: string
+          message: string
+          meta: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          level: string
+          module: string
+          context: string
+          message: string
+          meta?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          level?: string
+          module?: string
+          context?: string
+          message?: string
+          meta?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_logs: {
         Row: {
           agent_id: string
@@ -198,6 +283,7 @@ export type Database = {
       }
       entities: {
         Row: {
+          connection_id: string | null
           created_at: string
           data_hash: string
           display_name: string | null
@@ -214,6 +300,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          connection_id?: string | null
           created_at?: string
           data_hash: string
           display_name?: string | null
@@ -230,6 +317,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          connection_id?: string | null
           created_at?: string
           data_hash?: string
           display_name?: string | null
@@ -246,6 +334,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "entities_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "integration_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "entities_integration_id_fkey"
             columns: ["integration_id"]
@@ -511,6 +606,57 @@ export type Database = {
           },
         ]
       }
+      integration_connections: {
+        Row: {
+          created_at: string
+          external_id: string
+          id: string
+          integration_id: string
+          meta: Json
+          name: string
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_id: string
+          id?: string
+          integration_id: string
+          meta: Json
+          name: string
+          status: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string
+          id?: string
+          integration_id?: string
+          meta?: Json
+          name?: string
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_connections_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integrations: {
         Row: {
           config: Json
@@ -671,7 +817,7 @@ export type Database = {
           external_id: string
           id: string
           integration_id: string
-          meta: Json
+          meta: Json | null
           site_id: string
           tenant_id: string
         }
@@ -680,7 +826,7 @@ export type Database = {
           external_id: string
           id?: string
           integration_id: string
-          meta?: Json
+          meta?: Json | null
           site_id: string
           tenant_id: string
         }
@@ -689,7 +835,7 @@ export type Database = {
           external_id?: string
           id?: string
           integration_id?: string
-          meta?: Json
+          meta?: Json | null
           site_id?: string
           tenant_id?: string
         }
@@ -763,6 +909,7 @@ export type Database = {
         Row: {
           bullmq_job_id: string | null
           completed_at: string | null
+          connection_id: string | null
           created_at: string
           entity_type: string | null
           error: string | null
@@ -782,6 +929,7 @@ export type Database = {
         Insert: {
           bullmq_job_id?: string | null
           completed_at?: string | null
+          connection_id?: string | null
           created_at?: string
           entity_type?: string | null
           error?: string | null
@@ -801,6 +949,7 @@ export type Database = {
         Update: {
           bullmq_job_id?: string | null
           completed_at?: string | null
+          connection_id?: string | null
           created_at?: string
           entity_type?: string | null
           error?: string | null
@@ -818,6 +967,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sync_jobs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "integration_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sync_jobs_integration_id_fkey"
             columns: ["integration_id"]
@@ -941,8 +1097,10 @@ export type Database = {
           agent_name: string | null
           created_at: string | null
           id: string | null
+          meta: Json | null
           site_id: string | null
           site_name: string | null
+          summary: string | null
           tenant_id: string | null
           ticket_id: string | null
         }
@@ -978,6 +1136,8 @@ export type Database = {
       }
       d_entities_view: {
         Row: {
+          connection_id: string | null
+          connection_name: string | null
           created_at: string | null
           data_hash: string | null
           display_name: string | null
@@ -986,6 +1146,7 @@ export type Database = {
           id: string | null
           integration_id: string | null
           last_seen_at: string | null
+          member_count: number | null
           raw_data: Json | null
           site_id: string | null
           site_name: string | null
