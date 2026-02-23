@@ -10,6 +10,7 @@ import {
   type FilterClause,
   type FieldFilter,
 } from '@workspace/shared/types/connector';
+import { MSGraphError } from '@workspace/shared/types/integrations/microsoft/index';
 
 export interface Microsoft365Config {
   tenantId: string;
@@ -73,8 +74,7 @@ export class Microsoft365Connector {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       const identities: MSGraphIdentity[] = json.value || [];
@@ -118,8 +118,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { groups: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -157,8 +156,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { members: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -196,8 +194,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { groups: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -228,8 +225,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { skus: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -266,8 +262,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { roles: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -305,8 +300,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { members: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -328,8 +322,7 @@ export class Microsoft365Connector {
       if (tokenError) return { error: tokenError };
 
       const url =
-        filters?.cursor ??
-        'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies';
+        filters?.cursor ?? 'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies';
 
       if (fetchAll) {
         const values = await this.getAllPaged(url);
@@ -339,8 +332,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { policies: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -363,7 +355,7 @@ export class Microsoft365Connector {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      if (!response.ok) throw new Error(`Graph API error: ${response.status}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: json.isEnabled === true };
@@ -400,8 +392,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { domains: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -434,8 +425,7 @@ export class Microsoft365Connector {
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: { customers: json.value || [], next: json['@odata.nextLink'] || undefined } };
@@ -480,8 +470,7 @@ export class Microsoft365Connector {
         headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: 'eventual' },
       });
 
-      if (!response.ok)
-        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json = await response.json();
       return { data: json.value?.[0]?.id ?? null };
@@ -517,11 +506,20 @@ export class Microsoft365Connector {
       );
 
       // 409/400 = already assigned — treat as success
-      if (response.ok || response.status === 409 || response.status === 400) {
+      if (response.ok || response.status === 409) {
         return { data: true };
       }
 
-      throw new Error(`${response.status} ${response.statusText}`);
+      const res = (await response.json()) as MSGraphError;
+      if (
+        res.error.message.includes(
+          'A conflicting object with one or more of the specified property values is present in the directory'
+        )
+      ) {
+        return { data: true };
+      }
+
+      throw new Error(`${response.status} ${res.error.message}`);
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -594,7 +592,7 @@ export class Microsoft365Connector {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) throw new Error(`Graph API error: ${response.status}`);
+      if (!response.ok) await this.throwGraphError(response);
 
       const json: any = await response.json();
       items.push(...(json.value || []));
@@ -647,7 +645,11 @@ export class Microsoft365Connector {
     }
   };
 
-  private makeGraphURL = <T>(base: string, filters?: ConnectorFilters<T>, defaultSelect?: string): string => {
+  private makeGraphURL = <T>(
+    base: string,
+    filters?: ConnectorFilters<T>,
+    defaultSelect?: string
+  ): string => {
     const params = new URLSearchParams();
     params.set('$top', String(filters?.limit ?? 999));
 
@@ -672,6 +674,17 @@ export class Microsoft365Connector {
 
     return `${base}?${params.toString()}`;
   };
+
+  private async throwGraphError(response: Response): Promise<never> {
+    let detail = response.statusText;
+    try {
+      const body = (await response.json()) as MSGraphError;
+      if (body?.error?.message) detail = body.error.message;
+    } catch {
+      // body was not JSON — fall back to statusText
+    }
+    throw new Error(`Graph API error: ${response.status} ${detail}`);
+  }
 
   private formatODataValue(value: unknown): string {
     if (value === null || value === undefined) return 'null';
