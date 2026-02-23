@@ -1,7 +1,6 @@
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { disconnectRedis } from './lib/redis.js';
 import { queueManager } from './lib/queue.js';
-import { INTEGRATION_CONFIGS, type IntegrationId } from './config.js';
 import { EntityProcessor } from './processor/EntityProcessor.js';
 import { AnalysisOrchestrator } from './analyzers/AnalysisOrchestrator.js';
 import { JobScheduler } from './scheduler/JobScheduler.js';
@@ -19,6 +18,7 @@ import { SophosAnalyzer } from './analyzers/SophosAnalyzer.js';
 import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
 import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
 import { Microsoft365Analyzer } from './analyzers/Microsoft365Analyzer.js';
+import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
 
 /**
  * Pipeline Entry Point
@@ -80,7 +80,7 @@ async function main() {
   // Create SyncWorker for each (integrationId, entityType) pair
   const workers: SyncWorker[] = [];
 
-  for (const [, config] of Object.entries(INTEGRATION_CONFIGS)) {
+  for (const [, config] of Object.entries(INTEGRATIONS)) {
     for (const typeConfig of config.supportedTypes) {
       const worker = new SyncWorker(
         config.id,
@@ -102,7 +102,7 @@ async function main() {
 
   // Create one AnalysisWorker per integration
   const analysisWorkers: AnalysisWorker[] = [];
-  for (const [, config] of Object.entries(INTEGRATION_CONFIGS)) {
+  for (const [, config] of Object.entries(INTEGRATIONS)) {
     const analysisWorker = new AnalysisWorker(config.id, orchestrator);
     analysisWorker.start();
     analysisWorkers.push(analysisWorker);

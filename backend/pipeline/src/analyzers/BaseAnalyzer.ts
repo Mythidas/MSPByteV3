@@ -1,4 +1,5 @@
-import type { AnalysisContext, AnalyzerResult, AlertType, AlertSeverity, Alert, EntityState } from '../types.js';
+import { AlertType, AlertSeverity } from '@workspace/shared/config/integrations/alerts.js';
+import type { AnalysisContext, AnalyzerResult, Alert, EntityState } from '../types.js';
 
 export abstract class BaseAnalyzer {
   abstract getName(): string;
@@ -17,7 +18,7 @@ export abstract class BaseAnalyzer {
     alertType: AlertType,
     severity: AlertSeverity,
     message: string,
-    metadata?: Record<string, any>,
+    metadata?: Record<string, any>
   ): Alert {
     return {
       entityId,
@@ -32,7 +33,7 @@ export abstract class BaseAnalyzer {
   protected addTags(
     result: AnalyzerResult,
     entityId: string,
-    tags: { tag: string; category?: string; source: string }[],
+    tags: { tag: string; category?: string; source: string }[]
   ): void {
     const existing = result.entityTags.get(entityId) || [];
     result.entityTags.set(entityId, [...existing, ...tags]);

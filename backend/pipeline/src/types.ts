@@ -1,4 +1,5 @@
-import { IntegrationId, EntityType } from '@workspace/shared/config/integrations';
+import type { IntegrationId, EntityType } from '@workspace/shared/config/integrations';
+import { AlertType, AlertSeverity } from '@workspace/shared/config/integrations/alerts';
 
 // ============================================================================
 // ENTITY & RELATIONSHIP TYPES
@@ -73,19 +74,6 @@ export interface AnalysisContext {
 // ============================================================================
 // ALERT TYPES
 // ============================================================================
-
-export type AlertSeverity = 'low' | 'medium' | 'high' | 'critical';
-
-export type AlertType =
-  | 'mfa-not-enforced'
-  | 'mfa-partial-enforced'
-  | 'policy-gap'
-  | 'license-waste'
-  | 'stale-user'
-  | 'tamper-disabled'
-  | 'backup-failed'
-  | 'device-offline'
-  | 'site-empty';
 
 export interface Alert {
   entityId: string;
