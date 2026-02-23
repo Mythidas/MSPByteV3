@@ -44,23 +44,10 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Returns a new connector scoped to a specific customer tenant.
-   * Uses the same credentials but acquires tokens for the target tenant.
-   */
   forTenant(customerTenantId: string): Microsoft365Connector {
     return new Microsoft365Connector(this.config, customerTenantId);
   }
 
-  /**
-   * Fetches identities from the Graph API.
-   *
-   * Filter translation:
-   * - Supported ops (eq, neq, contains, startsWith, in, lt, gt, lte, gte) → OData $filter server-side
-   * - `endsWith` → post-filter in-memory (Graph doesn't support it in $filter)
-   * - `or` with any untranslatable sub-clause → post-filter in-memory
-   * - `cursor` → used as the full nextLink URL for pagination
-   */
   async getIdentities(
     filters?: ConnectorFilters<MSGraphIdentity>,
     fetchAll?: boolean
@@ -70,7 +57,12 @@ export class Microsoft365Connector {
       if (tokenError) return { error: tokenError };
 
       const url =
-        filters?.cursor ?? this.makeGraphURL('https://graph.microsoft.com/v1.0/users', filters);
+        filters?.cursor ??
+        this.makeGraphURL(
+          'https://graph.microsoft.com/v1.0/users',
+          filters,
+          'id,displayName,userPrincipalName,mail,accountEnabled,createdDateTime,signInActivity,assignedLicenses,assignedPlans'
+        );
 
       if (fetchAll) {
         const values = await this.getAllPaged(url);
@@ -102,12 +94,35 @@ export class Microsoft365Connector {
     }
   }
 
-  async getGroups(): Promise<APIResponse<MSGraphGroup[]>> {
+  async getGroups(
+    filters?: ConnectorFilters<MSGraphGroup>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ groups: MSGraphGroup[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        'https://graph.microsoft.com/v1.0/groups?$top=999&$select=id,displayName,description,groupTypes,mailEnabled,securityEnabled,membershipRule'
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        this.makeGraphURL(
+          'https://graph.microsoft.com/v1.0/groups',
+          filters,
+          'id,displayName,description,groupTypes,mailEnabled,securityEnabled,membershipRule'
+        );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { groups: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { groups: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -117,12 +132,36 @@ export class Microsoft365Connector {
     }
   }
 
-  async getGroupMembers(groupId: string): Promise<APIResponse<any[]>> {
+  async getGroupMembers(
+    groupId: string,
+    filters?: ConnectorFilters<any>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ members: any[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        `https://graph.microsoft.com/v1.0/groups/${groupId}/members?$select=id,displayName,userPrincipalName`
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        this.makeGraphURL(
+          `https://graph.microsoft.com/v1.0/groups/${groupId}/members`,
+          filters,
+          'id,displayName,userPrincipalName'
+        );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { members: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { members: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -132,12 +171,36 @@ export class Microsoft365Connector {
     }
   }
 
-  async getGroupMemberOf(groupId: string): Promise<APIResponse<any[]>> {
+  async getGroupMemberOf(
+    groupId: string,
+    filters?: ConnectorFilters<any>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ groups: any[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        `https://graph.microsoft.com/v1.0/groups/${groupId}/memberOf?$select=id,displayName`
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        this.makeGraphURL(
+          `https://graph.microsoft.com/v1.0/groups/${groupId}/memberOf`,
+          filters,
+          'id,displayName'
+        );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { groups: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { groups: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -147,19 +210,29 @@ export class Microsoft365Connector {
     }
   }
 
-  async getSubscribedSkus(): Promise<APIResponse<MSGraphSubscribedSku[]>> {
+  async getSubscribedSkus(
+    filters?: ConnectorFilters<MSGraphSubscribedSku>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ skus: MSGraphSubscribedSku[]; next?: string }>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
 
-      const response = await fetch('https://graph.microsoft.com/v1.0/subscribedSkus', {
+      const url = filters?.cursor ?? 'https://graph.microsoft.com/v1.0/subscribedSkus';
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { skus: values } };
+      }
+
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!response.ok) throw new Error(`Graph API error: ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
 
       const json = await response.json();
-      return { data: json.value || [] };
+      return { data: { skus: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -169,12 +242,35 @@ export class Microsoft365Connector {
     }
   }
 
-  async getRoles(): Promise<APIResponse<MSGraphRole[]>> {
+  async getRoles(
+    filters?: ConnectorFilters<MSGraphRole>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ roles: MSGraphRole[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        'https://graph.microsoft.com/v1.0/directoryRoles?$select=id,displayName,description,roleTemplateId'
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        this.makeGraphURL(
+          'https://graph.microsoft.com/v1.0/directoryRoles',
+          filters,
+          'id,displayName,description,roleTemplateId'
+        );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { roles: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { roles: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -184,12 +280,36 @@ export class Microsoft365Connector {
     }
   }
 
-  async getRoleMembers(roleId: string): Promise<APIResponse<any[]>> {
+  async getRoleMembers(
+    roleId: string,
+    filters?: ConnectorFilters<any>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ members: any[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        `https://graph.microsoft.com/v1.0/directoryRoles/${roleId}/members?$select=id,displayName,userPrincipalName`
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        this.makeGraphURL(
+          `https://graph.microsoft.com/v1.0/directoryRoles/${roleId}/members`,
+          filters,
+          'id,displayName,userPrincipalName'
+        );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { members: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { members: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -199,20 +319,31 @@ export class Microsoft365Connector {
     }
   }
 
-  async getConditionalAccessPolicies(): Promise<APIResponse<MSGraphConditionalAccessPolicy[]>> {
+  async getConditionalAccessPolicies(
+    filters?: ConnectorFilters<MSGraphConditionalAccessPolicy>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ policies: MSGraphConditionalAccessPolicy[]; next?: string }>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
 
-      const response = await fetch(
-        'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies',
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const url =
+        filters?.cursor ??
+        'https://graph.microsoft.com/v1.0/identity/conditionalAccess/policies';
 
-      if (!response.ok) throw new Error(`Graph API error: ${response.status}`);
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { policies: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
 
       const json = await response.json();
-      return { data: json.value || [] };
+      return { data: { policies: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -245,16 +376,35 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Lists verified domains in the target tenant.
-   * Used to discover which domains belong to each GDAP customer.
-   */
-  async getTenantDomains(): Promise<APIResponse<any[]>> {
+  async getTenantDomains(
+    filters?: ConnectorFilters<any>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ domains: any[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        'https://graph.microsoft.com/v1.0/domains?$select=id,isDefault,isVerified,authenticationType'
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        this.makeGraphURL(
+          'https://graph.microsoft.com/v1.0/domains',
+          filters,
+          'id,isDefault,isVerified,authenticationType'
+        );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { domains: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { domains: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -264,16 +414,31 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Lists active GDAP (delegated admin) relationships for this partner tenant.
-   * Only relevant in partner mode.
-   */
-  async getGDAPCustomers(): Promise<APIResponse<any[]>> {
+  async getGDAPCustomers(
+    filters?: ConnectorFilters<any>,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ customers: any[]; next?: string }>> {
     try {
-      const items = await this.getAllPaged(
-        'https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdminRelationships'
-      );
-      return { data: items };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url =
+        filters?.cursor ??
+        'https://graph.microsoft.com/v1.0/tenantRelationships/delegatedAdminRelationships';
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { customers: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+
+      const json = await response.json();
+      return { data: { customers: json.value || [], next: json['@odata.nextLink'] || undefined } };
     } catch (err) {
       return Logger.error({
         module: 'Microsoft365Connector',
@@ -283,10 +448,6 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Checks whether the enterprise app (service principal) exists in the target tenant.
-   * Used to determine if admin consent has been granted for a GDAP customer tenant.
-   */
   async checkServicePrincipalExists(): Promise<APIResponse<boolean>> {
     try {
       const { data: token, error } = await this.getToken();
@@ -309,9 +470,6 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Returns the Object ID of the app's service principal in the target tenant, or null if not found.
-   */
   async getServicePrincipalId(): Promise<APIResponse<string | null>> {
     try {
       const { data: token, error } = await this.getToken();
@@ -322,7 +480,8 @@ export class Microsoft365Connector {
         headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: 'eventual' },
       });
 
-      if (!response.ok) throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
+      if (!response.ok)
+        throw new Error(`Graph API error: ${response.status} ${response.statusText}`);
 
       const json = await response.json();
       return { data: json.value?.[0]?.id ?? null };
@@ -335,11 +494,6 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Assigns a directory role to a service principal via the unified RBAC API.
-   * Returns true on success, false if the assignment already exists (409/400 treated as success).
-   * Requires RoleManagement.ReadWrite.Directory.
-   */
   async assignDirectoryRole(
     principalId: string,
     roleDefinitionId: string
@@ -377,9 +531,6 @@ export class Microsoft365Connector {
     }
   }
 
-  /**
-   * Returns the currently active tenant ID (customer or own).
-   */
   getActiveTenantId(): string {
     return this.targetTenantId ?? this.config.tenantId;
   }
@@ -468,7 +619,7 @@ export class Microsoft365Connector {
       return `(${(parts as string[]).join(' or ')})`;
     }
 
-    const { field, op, value } = clause as FieldFilter<MSGraphIdentity>;
+    const { field, op, value } = clause as FieldFilter<T>;
     const f = String(field);
     switch (op) {
       case 'eq':
@@ -496,17 +647,14 @@ export class Microsoft365Connector {
     }
   };
 
-  private makeGraphURL = <T>(base: string, filters?: ConnectorFilters<T>): string => {
+  private makeGraphURL = <T>(base: string, filters?: ConnectorFilters<T>, defaultSelect?: string): string => {
     const params = new URLSearchParams();
     params.set('$top', String(filters?.limit ?? 999));
 
     if (filters?.select) {
       params.set('$select', (filters.select as unknown as string[]).join(','));
-    } else {
-      params.set(
-        '$select',
-        'id,displayName,userPrincipalName,mail,accountEnabled,createdDateTime,signInActivity,assignedLicenses,assignedPlans'
-      );
+    } else if (defaultSelect) {
+      params.set('$select', defaultSelect);
     }
 
     if (filters?.where?.length) {

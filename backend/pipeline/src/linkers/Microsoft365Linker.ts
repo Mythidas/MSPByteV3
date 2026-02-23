@@ -55,7 +55,7 @@ export class Microsoft365Linker extends BaseLinker {
 
       // Link group members to identity entities
       for (const group of siteGroups) {
-        const { data: members, error } = await connector.getGroupMembers(group.external_id);
+        const { data, error } = await connector.getGroupMembers(group.external_id, undefined, true);
 
         if (error) {
           Logger.warn({
@@ -66,7 +66,7 @@ export class Microsoft365Linker extends BaseLinker {
           continue;
         }
 
-        for (const member of members || []) {
+        for (const member of data?.members || []) {
           const memberEntityId = identityMap.get(member.id);
           if (!memberEntityId) continue;
 
@@ -81,7 +81,7 @@ export class Microsoft365Linker extends BaseLinker {
 
       // Link role members to identity entities
       for (const role of siteRoles) {
-        const { data: members, error } = await connector.getRoleMembers(role.external_id);
+        const { data, error } = await connector.getRoleMembers(role.external_id, undefined, true);
 
         if (error) {
           Logger.warn({
@@ -92,7 +92,7 @@ export class Microsoft365Linker extends BaseLinker {
           continue;
         }
 
-        for (const member of members || []) {
+        for (const member of data?.members || []) {
           const memberEntityId = identityMap.get(member.id);
           if (!memberEntityId) continue;
 

@@ -351,10 +351,11 @@ export const actions: Actions = {
         refreshToken,
       });
 
-      const { data: gdapCustomers, error: gdapError } = await connector.getGDAPCustomers();
-      if (gdapError || !gdapCustomers.length) {
+      const { data: gdapData, error: gdapError } = await connector.getGDAPCustomers(undefined, true);
+      if (gdapError || !gdapData?.customers.length) {
         return fail(500, { error: `Failed to list GDAP customers: ${gdapError?.message}` });
       }
+      const gdapCustomers = gdapData.customers;
 
       const currentTenant = locals.user?.tenant_id || '';
 
@@ -409,10 +410,10 @@ export const actions: Actions = {
             }
           } else if (existing.status === 'active') {
             // Active connection — refresh domains from Graph API
-            const { data: domainList } = await connector.forTenant(tenantId).getTenantDomains();
+            const { data: domainData } = await connector.forTenant(tenantId).getTenantDomains(undefined, true);
 
-            const defaultDomain = (domainList ?? []).find((d) => d.isDefault)?.id ?? '';
-            const domains = (domainList ?? [])
+            const defaultDomain = (domainData?.domains ?? []).find((d) => d.isDefault)?.id ?? '';
+            const domains = (domainData?.domains ?? [])
               .filter((d: any) => d.isVerified)
               .map((d: any) => d.id as string)
               .filter(Boolean);

@@ -375,21 +375,21 @@ export class Microsoft365Adapter extends BaseAdapter {
     siteId: string | undefined,
     tracker: PipelineTracker
   ): Promise<RawEntity[]> {
-    const { data: groups, error } = await tracker.trackSpan('adapter:api:getGroups', () =>
-      connector.getGroups()
+    const { data, error } = await tracker.trackSpan('adapter:api:getGroups', () =>
+      connector.getGroups(undefined, true)
     );
 
-    if (error || !groups) {
+    if (error || !data) {
       throw new Error(`Microsoft365 getGroups failed: ${error?.message}`);
     }
 
     Logger.info({
       module: 'Microsoft365Adapter',
       context: 'fetchGroups',
-      message: `Fetched ${groups.length} groups`,
+      message: `Fetched ${data.groups.length} groups`,
     });
 
-    return groups.map((g: any) => ({
+    return data.groups.map((g: any) => ({
       externalId: g.id,
       displayName: g.displayName,
       siteId,
@@ -402,23 +402,23 @@ export class Microsoft365Adapter extends BaseAdapter {
     siteId: string | undefined,
     tracker: PipelineTracker
   ): Promise<RawEntity[]> {
-    const { data: skus, error } = await tracker.trackSpan('adapter:api:getSubscribedSkus', () =>
-      connector.getSubscribedSkus()
+    const { data, error } = await tracker.trackSpan('adapter:api:getSubscribedSkus', () =>
+      connector.getSubscribedSkus(undefined, true)
     );
 
-    if (error || !skus) {
+    if (error || !data) {
       throw new Error(`Microsoft365 getSubscribedSkus failed: ${error?.message}`);
     }
 
     Logger.info({
       module: 'Microsoft365Adapter',
       context: 'fetchLicenses',
-      message: `Fetched ${skus.length} subscribed SKUs`,
+      message: `Fetched ${data.skus.length} subscribed SKUs`,
     });
 
     const skuNames = await SkuCatalog.resolve();
 
-    return skus.map((sku) => ({
+    return data.skus.map((sku) => ({
       externalId: sku.skuId,
       displayName: skuNames.get(sku.skuPartNumber) || sku.skuPartNumber || sku.skuId,
       siteId,
@@ -431,21 +431,21 @@ export class Microsoft365Adapter extends BaseAdapter {
     siteId: string | undefined,
     tracker: PipelineTracker
   ): Promise<RawEntity[]> {
-    const { data: roles, error } = await tracker.trackSpan('adapter:api:getRoles', () =>
-      connector.getRoles()
+    const { data, error } = await tracker.trackSpan('adapter:api:getRoles', () =>
+      connector.getRoles(undefined, true)
     );
 
-    if (error || !roles) {
+    if (error || !data) {
       throw new Error(`Microsoft365 getRoles failed: ${error?.message}`);
     }
 
     Logger.info({
       module: 'Microsoft365Adapter',
       context: 'fetchRoles',
-      message: `Fetched ${roles.length} directory roles`,
+      message: `Fetched ${data.roles.length} directory roles`,
     });
 
-    return roles.map((r) => ({
+    return data.roles.map((r) => ({
       externalId: r.id,
       displayName: r.displayName,
       siteId,
@@ -458,22 +458,22 @@ export class Microsoft365Adapter extends BaseAdapter {
     siteId: string | undefined,
     tracker: PipelineTracker
   ): Promise<RawEntity[]> {
-    const { data: policies, error } = await tracker.trackSpan(
+    const { data, error } = await tracker.trackSpan(
       'adapter:api:getConditionalAccessPolicies',
-      () => connector.getConditionalAccessPolicies()
+      () => connector.getConditionalAccessPolicies(undefined, true)
     );
 
-    if (error || !policies) {
+    if (error || !data) {
       throw new Error(`Microsoft365 getConditionalAccessPolicies failed: ${error?.message}`);
     }
 
     Logger.info({
       module: 'Microsoft365Adapter',
       context: 'fetchPolicies',
-      message: `Fetched ${policies.length} conditional access policies`,
+      message: `Fetched ${data.policies.length} conditional access policies`,
     });
 
-    return policies.map((p: any) => ({
+    return data.policies.map((p: any) => ({
       externalId: p.id,
       displayName: p.displayName,
       siteId,

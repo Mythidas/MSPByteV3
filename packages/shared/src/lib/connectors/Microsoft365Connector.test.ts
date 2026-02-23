@@ -162,4 +162,285 @@ describe('Microsoft365Connector', () => {
       expect(data?.next).toBe('https://graph.microsoft.com/next-page');
     });
   });
+
+  describe('getGroups', () => {
+    it('returns list of groups', async () => {
+      const groups = [
+        { id: 'g1', displayName: 'Sales', groupTypes: [], mailEnabled: false, securityEnabled: true },
+      ];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: groups } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGroups();
+      expect(data?.groups).toHaveLength(1);
+      expect(data?.groups[0].id).toBe('g1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'g1' }], '@odata.nextLink': 'https://graph.microsoft.com/groups-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGroups();
+      expect(data?.next).toBe('https://graph.microsoft.com/groups-next');
+    });
+  });
+
+  describe('getGroupMembers', () => {
+    it('returns list of members', async () => {
+      const members = [{ id: 'u1', displayName: 'Alice', userPrincipalName: 'alice@contoso.com' }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: members } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGroupMembers('group-1');
+      expect(data?.members).toHaveLength(1);
+      expect(data?.members[0].id).toBe('u1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'u1' }], '@odata.nextLink': 'https://graph.microsoft.com/members-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGroupMembers('group-1');
+      expect(data?.next).toBe('https://graph.microsoft.com/members-next');
+    });
+  });
+
+  describe('getGroupMemberOf', () => {
+    it('returns list of groups the group belongs to', async () => {
+      const parentGroups = [{ id: 'pg1', displayName: 'All Staff' }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: parentGroups } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGroupMemberOf('group-1');
+      expect(data?.groups).toHaveLength(1);
+      expect(data?.groups[0].id).toBe('pg1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'pg1' }], '@odata.nextLink': 'https://graph.microsoft.com/memberof-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGroupMemberOf('group-1');
+      expect(data?.next).toBe('https://graph.microsoft.com/memberof-next');
+    });
+  });
+
+  describe('getSubscribedSkus', () => {
+    it('returns list of subscribed SKUs', async () => {
+      const skus = [{ skuId: 'sku-1', skuPartNumber: 'ENTERPRISEPACK', consumedUnits: 10 }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: skus } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getSubscribedSkus();
+      expect(data?.skus).toHaveLength(1);
+      expect(data?.skus[0].skuId).toBe('sku-1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ skuId: 'sku-1' }], '@odata.nextLink': 'https://graph.microsoft.com/skus-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getSubscribedSkus();
+      expect(data?.next).toBe('https://graph.microsoft.com/skus-next');
+    });
+  });
+
+  describe('getRoles', () => {
+    it('returns list of directory roles', async () => {
+      const roles = [{ id: 'r1', displayName: 'Global Administrator', description: 'All access', roleTemplateId: 'tmpl-1' }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: roles } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getRoles();
+      expect(data?.roles).toHaveLength(1);
+      expect(data?.roles[0].id).toBe('r1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'r1' }], '@odata.nextLink': 'https://graph.microsoft.com/roles-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getRoles();
+      expect(data?.next).toBe('https://graph.microsoft.com/roles-next');
+    });
+  });
+
+  describe('getRoleMembers', () => {
+    it('returns list of role members', async () => {
+      const members = [{ id: 'u1', displayName: 'Alice', userPrincipalName: 'alice@contoso.com' }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: members } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getRoleMembers('role-1');
+      expect(data?.members).toHaveLength(1);
+      expect(data?.members[0].id).toBe('u1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'u1' }], '@odata.nextLink': 'https://graph.microsoft.com/role-members-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getRoleMembers('role-1');
+      expect(data?.next).toBe('https://graph.microsoft.com/role-members-next');
+    });
+  });
+
+  describe('getConditionalAccessPolicies', () => {
+    it('returns list of policies', async () => {
+      const policies = [{ id: 'p1', displayName: 'Require MFA', state: 'enabled' }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: policies } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getConditionalAccessPolicies();
+      expect(data?.policies).toHaveLength(1);
+      expect(data?.policies[0].id).toBe('p1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'p1' }], '@odata.nextLink': 'https://graph.microsoft.com/policies-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getConditionalAccessPolicies();
+      expect(data?.next).toBe('https://graph.microsoft.com/policies-next');
+    });
+  });
+
+  describe('getTenantDomains', () => {
+    it('returns list of tenant domains', async () => {
+      const domains = [{ id: 'contoso.com', isDefault: true, isVerified: true, authenticationType: 'Managed' }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: domains } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getTenantDomains();
+      expect(data?.domains).toHaveLength(1);
+      expect(data?.domains[0].id).toBe('contoso.com');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'contoso.com' }], '@odata.nextLink': 'https://graph.microsoft.com/domains-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getTenantDomains();
+      expect(data?.next).toBe('https://graph.microsoft.com/domains-next');
+    });
+  });
+
+  describe('getGDAPCustomers', () => {
+    it('returns list of GDAP customers', async () => {
+      const customers = [{ id: 'rel-1', customer: { tenantId: 'cust-tenant-1', displayName: 'Contoso Ltd' } }];
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          { ok: true, body: { value: customers } },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGDAPCustomers();
+      expect(data?.customers).toHaveLength(1);
+      expect(data?.customers[0].id).toBe('rel-1');
+    });
+
+    it('returns pagination cursor when nextLink is present', async () => {
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          { ok: true, body: { access_token: 'tok', expires_in: 3600 } },
+          {
+            ok: true,
+            body: { value: [{ id: 'rel-1' }], '@odata.nextLink': 'https://graph.microsoft.com/gdap-next' },
+          },
+        ])
+      );
+      const { data } = await new Microsoft365Connector(CONFIG).getGDAPCustomers();
+      expect(data?.next).toBe('https://graph.microsoft.com/gdap-next');
+    });
+  });
 });
