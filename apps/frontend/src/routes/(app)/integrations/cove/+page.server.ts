@@ -124,14 +124,19 @@ export const actions: Actions = {
         );
       }
 
-      const { error } = await locals.orm.upsert('public', 'integrations', [
-        {
-          id: 'cove',
-          tenant_id: locals.user?.tenant_id,
-          config: configData,
-          updated_at: new Date().toISOString(),
-        },
-      ]);
+      const { error } = await locals.orm.upsert(
+        'public',
+        'integrations',
+        [
+          {
+            id: 'cove',
+            tenant_id: locals.user?.tenant_id,
+            config: configData,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        ['id', 'tenant_id']
+      );
 
       if (error) {
         return message(form, `Failed to save: ${error.message}`, {

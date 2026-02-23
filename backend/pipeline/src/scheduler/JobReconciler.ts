@@ -149,7 +149,7 @@ export class JobReconciler {
       integration_id: integrationId,
       entity_type: typeConfig.type,
       status: 'pending',
-      priority: typeConfig.priority,
+      priority: typeConfig.priority + 10, // If the job didn't exist at all, then it most likely is the first sync
       trigger: 'scheduled',
       scheduled_for: null,
       site_id: null,

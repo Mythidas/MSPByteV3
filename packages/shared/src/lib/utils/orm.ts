@@ -347,13 +347,14 @@ export class ORM {
     schema: S,
     table: T,
     rows: (TablesUpdate<S, T> | TablesInsert<S, T>)[],
+    conflict?: (keyof Tables<S, T>)[],
     modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .upsert(rows as any);
+        .upsert(rows as any, { onConflict: conflict?.join(',') ?? '' });
 
       if (modifyQuery) {
         modifyQuery(query as any);
@@ -442,6 +443,7 @@ export class ORM {
     table: T,
     rows: (TablesUpdate<S, T> | TablesInsert<S, T>)[],
     batchSize = 100,
+    conflict?: (keyof Tables<S, T>)[],
     modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
@@ -452,7 +454,7 @@ export class ORM {
         let query = this.supabase
           .schema(schema)
           .from(table as any)
-          .upsert(chunk as any);
+          .upsert(chunk as any, { onConflict: conflict?.join(',') ?? '' });
 
         if (modifyQuery) {
           modifyQuery(query as any);

@@ -154,7 +154,11 @@ export abstract class BaseLinker {
     // Execute using ORM batch methods
     if (toCreate.length > 0) {
       tracker.trackUpsert();
-      const { error } = await orm.batchUpsert('public', 'entity_relationships', toCreate);
+      const { error } = await orm.batchUpsert('public', 'entity_relationships', toCreate, 100, [
+        'parent_entity_id',
+        'child_entity_id',
+        'relationship_type',
+      ]);
       if (error) {
         throw new Error(`Failed to insert entity_relationships: ${error}`);
       }

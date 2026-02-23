@@ -91,17 +91,22 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
   // MSP-level consent — save tenant ID and refresh token
   try {
-    await locals.orm.upsert('public', 'integrations', [
-      {
-        id: 'microsoft-365',
-        tenant_id: state.mspbyteTenantId,
-        config: {
-          mode: 'partner',
-          tenantId: msTenantId,
+    await locals.orm.upsert(
+      'public',
+      'integrations',
+      [
+        {
+          id: 'microsoft-365',
+          tenant_id: state.mspbyteTenantId,
+          config: {
+            mode: 'partner',
+            tenantId: msTenantId,
+          },
+          updated_at: new Date().toISOString(),
         },
-        updated_at: new Date().toISOString(),
-      },
-    ]);
+      ],
+      ['id', 'tenant_id']
+    );
   } catch (err) {
     Logger.error({
       module: 'consent',

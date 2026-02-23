@@ -160,6 +160,7 @@ export class SyncWorker {
           await tracker.trackSpan('stage:linker', async () => {
             await this.linker!.linkAndReconcile(ctx, tracker);
 
+            // TODO: What is this for?
             // Track expected endpoint count for fan-out integrations (DattoRMM)
             if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker!) {
               const expectedCount = await this.getExpectedEndpointCount(

@@ -163,7 +163,11 @@ export class EntityProcessor {
     const touchedEntities: Entity[] = [];
 
     for (const entity of entities) {
-      const dataHash = calculateHash({ ...entity.rawData, displayName: entity.displayName });
+      const dataHash = calculateHash({
+        ...entity.rawData,
+        displayName: entity.displayName,
+        siteId: entity.siteId,
+      });
       const ex = existingMap.get(entity.externalId);
       const displayName = entity.displayName || extractDisplayName(entity.rawData) || null;
 
@@ -188,7 +192,7 @@ export class EntityProcessor {
           id: ex.id,
           tenant_id: ex.tenant_id,
           integration_id: ex.integration_id,
-          site_id: ex.site_id,
+          site_id: entity.siteId || ex.site_id || null,
           entity_type: ex.entity_type,
           external_id: ex.external_id,
           display_name: displayName,

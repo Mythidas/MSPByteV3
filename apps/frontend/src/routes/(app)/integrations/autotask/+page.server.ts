@@ -122,14 +122,19 @@ export const actions: Actions = {
       }
 
       configData.clientSecret = Encryption.encrypt(configData.clientSecret);
-      const { error } = await locals.orm.upsert('public', 'integrations', [
-        {
-          id: 'autotask',
-          tenant_id: locals.user?.tenant_id,
-          config: configData,
-          updated_at: new Date().toISOString(),
-        },
-      ]);
+      const { error } = await locals.orm.upsert(
+        'public',
+        'integrations',
+        [
+          {
+            id: 'autotask',
+            tenant_id: locals.user?.tenant_id,
+            config: configData,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        ['id', 'tenant_id']
+      );
 
       if (error) {
         return message(form, `Failed to save: ${error.message}`, {

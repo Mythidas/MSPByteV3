@@ -186,14 +186,19 @@ export const actions: Actions = {
         );
         const existingConfig = (integration?.config as any) ?? {};
 
-        const { error } = await locals.orm.upsert('public', 'integrations', [
-          {
-            id: 'microsoft-365',
-            tenant_id: locals.user?.tenant_id,
-            config: { ...existingConfig, mode: 'partner' },
-            updated_at: new Date().toISOString(),
-          },
-        ]);
+        const { error } = await locals.orm.upsert(
+          'public',
+          'integrations',
+          [
+            {
+              id: 'microsoft-365',
+              tenant_id: locals.user?.tenant_id,
+              config: { ...existingConfig, mode: 'partner' },
+              updated_at: new Date().toISOString(),
+            },
+          ],
+          ['id', 'tenant_id']
+        );
 
         if (error) {
           return message(form, `Failed to save: ${error.message}`, { status: 500 });
@@ -231,14 +236,19 @@ export const actions: Actions = {
 
       (configData as any).clientSecret = Encryption.encrypt((configData as any).clientSecret);
 
-      const { error } = await locals.orm.upsert('public', 'integrations', [
-        {
-          id: 'microsoft-365',
-          tenant_id: locals.user?.tenant_id,
-          config: configData,
-          updated_at: new Date().toISOString(),
-        },
-      ]);
+      const { error } = await locals.orm.upsert(
+        'public',
+        'integrations',
+        [
+          {
+            id: 'microsoft-365',
+            tenant_id: locals.user?.tenant_id,
+            config: configData,
+            updated_at: new Date().toISOString(),
+          },
+        ],
+        ['id', 'tenant_id']
+      );
 
       if (error) {
         return message(form, `Failed to save: ${error.message}`, { status: 500 });
@@ -524,15 +534,20 @@ export const actions: Actions = {
       for (const { siteId, domains } of siteLinks) {
         if (!siteId || domains.length === 0) continue;
 
-        const { error } = await locals.orm.upsert('public', 'site_to_integration', [
-          {
-            site_id: siteId,
-            external_id: connectionExternalId,
-            integration_id: 'microsoft-365',
-            tenant_id: currentTenant,
-            meta: { domains },
-          },
-        ]);
+        const { error } = await locals.orm.upsert(
+          'public',
+          'site_to_integration',
+          [
+            {
+              site_id: siteId,
+              external_id: connectionExternalId,
+              integration_id: 'microsoft-365',
+              tenant_id: currentTenant,
+              meta: { domains },
+            },
+          ],
+          ['site_id', 'external_id', 'integration_id', 'tenant_id']
+        );
 
         if (error) {
           return fail(500, { error: `Failed to save site link: ${error.message}` });
