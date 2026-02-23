@@ -252,7 +252,12 @@ export class SyncWorker {
   private async trackCompletionAndMaybeAnalyze(jobData: SyncJobData): Promise<void> {
     const { tenantId, integrationId, integrationDbId, entityType, syncId, connectionId } = jobData;
 
-    const allComplete = await CompletionTracker.markComplete(tenantId, integrationId, entityType);
+    const allComplete = await CompletionTracker.markComplete(
+      tenantId,
+      integrationId,
+      entityType,
+      connectionId ?? undefined
+    );
 
     if (allComplete) {
       Logger.info({
@@ -269,8 +274,12 @@ export class SyncWorker {
         connectionId,
       };
 
+      const jobIdParts = ['analysis', tenantId, integrationId];
+      if (connectionId) jobIdParts.push(connectionId);
+      jobIdParts.push(Date.now().toString());
+
       await queueManager.addJob(QueueNames.analysis(integrationId), analysisData, {
-        jobId: `analysis-${tenantId}-${integrationId}-${Date.now()}`,
+        jobId: jobIdParts.join('-'),
       });
     }
   }

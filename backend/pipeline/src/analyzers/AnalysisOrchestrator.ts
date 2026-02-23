@@ -1,7 +1,12 @@
 import { getSupabase } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
+import {
+  ensureAllEntitiesLoaded,
+  ensureConnectionEntitiesLoaded,
+  ensureConnectionRelationshipsLoaded,
+  ensureRelationshipsLoaded,
+} from '../context.js';
 import type {
   AnalysisContext,
   Entity,
@@ -117,8 +122,13 @@ export class AnalysisOrchestrator {
     ctx: SyncContext,
     tracker: PipelineTracker
   ): Promise<AnalysisContext> {
-    const entities = await ensureAllEntitiesLoaded(ctx, tracker);
-    const rels = await ensureRelationshipsLoaded(ctx, tracker);
+    const entities = ctx.connectionId
+      ? await ensureConnectionEntitiesLoaded(ctx, tracker)
+      : await ensureAllEntitiesLoaded(ctx, tracker);
+
+    const rels = ctx.connectionId
+      ? await ensureConnectionRelationshipsLoaded(ctx, tracker)
+      : await ensureRelationshipsLoaded(ctx, tracker);
 
     const grouped = {
       identities: entities.filter((e) => e.entity_type === 'identity'),

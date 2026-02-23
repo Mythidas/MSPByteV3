@@ -76,6 +76,82 @@ export async function ensureRelationshipsLoaded(
 }
 
 /**
+ * Load entities scoped to a specific connection.
+ */
+export async function ensureConnectionEntitiesLoaded(
+  ctx: SyncContext,
+  tracker: PipelineTracker
+): Promise<Entity[]> {
+  if (ctx.allEntities !== null) return ctx.allEntities;
+
+  const orm = getORM();
+  tracker.trackQuery();
+  const { data, error } = await tracker.trackSpan(
+    'context:load_connection_entities',
+    async () => {
+      return orm.select('public', 'entities', (q) =>
+        q
+          .eq('tenant_id', ctx.tenantId)
+          .eq('integration_id', ctx.integrationId)
+          .eq('connection_id', ctx.connectionId!)
+      );
+    }
+  );
+
+  if (error) throw new Error(`Failed to load connection entities: ${error}`);
+
+  ctx.allEntities = (data?.rows || []) as Entity[];
+
+  Logger.trace({
+    module: 'SyncContext',
+    context: 'ensureConnectionEntitiesLoaded',
+    message: `Loaded ${ctx.allEntities.length} entities for connection ${ctx.connectionId}`,
+  });
+
+  return ctx.allEntities;
+}
+
+/**
+ * Load relationships scoped to a specific connection.
+ * Fetches all relationships for the integration then filters to those
+ * where at least one endpoint belongs to the connection's entity set.
+ */
+export async function ensureConnectionRelationshipsLoaded(
+  ctx: SyncContext,
+  tracker: PipelineTracker
+): Promise<Relationship[]> {
+  if (ctx.relationships !== null) return ctx.relationships;
+
+  const entities = await ensureConnectionEntitiesLoaded(ctx, tracker);
+  const entityIds = new Set(entities.map((e) => e.id));
+
+  const orm = getORM();
+  tracker.trackQuery();
+  const { data, error } = await tracker.trackSpan(
+    'context:load_connection_relationships',
+    async () => {
+      return orm.select('public', 'entity_relationships', (q) =>
+        q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId)
+      );
+    }
+  );
+
+  if (error) throw new Error(`Failed to load connection relationships: ${error}`);
+
+  ctx.relationships = ((data?.rows || []) as Relationship[]).filter(
+    (r) => entityIds.has(r.parent_entity_id) || entityIds.has(r.child_entity_id)
+  );
+
+  Logger.trace({
+    module: 'SyncContext',
+    context: 'ensureConnectionRelationshipsLoaded',
+    message: `Loaded ${ctx.relationships.length} relationships for connection ${ctx.connectionId}`,
+  });
+
+  return ctx.relationships;
+}
+
+/**
  * Load entities scoped to a specific site. Also loads company entities
  * (parents needed for relationship linking).
  */

@@ -25,12 +25,20 @@ export class AlertManager {
       message: `Processing ${alerts.length} alerts for ${integrationId}`,
     });
 
-    // Load existing alerts for this integration + tenant
-    const { data: existingAlerts } = await supabase
+    // Load existing alerts for this integration + tenant, scoped to connection/site
+    let query = supabase
       .from('entity_alerts')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('integration_id', integrationId);
+
+    if (connectionId) {
+      query = query.eq('connection_id', connectionId);
+    } else if (siteId) {
+      query = query.eq('site_id', siteId);
+    }
+
+    const { data: existingAlerts } = await query;
 
     const existingMap = new Map((existingAlerts || []).map((a) => [a.fingerprint, a]));
     const seenFingerprints = new Set<string>();

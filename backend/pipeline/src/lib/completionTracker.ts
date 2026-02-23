@@ -13,8 +13,9 @@ const TTL_SECONDS = 2 * 60 * 60; // 2 hours — self-cleaning on failure
  * For fan-out types (e.g., DattoRMM endpoints): uses INCR against expected count.
  */
 export class CompletionTracker {
-  private static baseKey(tenantId: string, integrationId: string): string {
-    return `${KEY_PREFIX}:${tenantId}:${integrationId}`;
+  private static baseKey(tenantId: string, integrationId: string, connectionId?: string): string {
+    const base = `${KEY_PREFIX}:${tenantId}:${integrationId}`;
+    return connectionId ? `${base}:${connectionId}` : base;
   }
 
   /**
@@ -25,10 +26,11 @@ export class CompletionTracker {
     tenantId: string,
     integrationId: string,
     entityType: string,
-    count: number
+    count: number,
+    connectionId?: string
   ): Promise<void> {
     const redis = getRedisConnection();
-    const key = `${this.baseKey(tenantId, integrationId)}:expected:${entityType}`;
+    const key = `${this.baseKey(tenantId, integrationId, connectionId)}:expected:${entityType}`;
     await redis.set(key, count.toString(), 'EX', TTL_SECONDS);
 
     Logger.trace({
@@ -46,10 +48,11 @@ export class CompletionTracker {
   static async markComplete(
     tenantId: string,
     integrationId: string,
-    entityType: string
+    entityType: string,
+    connectionId?: string
   ): Promise<boolean> {
     const redis = getRedisConnection();
-    const base = this.baseKey(tenantId, integrationId);
+    const base = this.baseKey(tenantId, integrationId, connectionId);
 
     // Check if this is a fan-out type with an expected count
     const expectedKey = `${base}:expected:${entityType}`;
