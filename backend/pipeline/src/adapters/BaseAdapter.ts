@@ -1,9 +1,9 @@
 import { getSupabase } from '../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { PipelineTracker } from '../lib/tracker.js';
-import type { IntegrationId } from '../config.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
+import { IntegrationId } from '@workspace/shared/config/integrations.js';
 
 /**
  * BaseAdapter - Abstract base class for all integration adapters.

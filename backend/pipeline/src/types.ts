@@ -1,4 +1,4 @@
-import type { IntegrationId, EntityType } from './config.js';
+import { IntegrationId, EntityType } from '@workspace/shared/config/integrations';
 
 // ============================================================================
 // ENTITY & RELATIONSHIP TYPES

@@ -1,6 +1,6 @@
+import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
+import { Logger } from '@workspace/shared/lib/utils/logger.js';
 import { getRedisConnection } from './redis.js';
-import { INTEGRATION_CONFIGS, type IntegrationId } from '../config.js';
-import { Logger } from './logger.js';
 
 const KEY_PREFIX = 'pipeline:completion';
 const TTL_SECONDS = 2 * 60 * 60; // 2 hours — self-cleaning on failure
@@ -25,7 +25,7 @@ export class CompletionTracker {
     tenantId: string,
     integrationId: string,
     entityType: string,
-    count: number,
+    count: number
   ): Promise<void> {
     const redis = getRedisConnection();
     const key = `${this.baseKey(tenantId, integrationId)}:expected:${entityType}`;
@@ -46,7 +46,7 @@ export class CompletionTracker {
   static async markComplete(
     tenantId: string,
     integrationId: string,
-    entityType: string,
+    entityType: string
   ): Promise<boolean> {
     const redis = getRedisConnection();
     const base = this.baseKey(tenantId, integrationId);
@@ -79,7 +79,7 @@ export class CompletionTracker {
     await redis.set(completedKey, '1', 'EX', TTL_SECONDS);
 
     // Check if ALL entity types for this integration are done
-    const config = INTEGRATION_CONFIGS[integrationId as IntegrationId];
+    const config = INTEGRATIONS[integrationId as IntegrationId];
     if (!config) return true; // Unknown integration, assume done
 
     const allTypes = config.supportedTypes.map((t) => t.type);

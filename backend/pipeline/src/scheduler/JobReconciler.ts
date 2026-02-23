@@ -1,6 +1,10 @@
+import {
+  IntegrationId,
+  EntityTypeConfig,
+  INTEGRATIONS,
+} from '@workspace/shared/config/integrations.js';
 import { getSupabase } from '../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { INTEGRATION_CONFIGS, type EntityTypeConfig, type IntegrationId } from '../config.js';
 
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -69,7 +73,7 @@ export class JobReconciler {
 
       for (const row of integrationRows) {
         const integrationId = row.id as IntegrationId;
-        const config = INTEGRATION_CONFIGS[integrationId];
+        const config = INTEGRATIONS[integrationId];
         if (!config) continue;
 
         const nonFanOutTypes = config.supportedTypes.filter((t) => !t.fanOut);
@@ -77,7 +81,7 @@ export class JobReconciler {
 
         // Find connections scoped to this integration + tenant
         const tenantConnections = connections.filter(
-          (c) => c.integration_id === row.id && c.tenant_id === row.tenant_id,
+          (c) => c.integration_id === row.id && c.tenant_id === row.tenant_id
         );
 
         if (tenantConnections.length > 0) {
@@ -113,7 +117,7 @@ export class JobReconciler {
     tenantId: string,
     integrationId: IntegrationId,
     typeConfig: EntityTypeConfig,
-    connectionId: string | null,
+    connectionId: string | null
   ): Promise<void> {
     const supabase = getSupabase();
 

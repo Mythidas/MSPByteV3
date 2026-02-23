@@ -1,9 +1,9 @@
 import { getSupabase } from '../supabase.js';
 import { queueManager, QueueNames } from '../lib/queue.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { INTEGRATION_CONFIGS, type IntegrationId, type EntityType } from '../config.js';
 import type { SyncJobData } from '../types.js';
 import { Tables } from '@workspace/shared/types/database.js';
+import { IntegrationId, EntityType, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
 
 const POLL_INTERVAL_MS = 15000;
 const CLEANUP_THROTTLE_MS = 60 * 60 * 1000; // 1 hour
@@ -98,7 +98,7 @@ export class JobScheduler {
     const integrationId = syncJob.integration_id as IntegrationId;
     const entityType = syncJob.entity_type as EntityType | null;
 
-    const config = INTEGRATION_CONFIGS[integrationId];
+    const config = INTEGRATIONS[integrationId];
     if (!config) {
       Logger.warn({
         module: 'JobScheduler',
@@ -247,9 +247,9 @@ export class JobScheduler {
     integrationId: IntegrationId,
     entityType: EntityType,
     siteId?: string | null,
-    connectionId?: string | null,
+    connectionId?: string | null
   ): Promise<void> {
-    const config = INTEGRATION_CONFIGS[integrationId];
+    const config = INTEGRATIONS[integrationId];
     if (!config) return;
 
     const typeConfig = config.supportedTypes.find((t) => t.type === entityType);
@@ -284,9 +284,9 @@ export class JobScheduler {
   static async scheduleConnectionSync(
     tenantId: string,
     integrationId: IntegrationId,
-    connectionId: string,
+    connectionId: string
   ): Promise<void> {
-    const config = INTEGRATION_CONFIGS[integrationId];
+    const config = INTEGRATIONS[integrationId];
     if (!config) return;
 
     const supabase = getSupabase();
@@ -304,8 +304,8 @@ export class JobScheduler {
           scheduled_for: now,
           site_id: null,
           connection_id: connectionId,
-        }),
-      ),
+        })
+      )
     );
 
     Logger.info({

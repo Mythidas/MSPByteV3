@@ -7,8 +7,8 @@ import {
   ensureSiteEntitiesLoaded,
   ensureSiteRelationshipsLoaded,
 } from '../context.js';
-import type { IntegrationId } from '../config.js';
 import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
+import { IntegrationId } from '@workspace/shared/config/integrations.js';
 
 /**
  * BaseLinker - Abstract base class for relationship linkers.
@@ -162,12 +162,11 @@ export abstract class BaseLinker {
 
     if (toUpdate.length > 0) {
       tracker.trackUpsert();
-      const { error } = await orm.batchUpdate(
-        'public',
-        'entity_relationships',
-        toUpdate,
-        { last_seen_at: now, sync_id: syncJobId, updated_at: now } as any
-      );
+      const { error } = await orm.batchUpdate('public', 'entity_relationships', toUpdate, {
+        last_seen_at: now,
+        sync_id: syncJobId,
+        updated_at: now,
+      } as any);
       if (error) {
         throw new Error(`Failed to update entity_relationships: ${error}`);
       }

@@ -1,6 +1,6 @@
 import { Queue, Worker, Job, type QueueOptions, type WorkerOptions } from 'bullmq';
 import { getRedisConnection } from './redis.js';
-import { Logger } from './logger.js';
+import { Logger } from '@workspace/shared/lib/utils/logger.js';
 
 export const QueueNames = {
   sync: (integrationId: string, entityType: string) => `sync.${integrationId}.${entityType}`,
@@ -49,7 +49,7 @@ class QueueManager {
   async addJob<T>(
     queueName: string,
     jobData: T,
-    options?: { priority?: number; delay?: number; jobId?: string },
+    options?: { priority?: number; delay?: number; jobId?: string }
   ): Promise<Job<T>> {
     const queue = this.getOrCreateQueue(queueName);
     return queue.add(queueName, jobData, options);
@@ -58,7 +58,7 @@ class QueueManager {
   createWorker<T = any>(
     queueName: string,
     processor: (job: Job<T>) => Promise<any>,
-    options?: Partial<WorkerOptions>,
+    options?: Partial<WorkerOptions>
   ): Worker<T> {
     const workerKey = `${queueName}-worker`;
 
@@ -97,7 +97,7 @@ class QueueManager {
         connection: getRedisConnection(),
         concurrency: options?.concurrency || 5,
         ...options,
-      },
+      }
     );
 
     worker.on('failed', (job: Job | undefined, error: Error) => {

@@ -1,5 +1,5 @@
+import { Logger } from '@workspace/shared/lib/utils/logger';
 import Redis from 'ioredis';
-import { Logger } from './logger.js';
 
 let client: Redis | null = null;
 

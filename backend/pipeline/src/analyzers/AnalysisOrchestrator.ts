@@ -2,7 +2,6 @@ import { getSupabase } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { ensureAllEntitiesLoaded, ensureRelationshipsLoaded } from '../context.js';
-import type { IntegrationId } from '../config.js';
 import type {
   AnalysisContext,
   Entity,
@@ -14,6 +13,7 @@ import type {
 import { BaseAnalyzer } from './BaseAnalyzer.js';
 import { AlertManager } from './AlertManager.js';
 import { TagManager } from './TagManager.js';
+import { IntegrationId } from '@workspace/shared/config/integrations.js';
 
 /**
  * AnalysisOrchestrator - Coordinates all analyzers with batched data loading.
@@ -31,10 +31,7 @@ export class AnalysisOrchestrator {
     this.tagManager = new TagManager();
   }
 
-  async analyze(
-    ctx: SyncContext,
-    tracker: PipelineTracker,
-  ): Promise<void> {
+  async analyze(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
     Logger.info({
       module: 'AnalysisOrchestrator',
       context: 'analyze',
@@ -105,7 +102,7 @@ export class AnalysisOrchestrator {
       ctx.tenantId,
       ctx.integrationId,
       ctx.syncId,
-      ctx.siteId,
+      ctx.siteId
     );
 
     Logger.info({
@@ -117,7 +114,7 @@ export class AnalysisOrchestrator {
 
   private async buildAnalysisContext(
     ctx: SyncContext,
-    tracker: PipelineTracker,
+    tracker: PipelineTracker
   ): Promise<AnalysisContext> {
     const entities = await ensureAllEntitiesLoaded(ctx, tracker);
     const rels = await ensureRelationshipsLoaded(ctx, tracker);

@@ -6,12 +6,11 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { JobScheduler } from '../scheduler/JobScheduler.js';
 import { createSyncContext } from '../context.js';
 import { CompletionTracker } from '../lib/completionTracker.js';
-import type { EntityType, IntegrationId } from '../config.js';
 import type { AnalysisJobData, SyncJobData } from '../types.js';
 import type { BaseAdapter } from '../adapters/BaseAdapter.js';
 import type { EntityProcessor } from '../processor/EntityProcessor.js';
 import type { BaseLinker } from '../linkers/BaseLinker.js';
-import type { DattoRMMLinker } from '../linkers/DattoRMMLinker.js';
+import { IntegrationId, EntityType } from '@workspace/shared/config/integrations.js';
 
 /**
  * SyncWorker - Central orchestrator for a single (integrationId, entityType) pair.
@@ -30,7 +29,7 @@ export class SyncWorker {
     entityType: EntityType,
     adapter: BaseAdapter | null,
     processor: EntityProcessor,
-    linker: BaseLinker | null,
+    linker: BaseLinker | null
   ) {
     this.integrationId = integrationId;
     this.entityType = entityType;
@@ -122,7 +121,7 @@ export class SyncWorker {
             syncId,
             tracker,
             siteId,
-            connectionId,
+            connectionId
           );
         });
       } catch (processorError) {
@@ -143,7 +142,7 @@ export class SyncWorker {
           entityType,
           tracker,
           siteId,
-          connectionId,
+          connectionId
         );
       });
 
@@ -166,14 +165,14 @@ export class SyncWorker {
               const expectedCount = await this.getExpectedEndpointCount(
                 tenantId,
                 integrationDbId,
-                tracker,
+                tracker
               );
               if (expectedCount > 0) {
                 await CompletionTracker.setExpectedCount(
                   tenantId,
                   integrationId,
                   'endpoint',
-                  expectedCount,
+                  expectedCount
                 );
               }
             }
@@ -208,7 +207,7 @@ export class SyncWorker {
         integrationId as IntegrationId,
         entityType as EntityType,
         job.data.siteId,
-        job.data.connectionId,
+        job.data.connectionId
       );
 
       Logger.info({
@@ -249,16 +248,10 @@ export class SyncWorker {
     }
   }
 
-  private async trackCompletionAndMaybeAnalyze(
-    jobData: SyncJobData,
-  ): Promise<void> {
+  private async trackCompletionAndMaybeAnalyze(jobData: SyncJobData): Promise<void> {
     const { tenantId, integrationId, integrationDbId, entityType, syncId } = jobData;
 
-    const allComplete = await CompletionTracker.markComplete(
-      tenantId,
-      integrationId,
-      entityType,
-    );
+    const allComplete = await CompletionTracker.markComplete(tenantId, integrationId, entityType);
 
     if (allComplete) {
       Logger.info({
@@ -274,18 +267,16 @@ export class SyncWorker {
         syncId,
       };
 
-      await queueManager.addJob(
-        QueueNames.analysis(integrationId),
-        analysisData,
-        { jobId: `analysis-${tenantId}-${integrationId}-${Date.now()}` },
-      );
+      await queueManager.addJob(QueueNames.analysis(integrationId), analysisData, {
+        jobId: `analysis-${tenantId}-${integrationId}-${Date.now()}`,
+      });
     }
   }
 
   private async getExpectedEndpointCount(
     tenantId: string,
     integrationDbId: string,
-    tracker: PipelineTracker,
+    tracker: PipelineTracker
   ): Promise<number> {
     const supabase = getSupabase();
     tracker.trackQuery();

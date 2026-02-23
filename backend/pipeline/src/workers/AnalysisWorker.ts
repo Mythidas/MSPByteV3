@@ -3,9 +3,9 @@ import { queueManager, QueueNames } from '../lib/queue.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { createSyncContext } from '../context.js';
-import type { IntegrationId } from '../config.js';
 import type { AnalysisJobData } from '../types.js';
 import type { AnalysisOrchestrator } from '../analyzers/AnalysisOrchestrator.js';
+import { IntegrationId } from '@workspace/shared/config/integrations.js';
 
 /**
  * AnalysisWorker - Dedicated worker that runs analysis ONCE after all
