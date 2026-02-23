@@ -17,6 +17,7 @@
   import SitePicker from '$lib/components/site-picker.svelte';
   import * as Select from '$lib/components/ui/select/index.js';
   import { goto } from '$app/navigation';
+  import { getConnectionIdForScope } from '$lib/utils/scope-filter.js';
 
   let { children, data } = $props();
 
@@ -122,10 +123,9 @@
       <!-- Site/context picker -->
       {#if activeModule}
         {@const pickerTypes = activeModule.pickerTypes ?? ['site', 'group', 'parent']}
-        {@const showPicker =
-          pickerTypes.includes('connection')
-            ? data.connections.length > 0
-            : data.sites.length > 0}
+        {@const showPicker = pickerTypes.includes('connection')
+          ? data.connections.length > 0
+          : data.sites.length > 0}
         {#if showPicker}
           <div class="mx-1 h-5 w-px bg-border"></div>
           <SitePicker

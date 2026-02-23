@@ -1,7 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { Users, UsersRound, BookKey, ShieldCheck, CreditCard, Mail } from '@lucide/svelte';
-  import Badge from '$lib/components/ui/badge/badge.svelte';
   import { formatStringProper } from '$lib/utils/format.js';
 
   const { data } = $props();
@@ -11,22 +10,55 @@
   let scopeQuery = $derived(scope && scopeId ? `?scope=${scope}&scopeId=${scopeId}` : '');
 
   const entityCards = $derived([
-    { label: 'Users', count: data.entityCounts.identity, href: `/microsoft-365/users${scopeQuery}`, icon: Users },
-    { label: 'Groups', count: data.entityCounts.group, href: `/microsoft-365/groups${scopeQuery}`, icon: UsersRound },
-    { label: 'Roles', count: data.entityCounts.role, href: `/microsoft-365/roles${scopeQuery}`, icon: BookKey },
-    { label: 'Policies', count: data.entityCounts.policy, href: `/microsoft-365/policies${scopeQuery}`, icon: ShieldCheck },
-    { label: 'Licenses', count: data.entityCounts.license, href: `/microsoft-365/licenses${scopeQuery}`, icon: CreditCard },
-    { label: 'Exchange', count: data.entityCounts.exchange, href: `/microsoft-365/exchange${scopeQuery}`, icon: Mail },
+    {
+      label: 'Users',
+      count: data.entityCounts.identity,
+      href: `/microsoft-365/users${scopeQuery}`,
+      icon: Users,
+    },
+    {
+      label: 'Groups',
+      count: data.entityCounts.group,
+      href: `/microsoft-365/groups${scopeQuery}`,
+      icon: UsersRound,
+    },
+    {
+      label: 'Roles',
+      count: data.entityCounts.role,
+      href: `/microsoft-365/roles${scopeQuery}`,
+      icon: BookKey,
+    },
+    {
+      label: 'Policies',
+      count: data.entityCounts.policy,
+      href: `/microsoft-365/policies${scopeQuery}`,
+      icon: ShieldCheck,
+    },
+    {
+      label: 'Licenses',
+      count: data.entityCounts.license,
+      href: `/microsoft-365/licenses${scopeQuery}`,
+      icon: CreditCard,
+    },
+    {
+      label: 'Exchange',
+      count: data.entityCounts.exchange,
+      href: `/microsoft-365/exchange${scopeQuery}`,
+      icon: Mail,
+    },
   ]);
 
   const severityConfig: Record<string, { label: string; class: string }> = {
-    critical: { label: 'Critical', class: 'bg-destructive/10 text-destructive border-destructive/30' },
+    critical: {
+      label: 'Critical',
+      class: 'bg-destructive/10 text-destructive border-destructive/30',
+    },
     high: { label: 'High', class: 'bg-orange-500/10 text-orange-500 border-orange-500/30' },
     medium: { label: 'Medium', class: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30' },
     low: { label: 'Low', class: 'bg-blue-500/10 text-blue-500 border-blue-500/30' },
   };
 
-  const healthConfig = [
+  const healthConfig = $derived.by(() => [
     {
       label: 'MFA Risk',
       count: data.identityHealth.mfaRisk,
@@ -42,13 +74,13 @@
       count: data.identityHealth.licenseWaste,
       class: data.identityHealth.licenseWaste > 0 ? 'text-orange-500' : 'text-muted-foreground',
     },
-  ];
+  ]);
 
   const totalAlerts = $derived(
     data.alertCounts.critical +
       data.alertCounts.high +
       data.alertCounts.medium +
-      data.alertCounts.low,
+      data.alertCounts.low
   );
 
   function getSeverityClass(severity: string) {
@@ -62,7 +94,8 @@
   {#if data.connections?.length === 0}
     <div class="rounded-lg border border-blue-500/20 bg-blue-500/10 p-4 text-blue-500 text-sm">
       No active Microsoft 365 connections found.
-      <a href="/integrations/microsoft-365" class="underline font-medium">Configure integrations</a> to start syncing tenant data.
+      <a href="/integrations/microsoft-365" class="underline font-medium">Configure integrations</a> to
+      start syncing tenant data.
     </div>
   {/if}
 
@@ -92,7 +125,11 @@
       </div>
       <div class="flex flex-wrap gap-2">
         {#each Object.entries(data.alertCounts) as [severity, count]}
-          <span class="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs font-medium {severityConfig[severity]?.class}">
+          <span
+            class="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs font-medium {severityConfig[
+              severity
+            ]?.class}"
+          >
             {severityConfig[severity]?.label ?? formatStringProper(severity)}
             <span class="font-bold">{count}</span>
           </span>
@@ -129,7 +166,11 @@
                 </span>
               {/if}
             </div>
-            <span class="inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs font-medium {getSeverityClass(alert.severity)}">
+            <span
+              class="inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs font-medium {getSeverityClass(
+                alert.severity
+              )}"
+            >
               {formatStringProper(alert.severity)}
             </span>
           </div>

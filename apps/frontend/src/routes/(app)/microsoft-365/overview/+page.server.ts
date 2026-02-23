@@ -20,6 +20,19 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       .select('*', { count: 'exact', head: true })
       .eq('integration_id', 'microsoft-365')
       .eq('status', 'active');
+    if (connectionId) q = q.eq('connection_id', connectionId);
+    return q;
+  };
+
+  const baseRecentAlertsQuery = () => {
+    let q = locals.supabase
+      .from('entity_alerts')
+      .select('id, message, severity, alert_type, entities(display_name, connection_id)')
+      .eq('integration_id', 'microsoft-365')
+      .eq('status', 'active')
+      .order('severity', { ascending: true })
+      .limit(5);
+    if (connectionId) q = q.eq('connection_id', connectionId);
     return q;
   };
 
@@ -49,13 +62,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
     baseAlertQuery().eq('severity', 'high'),
     baseAlertQuery().eq('severity', 'medium'),
     baseAlertQuery().eq('severity', 'low'),
-    locals.supabase
-      .from('entity_alerts')
-      .select('id, message, severity, alert_type, entities(display_name, connection_id)')
-      .eq('integration_id', 'microsoft-365')
-      .eq('status', 'active')
-      .order('severity', { ascending: true })
-      .limit(5),
+    baseRecentAlertsQuery(),
     baseAlertQuery().in('alert_type', ['mfa-not-enforced', 'mfa-partial-enforced']),
     baseAlertQuery().eq('alert_type', 'stale-user'),
     baseAlertQuery().eq('alert_type', 'license-waste'),

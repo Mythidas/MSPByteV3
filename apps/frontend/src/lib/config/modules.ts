@@ -72,8 +72,8 @@ export const MODULES: ModuleConfig[] = [
     permission: 'Assets.Read',
     pickerTypes: ['connection', 'site', 'group', 'parent'],
     navLinks: [
-      { href: '/microsoft-365/alerts', label: 'Alerts', permission: null },
       { href: '/microsoft-365/overview', label: 'Overview', permission: null },
+      { href: '/microsoft-365/alerts', label: 'Alerts', permission: null },
       { href: '/microsoft-365/users', label: 'Users', permission: null },
       { href: '/microsoft-365/groups', label: 'Groups', permission: null },
       { href: '/microsoft-365/licenses', label: 'Licenses', permission: null },
