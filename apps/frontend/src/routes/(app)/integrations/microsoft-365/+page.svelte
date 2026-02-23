@@ -26,6 +26,8 @@
   import { deserialize } from '$app/forms';
   import type { PageProps } from './$types';
   import { microsoft365ConfigSchema } from './_forms';
+  import { MS_CAPABILITIES } from '@workspace/shared/config/microsoft';
+  import type { MSCapabilityKey } from '@workspace/shared/types/integrations/microsoft/capabilities';
 
   let { data }: PageProps = $props();
 
@@ -66,6 +68,7 @@
   let connectingMSP = $state(false);
   let refreshingConnections = $state(false);
   let savingMappings = $state(false);
+  let checkingCapabilities = $state(false);
 
   // Connection list filter/search state
   let searchQuery = $state('');
@@ -401,6 +404,37 @@
       toast.error(`Failed: ${String(err)}`);
     } finally {
       savingMappings = false;
+    }
+  }
+
+  async function handleRefreshCapabilities(gdapTenantId: string) {
+    checkingCapabilities = true;
+    try {
+      const body = new FormData();
+      body.set('gdapTenantId', gdapTenantId);
+      const response = await fetch('?/refreshCapabilities', { method: 'POST', body });
+      const result = deserialize(await response.text());
+
+      if (result.type === 'failure' || result.type === 'error') {
+        const errMsg =
+          result.type === 'failure'
+            ? (result.data as any)?.error
+            : result.type === 'error'
+              ? String(result.error)
+              : 'Unknown error';
+        toast.error(errMsg ?? 'Failed to refresh capabilities');
+        return;
+      }
+
+      const updated = (result.type === 'success' ? (result.data as any) : null)?.connection;
+      if (updated) {
+        connections = connections.map((c) => (c.external_id === gdapTenantId ? updated : c));
+        toast.success('Capabilities refreshed');
+      }
+    } catch (err) {
+      toast.error(`Failed: ${String(err)}`);
+    } finally {
+      checkingCapabilities = false;
     }
   }
 </script>
@@ -771,9 +805,13 @@
                         </div>
 
                         {#each orphanedEntities as entity (entity.id)}
-                          <div class="grid grid-cols-2 gap-2 items-center px-2 py-1 rounded hover:bg-muted/40">
+                          <div
+                            class="grid grid-cols-2 gap-2 items-center px-2 py-1 rounded hover:bg-muted/40"
+                          >
                             <p class="text-xs font-mono truncate text-muted-foreground">
-                              {entity.raw_data?.userPrincipalName ?? entity.display_name ?? entity.id}
+                              {entity.raw_data?.userPrincipalName ??
+                                entity.display_name ??
+                                entity.id}
                             </p>
                             <SingleSelect
                               placeholder="-- Assign Site --"
@@ -819,6 +857,59 @@
                         </p>
                       {/if}
                     </div>
+
+                    <!-- Tenant Capabilities section -->
+                    <div class="mt-4 border-t pt-4 space-y-3">
+                      <div class="flex items-center justify-between">
+                        <div>
+                          <h4 class="text-sm font-medium">Tenant Capabilities</h4>
+                          {#if (expandedConnection?.meta as any)?.capabilitiesCheckedAt}
+                            <p class="text-xs text-muted-foreground">
+                              Last checked {new Date(
+                                (expandedConnection.meta as any).capabilitiesCheckedAt
+                              ).toLocaleString()}
+                            </p>
+                          {/if}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={checkingCapabilities}
+                          onclick={() => handleRefreshCapabilities(expandedConnection.external_id)}
+                        >
+                          {#if checkingCapabilities}
+                            <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                          {/if}
+                          Refresh Capabilities
+                        </Button>
+                      </div>
+
+                      {#each Object.entries(MS_CAPABILITIES) as [key, capMeta] (key)}
+                        {@const enabled =
+                          (expandedConnection?.meta as any)?.capabilities?.[
+                            key as MSCapabilityKey
+                          ] ?? null}
+                        <div class="flex items-start gap-2 px-2">
+                          {#if enabled === true}
+                            <CircleCheck class="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                            <span class="text-sm">{capMeta.label}</span>
+                          {:else if enabled === false}
+                            <CircleAlert class="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                            <div>
+                              <span class="text-sm">{capMeta.label}</span>
+                              <p class="text-xs text-muted-foreground">
+                                Requires {capMeta.requiredLicense}
+                              </p>
+                            </div>
+                          {:else}
+                            <CircleAlert class="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                            <span class="text-sm text-muted-foreground"
+                              >{capMeta.label} — not yet checked</span
+                            >
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
                   </div>
                 {/if}
               </div>
@@ -851,13 +942,7 @@
                     class="h-8 text-sm"
                   />
                   <div class="flex gap-1 flex-wrap">
-                    {#each [
-                      { key: 'all', label: 'All' },
-                      { key: 'needs-consent', label: 'Needs Consent' },
-                      { key: 'active', label: 'Active' },
-                      { key: 'has-unmapped', label: 'Has Unmapped' },
-                      { key: 'has-orphans', label: 'Has Orphans' },
-                    ] as chip}
+                    {#each [{ key: 'all', label: 'All' }, { key: 'needs-consent', label: 'Needs Consent' }, { key: 'active', label: 'Active' }, { key: 'has-unmapped', label: 'Has Unmapped' }, { key: 'has-orphans', label: 'Has Orphans' }] as chip}
                       <button
                         type="button"
                         class="px-2.5 py-1 text-xs rounded-full border transition-colors {activeFilter ===
@@ -904,6 +989,7 @@
                     {@const domains = (conn.meta as any)?.domains ?? []}
                     {@const connUnmapped = getUnmappedCount(conn)}
                     {@const connOrphans = data.orphanCounts[conn.external_id] ?? 0}
+                    {@const connCaps = (conn.meta as any)?.capabilities}
                     <div
                       class="flex items-center gap-3 border rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors"
                     >
@@ -950,6 +1036,20 @@
                         >
                           {connOrphans} orphaned
                         </Badge>
+                      {/if}
+
+                      <!-- Capability warning badges -->
+                      {#if connCaps}
+                        {#each Object.entries(MS_CAPABILITIES) as [key, capMeta] (key)}
+                          {#if connCaps[key as MSCapabilityKey] === false}
+                            <Badge
+                              class="bg-warning/15 text-warning border-warning/30"
+                              variant="outline"
+                            >
+                              No {capMeta.label}
+                            </Badge>
+                          {/if}
+                        {/each}
                       {/if}
 
                       <!-- Action button -->

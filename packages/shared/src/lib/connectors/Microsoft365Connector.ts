@@ -239,7 +239,7 @@ export class Microsoft365Connector {
   }
 
   async getRoles(
-    filters?: ConnectorFilters<MSGraphRole>,
+    filters?: Omit<ConnectorFilters<MSGraphRole>, 'limit'>,
     fetchAll?: boolean
   ): Promise<APIResponse<{ roles: MSGraphRole[]; next?: string }>> {
     try {

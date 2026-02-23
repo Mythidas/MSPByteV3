@@ -4,6 +4,7 @@ import { superValidate, message } from 'sveltekit-superforms';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { prepareSensitiveFormData } from '$lib/utils/forms';
 import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
+import { TenantCapabilityService } from '@workspace/shared/lib/services/microsoft/TenantCapabilityService';
 import { microsoft365ConfigSchema } from './_forms';
 import { Encryption } from '$lib/server/encryption';
 import { PUBLIC_ORIGIN } from '$env/static/public';
@@ -561,6 +562,96 @@ export const actions: Actions = {
       }
 
       return { success: true };
+    } catch (err) {
+      return fail(500, { error: safeErrorMessage(err) });
+    }
+  },
+
+  refreshCapabilities: async ({ request, locals }) => {
+    try {
+      const formData = await request.formData();
+      const gdapTenantId = formData.get('gdapTenantId') as string;
+      if (!gdapTenantId) return fail(400, { error: 'gdapTenantId is required' });
+
+      const { data: integration } = await locals.orm.selectSingle('public', 'integrations', (q) =>
+        q.eq('id', 'microsoft-365')
+      );
+
+      const config = integration?.config as any;
+      const mspTenantId = config?.tenantId as string | undefined;
+
+      if (!mspTenantId) {
+        return fail(400, { error: 'MSPByte is not connected to Microsoft.' });
+      }
+
+      const clientId = MICROSOFT_CLIENT_ID;
+      const clientSecret = MICROSOFT_CLIENT_SECRET;
+
+      if (!clientId || !clientSecret) {
+        return fail(500, {
+          error: 'MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET env vars are required',
+        });
+      }
+
+      const refreshToken = config?.refreshToken ? Encryption.decrypt(config.refreshToken) : undefined;
+
+      const baseConnector = new Microsoft365Connector({
+        tenantId: mspTenantId,
+        clientId,
+        clientSecret,
+        mode: 'partner',
+        refreshToken,
+      });
+
+      const connector = baseConnector.forTenant(gdapTenantId);
+      const { data: caps, error: capsError } = await new TenantCapabilityService(connector).probe();
+
+      if (capsError || !caps) {
+        return fail(500, { error: `Failed to probe capabilities: ${capsError?.message}` });
+      }
+
+      // Load existing connection to preserve its meta
+      const { data: existing } = await locals.orm.selectSingle(
+        'public',
+        'integration_connections',
+        (q) =>
+          q
+            .eq('integration_id', 'microsoft-365')
+            .eq('tenant_id', locals.user?.tenant_id || '')
+            .eq('external_id', gdapTenantId)
+      );
+
+      if (!existing) {
+        return fail(404, { error: `No connection found for tenant ${gdapTenantId}` });
+      }
+
+      const updatedMeta = {
+        ...((existing.meta as any) ?? {}),
+        capabilities: caps,
+        capabilitiesCheckedAt: new Date().toISOString(),
+      };
+
+      const { error: updateError } = await locals.orm.update(
+        'public',
+        'integration_connections',
+        existing.id,
+        {
+          meta: updatedMeta,
+          updated_at: new Date().toISOString(),
+        }
+      );
+
+      if (updateError) {
+        return fail(500, { error: `Failed to update connection: ${updateError.message}` });
+      }
+
+      Logger.info({
+        module: 'M365Integration',
+        context: 'refreshCapabilities',
+        message: `Capabilities updated for tenant ${gdapTenantId}: ${JSON.stringify(caps)}`,
+      });
+
+      return { connection: { ...existing, meta: updatedMeta } };
     } catch (err) {
       return fail(500, { error: safeErrorMessage(err) });
     }

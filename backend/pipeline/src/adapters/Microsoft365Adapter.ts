@@ -4,9 +4,11 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
 import { SkuCatalog } from '@workspace/shared/lib/services/microsoft/SkuCatalog';
+import { TenantCapabilityService } from '@workspace/shared/lib/services/microsoft/TenantCapabilityService';
 import { PowerShellRunner } from '@workspace/shared/lib/utils/PowerShellRunner';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
+import type { MSCapabilities } from '@workspace/shared/types/integrations/microsoft/capabilities.js';
 
 export class Microsoft365Adapter extends BaseAdapter {
   constructor() {
@@ -90,6 +92,11 @@ export class Microsoft365Adapter extends BaseAdapter {
       (connectionsData ?? []).map((c) => [c.external_id, c.id])
     );
 
+    // Map: gdapTenantId → stored MSCapabilities | null (null = never probed)
+    const capabilityMap = new Map<string, MSCapabilities | null>(
+      (connectionsData ?? []).map((c) => [c.external_id, (c.meta as any)?.capabilities ?? null])
+    );
+
     // Decrypt stored refresh token (delegated auth for GDAP)
     const encKey = process.env.ENCRYPTION_KEY!;
     const refreshToken = config?.refreshToken
@@ -151,6 +158,12 @@ export class Microsoft365Adapter extends BaseAdapter {
 
       const connectionId = connectionIdByExternalId.get(gdapTenantId);
 
+      // Conservative default: if never probed, assume P1 features unavailable
+      const capabilities: MSCapabilities = capabilityMap.get(gdapTenantId) ?? {
+        signInActivity: false,
+        conditionalAccess: false,
+      };
+
       if (entityType === 'identity') {
         // Filter users by domain → assign siteId per user; unmapped stored with site_id = null
         const entities = await this.fetchPartnerIdentities(
@@ -158,7 +171,8 @@ export class Microsoft365Adapter extends BaseAdapter {
           gdapTenantId,
           domainMap,
           connectionId,
-          tracker
+          tracker,
+          capabilities
         );
         allEntities.push(...entities);
       } else if (entityType === 'group') {
@@ -180,7 +194,7 @@ export class Microsoft365Adapter extends BaseAdapter {
           }))
         );
       } else if (entityType === 'policy') {
-        const entities = await this.fetchPolicies(connector, undefined, tracker);
+        const entities = await this.fetchPolicies(connector, undefined, tracker, capabilities);
         allEntities.push(
           ...entities.map((e) => ({
             ...e,
@@ -219,10 +233,31 @@ export class Microsoft365Adapter extends BaseAdapter {
     gdapTenantId: string,
     domainMap: Map<string, string>, // domain → siteId
     connectionId: string | undefined,
-    tracker: PipelineTracker
+    tracker: PipelineTracker,
+    capabilities: MSCapabilities
   ): Promise<RawEntity[]> {
+    const select: string[] = [
+      'id',
+      'displayName',
+      'userPrincipalName',
+      'mail',
+      'accountEnabled',
+      'createdDateTime',
+      'assignedLicenses',
+      'assignedPlans',
+    ];
+    if (capabilities.signInActivity) {
+      select.push('signInActivity');
+    } else {
+      Logger.warn({
+        module: 'Microsoft365Adapter',
+        context: 'fetchPartnerIdentities',
+        message: `signInActivity skipped for tenant ${gdapTenantId} — Azure AD P1 not available`,
+      });
+    }
+
     const { data, error } = await tracker.trackSpan('adapter:api:getIdentities', () =>
-      connector.getIdentities()
+      connector.getIdentities({ select: select as any })
     );
 
     if (error || !data) {
@@ -334,18 +369,26 @@ export class Microsoft365Adapter extends BaseAdapter {
     siteId: string | undefined,
     tracker: PipelineTracker
   ): Promise<RawEntity[]> {
+    // Probe capabilities to determine if signInActivity is available for this direct tenant
+    const { data: caps } = await new TenantCapabilityService(connector).probe();
+    const includeSignInActivity = caps?.signInActivity ?? false;
+
+    const select: string[] = [
+      'id',
+      'displayName',
+      'userPrincipalName',
+      'accountEnabled',
+      'assignedLicenses',
+      'assignedPlans',
+    ];
+    if (includeSignInActivity) {
+      select.push('signInActivity');
+    }
+
     const { data, error } = await tracker.trackSpan('adapter:api:getIdentities', () =>
       connector.getIdentities({
         limit: 999,
-        select: [
-          'id',
-          'displayName',
-          'userPrincipalName',
-          'accountEnabled',
-          'signInActivity',
-          'assignedLicenses',
-          'assignedPlans',
-        ],
+        select: select as any,
       })
     );
 
@@ -456,8 +499,18 @@ export class Microsoft365Adapter extends BaseAdapter {
   private async fetchPolicies(
     connector: Microsoft365Connector,
     siteId: string | undefined,
-    tracker: PipelineTracker
+    tracker: PipelineTracker,
+    capabilities?: MSCapabilities
   ): Promise<RawEntity[]> {
+    if (capabilities && !capabilities.conditionalAccess) {
+      Logger.warn({
+        module: 'Microsoft365Adapter',
+        context: 'fetchPolicies',
+        message: 'Conditional Access skipped — tenant lacks Azure AD P1',
+      });
+      return [];
+    }
+
     const { data, error } = await tracker.trackSpan(
       'adapter:api:getConditionalAccessPolicies',
       () => connector.getConditionalAccessPolicies(undefined, true)
