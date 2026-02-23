@@ -257,7 +257,7 @@ export class Microsoft365Adapter extends BaseAdapter {
     }
 
     const { data, error } = await tracker.trackSpan('adapter:api:getIdentities', () =>
-      connector.getIdentities({ select: select as any })
+      connector.getIdentities({ select: select as any }, true)
     );
 
     if (error || !data) {
@@ -386,10 +386,12 @@ export class Microsoft365Adapter extends BaseAdapter {
     }
 
     const { data, error } = await tracker.trackSpan('adapter:api:getIdentities', () =>
-      connector.getIdentities({
-        limit: 999,
-        select: select as any,
-      })
+      connector.getIdentities(
+        {
+          select: select as any,
+        },
+        true
+      )
     );
 
     if (error || !data) {
