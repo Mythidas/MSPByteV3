@@ -1,6 +1,6 @@
 <script lang="ts">
-  import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
-  import * as Tabs from '$lib/components/ui/tabs/index.js';
+  import * as Sheet from '$lib/components/ui/sheet/index.js';
+  import * as Card from '$lib/components/ui/card/index.js';
   import Input from '$lib/components/ui/input/input.svelte';
   import Label from '$lib/components/ui/label/label.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
@@ -11,29 +11,34 @@
     CircleCheck,
     Trash2,
     ExternalLink,
-    ShieldAlert,
-    ShieldCheck,
     ArrowLeft,
-    Settings,
     RefreshCw,
+    Settings,
+    Cloud,
+    Globe,
+    Users,
   } from '@lucide/svelte';
   import { superForm } from 'sveltekit-superforms';
   import { zod4Client } from 'sveltekit-superforms/adapters';
   import { toast } from 'svelte-sonner';
   import { isMaskedSecret } from '$lib/utils/forms';
   import SingleSelect from '$lib/components/single-select.svelte';
-  import { browser } from '$app/environment';
   import { deserialize } from '$app/forms';
   import type { PageProps } from './$types';
   import { microsoft365ConfigSchema } from './_forms';
   import { MS_CAPABILITIES } from '@workspace/shared/config/microsoft';
   import type { MSCapabilityKey } from '@workspace/shared/types/integrations/microsoft/capabilities';
+  import ConnectionCard from './_connection-card.svelte';
+  import { hasPermission } from '$lib/utils/permissions';
 
   let { data }: PageProps = $props();
 
   // svelte-ignore state_referenced_locally
   let currentMode = $state<'direct' | 'partner'>(
     (data.integration?.config as any)?.mode ?? 'direct'
+  );
+  let canWrite = $derived(
+    hasPermission(data.role?.attributes as Record<string, unknown>, 'Integrations.Write')
   );
 
   // svelte-ignore state_referenced_locally
@@ -44,6 +49,7 @@
       if (form.message) {
         if (form.valid) {
           toast.success(form.message);
+          configSheetOpen = false;
         } else {
           toast.error(form.message);
         }
@@ -57,12 +63,7 @@
     currentMode === 'direct' && isMaskedSecret(($formData as any).clientSecret ?? '')
   );
 
-  // Read initial tab from URL
-  let currentTab = $state(
-    browser
-      ? (new URLSearchParams(window.location.search).get('tab') ?? 'configuration')
-      : 'configuration'
-  );
+  let configSheetOpen = $state(false);
 
   // Partner mode state
   let connectingMSP = $state(false);
@@ -103,7 +104,6 @@
   let expandedConnectionId = $state<string | null>(null);
 
   // Domain assignments: { [connectionExternalId]: { [domain]: siteId } }
-  // Initialized from DB-persisted domain mappings
   // svelte-ignore state_referenced_locally
   let domainAssignments = $state<Record<string, Record<string, string>>>(
     Object.fromEntries(
@@ -143,6 +143,28 @@
       list = list.filter((c) => (data.orphanCounts[c.external_id] ?? 0) > 0);
     return list;
   });
+
+  const metrics = $derived.by(() => {
+    const total = connections.length;
+    const active = connections.filter((c) => c.status === 'active').length;
+    const totalUnmapped = connections.reduce((sum, c) => sum + getUnmappedCount(c), 0);
+    const totalOrphaned = Object.values(data.orphanCounts).reduce((a, b) => a + b, 0);
+    const withIssues = connections.filter(
+      (c) =>
+        c.status === 'pending' ||
+        getUnmappedCount(c) > 0 ||
+        (data.orphanCounts[c.external_id] ?? 0) > 0 ||
+        Object.values(c.meta?.capabilities ?? {}).some((v) => v === false)
+    ).length;
+    return { total, active, totalUnmapped, totalOrphaned, withIssues };
+  });
+
+  const isConfigHealthy = $derived(
+    !!data.integration &&
+      (currentMode === 'partner'
+        ? !!data.partnerTenantId
+        : !!(data.integration?.config as any)?.tenantId)
+  );
 
   function selectMode(mode: 'direct' | 'partner') {
     currentMode = mode;
@@ -350,7 +372,7 @@
         }
       }
 
-      // If the expanded connection changed (e.g., domains updated), keep it expanded
+      // If the expanded connection was removed, collapse it
       if (
         expandedConnectionId &&
         !updated.find((c: any) => c.external_id === expandedConnectionId)
@@ -439,657 +461,696 @@
   }
 </script>
 
-<div class="flex flex-col relative size-full items-center p-4 gap-2">
-  <div class="flex bg-card w-1/2 h-fit py-2 px-4 shadow rounded">
-    <Breadcrumb.Root>
-      <Breadcrumb.List>
-        <Breadcrumb.Item>
-          <Breadcrumb.Link href="/integrations">Integrations</Breadcrumb.Link>
-        </Breadcrumb.Item>
-        <Breadcrumb.Separator />
-        <Breadcrumb.Item>
-          <Breadcrumb.Page>Microsoft 365</Breadcrumb.Page>
-        </Breadcrumb.Item>
-      </Breadcrumb.List>
-    </Breadcrumb.Root>
+<!-- ================================================================ -->
+<!-- ROOT LAYOUT                                                        -->
+<!-- ================================================================ -->
+<div class="flex flex-col size-full p-6 gap-6 overflow-hidden">
+  <!-- ============================================================== -->
+  <!-- 1. PAGE HEADER                                                  -->
+  <!-- ============================================================== -->
+  <div class="flex items-center justify-between shrink-0">
+    <div class="flex items-center gap-3">
+      <div
+        class="flex items-center justify-center w-10 h-10 rounded-lg bg-primary/10 border border-primary/20"
+      >
+        <Cloud class="h-5 w-5 text-primary" />
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl font-semibold">Microsoft 365</h1>
+          <Badge variant="outline" class="bg-primary/15 text-primary border-primary/30">
+            {currentMode === 'partner' ? 'Partner GDAP' : 'Direct'}
+          </Badge>
+          <!-- Health dot -->
+          <span
+            class="inline-block h-2 w-2 rounded-full {isConfigHealthy
+              ? 'bg-primary'
+              : 'bg-destructive'}"
+            title={isConfigHealthy ? 'Configured' : 'Not configured'}
+          ></span>
+        </div>
+        <p class="text-sm text-muted-foreground">
+          Manage tenant connections, domain mappings, and capabilities
+        </p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={refreshingConnections || !data.partnerTenantId}
+        onclick={handleRefreshConnections}
+      >
+        {#if refreshingConnections}
+          <LoaderCircle class="h-4 w-4 mr-2 animate-spin" />
+        {:else}
+          <RefreshCw class="h-4 w-4 mr-2" />
+        {/if}
+        Refresh Tenants
+      </Button>
+      <Button size="sm" onclick={() => (configSheetOpen = true)}>
+        <Settings class="h-4 w-4 mr-2" />
+        Configure
+      </Button>
+    </div>
   </div>
 
-  <div class="flex flex-col w-1/2 h-full overflow-hidden shadow rounded">
-    <Tabs.Root bind:value={currentTab} class="size-full flex flex-col">
-      <div class="flex bg-card w-full h-fit py-2 px-2 shadow rounded">
-        <Tabs.List>
-          <Tabs.Trigger value="configuration">Configuration</Tabs.Trigger>
-          <Tabs.Trigger value="connections" disabled={!data.integration}>Connections</Tabs.Trigger>
-        </Tabs.List>
+  <!-- ============================================================== -->
+  <!-- 2. METRICS ROW                                                  -->
+  <!-- ============================================================== -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-4 shrink-0">
+    <!-- Total Tenants -->
+    <Card.Root>
+      <Card.Header class="pb-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Total Tenants
+          </span>
+          <Users class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </Card.Header>
+      <Card.Content class="pt-0">
+        <p class="text-2xl font-bold">{metrics.total}</p>
+      </Card.Content>
+    </Card.Root>
+
+    <!-- Active -->
+    <Card.Root>
+      <Card.Header class="pb-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Active
+          </span>
+          <CircleCheck class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </Card.Header>
+      <Card.Content class="pt-0">
+        <p class="text-2xl font-bold text-primary">{metrics.active}</p>
+      </Card.Content>
+    </Card.Root>
+
+    <!-- Needs Action -->
+    <Card.Root>
+      <Card.Header class="pb-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Needs Action
+          </span>
+          <CircleAlert class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </Card.Header>
+      <Card.Content class="pt-0">
+        <p class="text-2xl font-bold {metrics.withIssues > 0 ? 'text-warning' : ''}">
+          {metrics.withIssues}
+        </p>
+      </Card.Content>
+    </Card.Root>
+
+    <!-- Unmapped Domains -->
+    <Card.Root>
+      <Card.Header class="pb-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Unmapped
+          </span>
+          <Globe class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </Card.Header>
+      <Card.Content class="pt-0">
+        <p class="text-2xl font-bold {metrics.totalUnmapped > 0 ? 'text-warning' : ''}">
+          {metrics.totalUnmapped}
+        </p>
+      </Card.Content>
+    </Card.Root>
+
+    <!-- Orphaned IDs -->
+    <Card.Root>
+      <Card.Header class="pb-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Orphaned
+          </span>
+          <Users class="h-4 w-4 text-muted-foreground" />
+        </div>
+      </Card.Header>
+      <Card.Content class="pt-0">
+        <p class="text-2xl font-bold {metrics.totalOrphaned > 0 ? 'text-destructive' : ''}">
+          {metrics.totalOrphaned}
+        </p>
+      </Card.Content>
+    </Card.Root>
+
+    <!-- Config Health -->
+    <Card.Root>
+      <Card.Header class="pb-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+            Config Health
+          </span>
+          {#if isConfigHealthy}
+            <CircleCheck class="h-4 w-4 text-primary" />
+          {:else}
+            <CircleAlert class="h-4 w-4 text-destructive" />
+          {/if}
+        </div>
+      </Card.Header>
+      <Card.Content class="pt-0">
+        {#if isConfigHealthy}
+          <p class="text-sm font-medium text-primary">Healthy</p>
+        {:else}
+          <p class="text-sm font-medium text-destructive">Not Configured</p>
+        {/if}
+      </Card.Content>
+    </Card.Root>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 3. NOT-CONFIGURED BANNER                                        -->
+  <!-- ============================================================== -->
+  {#if !data.integration}
+    <div class="flex items-center gap-3 rounded-lg border bg-warning/10 text-warning p-4 shrink-0">
+      <CircleAlert class="h-5 w-5 shrink-0" />
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium">Integration not configured</p>
+        <p class="text-xs opacity-80">Click Configure to set up your Microsoft 365 connection.</p>
       </div>
+      <Button
+        variant="outline"
+        size="sm"
+        class="border-warning/30 text-warning hover:bg-warning/10 shrink-0"
+        onclick={() => (configSheetOpen = true)}
+      >
+        Configure Now
+      </Button>
+    </div>
+  {/if}
 
-      <div class="flex bg-card w-full h-full flex-1 py-4 px-4 shadow rounded overflow-hidden">
-        <!-- ================================================================ -->
-        <!-- CONFIGURATION TAB                                                 -->
-        <!-- ================================================================ -->
-        <Tabs.Content value="configuration" class="w-full h-full overflow-auto space-y-4">
-          <div class="flex items-center justify-between">
-            <div>
-              <h2 class="text-lg font-semibold">Microsoft 365 Configuration</h2>
-              <p class="text-sm text-muted-foreground">
-                Choose how MSPByte connects to your Microsoft 365 environment
-              </p>
-            </div>
-            {#if data.integration}
-              <Button variant="destructive" size="sm" onclick={handleDelete} disabled={$submitting}>
-                <Trash2 class="h-4 w-4 mr-2" />
-                Delete
-              </Button>
+  <!-- ============================================================== -->
+  <!-- 4. SEARCH + FILTER CHIPS                                        -->
+  <!-- ============================================================== -->
+  {#if data.integration && !expandedConnectionId}
+    <div class="flex flex-col gap-2 shrink-0">
+      <Input bind:value={searchQuery} placeholder="Search by name..." class="h-8 text-sm" />
+      <div class="flex gap-1 flex-wrap">
+        {#each [{ key: 'all', label: 'All' }, { key: 'needs-consent', label: 'Needs Consent' }, { key: 'active', label: 'Active' }, { key: 'has-unmapped', label: 'Has Unmapped' }, { key: 'has-orphans', label: 'Has Orphans' }] as chip}
+          <button
+            type="button"
+            class="px-2.5 py-1 text-xs rounded-full border transition-colors {activeFilter ===
+            chip.key
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'}"
+            onclick={() => (activeFilter = chip.key as typeof activeFilter)}
+          >
+            {chip.label}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
+  <!-- ============================================================== -->
+  <!-- 5. MAIN CONTENT AREA                                            -->
+  <!-- ============================================================== -->
+  <div class="flex-1 overflow-auto">
+    {#if expandedConnectionId && expandedConnection}
+      <!-- ── CONNECTION DETAIL VIEW ── -->
+      <div class="flex flex-col gap-4">
+        <!-- Detail header -->
+        <div class="flex items-center gap-3 shrink-0">
+          <button
+            type="button"
+            class="text-muted-foreground hover:text-foreground transition-colors"
+            onclick={() => (expandedConnectionId = null)}
+          >
+            <ArrowLeft class="h-4 w-4" />
+          </button>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-semibold truncate">{expandedConnection.name}</h3>
+            <p class="text-xs font-mono text-muted-foreground truncate">
+              {expandedConnection.external_id}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            disabled={savingMappings}
+            onclick={() => handleSaveMappings(expandedConnection.external_id)}
+          >
+            {#if savingMappings}
+              <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
             {/if}
+            Save Mappings
+          </Button>
+        </div>
+
+        {#if expandedDomains.length === 0}
+          <div
+            class="flex flex-col items-center justify-center h-48 gap-2 text-center text-muted-foreground"
+          >
+            <CircleAlert class="h-8 w-8 opacity-40" />
+            <p class="text-sm font-medium">No domains cached</p>
+            <p class="text-xs">
+              Refresh connections after granting consent to load domains from this tenant.
+            </p>
           </div>
+        {:else}
+          <div class="space-y-1">
+            <!-- Column headers -->
+            <div class="grid grid-cols-2 gap-2 px-2 pb-1 border-b">
+              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Domain
+              </span>
+              <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                Mapped Site
+              </span>
+            </div>
 
-          <!-- Mode toggle -->
-          <div class="flex gap-2 p-1 bg-muted rounded-lg w-fit">
-            <button
-              type="button"
-              class="px-4 py-1.5 text-sm rounded-md transition-colors {currentMode === 'direct'
-                ? 'bg-background shadow font-medium'
-                : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => selectMode('direct')}
-            >
-              Direct
-            </button>
-            <button
-              type="button"
-              class="px-4 py-1.5 text-sm rounded-md transition-colors {currentMode === 'partner'
-                ? 'bg-background shadow font-medium'
-                : 'text-muted-foreground hover:text-foreground'}"
-              onclick={() => selectMode('partner')}
-            >
-              Partner (GDAP)
-            </button>
-          </div>
-
-          <form method="POST" action="?/save" class="space-y-6" use:enhance>
-            <input type="hidden" name="mode" value={currentMode} />
-
-            {#if currentMode === 'direct'}
-              <div class="space-y-4">
-                <div class="space-y-2">
-                  <Label for="tenantId">
-                    Tenant ID
-                    <span class="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="tenantId"
-                    name="tenantId"
-                    type="text"
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                    bind:value={($formData as any).tenantId}
-                    aria-invalid={($errors as any).tenantId ? 'true' : undefined}
-                    class={($errors as any).tenantId ? 'border-destructive' : ''}
-                  />
-                  {#if ($errors as any).tenantId}
-                    <p class="text-sm text-destructive flex items-center gap-1">
-                      <CircleAlert class="h-3 w-3" />
-                      {($errors as any).tenantId}
-                    </p>
+            {#each expandedDomains as domain (domain)}
+              {@const isMapped = !!domainAssignments[expandedConnection.external_id]?.[domain]}
+              <div
+                class="grid grid-cols-2 gap-2 items-center px-2 py-1.5 rounded hover:bg-muted/40"
+              >
+                <div class="flex items-center gap-1.5 min-w-0">
+                  <span
+                    class="text-sm font-mono truncate {isMapped
+                      ? 'text-foreground'
+                      : 'text-muted-foreground'}"
+                  >
+                    {domain}
+                  </span>
+                  {#if !isMapped}
+                    <CircleAlert class="h-3 w-3 text-warning shrink-0" />
                   {/if}
                 </div>
-
-                <div class="space-y-2">
-                  <Label for="clientId">
-                    Client ID (App ID)
-                    <span class="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="clientId"
-                    name="clientId"
-                    type="text"
-                    placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                    bind:value={($formData as any).clientId}
-                    aria-invalid={($errors as any).clientId ? 'true' : undefined}
-                    class={($errors as any).clientId ? 'border-destructive' : ''}
-                  />
-                  {#if ($errors as any).clientId}
-                    <p class="text-sm text-destructive flex items-center gap-1">
-                      <CircleAlert class="h-3 w-3" />
-                      {($errors as any).clientId}
-                    </p>
-                  {/if}
-                </div>
-
-                <div class="space-y-2">
-                  <Label for="clientSecret">
-                    Client Secret
-                    <span class="text-destructive">*</span>
-                  </Label>
-                  <Input
-                    id="clientSecret"
-                    name="clientSecret"
-                    type="password"
-                    placeholder={data.integration
-                      ? 'Leave unchanged to keep existing'
-                      : 'your-client-secret'}
-                    bind:value={($formData as any).clientSecret}
-                    aria-invalid={($errors as any).clientSecret ? 'true' : undefined}
-                    class={($errors as any).clientSecret ? 'border-destructive' : ''}
-                  />
-                  {#if ($errors as any).clientSecret}
-                    <p class="text-sm text-destructive flex items-center gap-1">
-                      <CircleAlert class="h-3 w-3" />
-                      {($errors as any).clientSecret}
-                    </p>
-                  {/if}
-                  {#if data.integration && isSecretMasked}
-                    <p class="text-xs text-muted-foreground">
-                      Secret is currently saved. Modify to update.
-                    </p>
-                  {/if}
-                </div>
+                <SingleSelect
+                  placeholder="-- Unmapped --"
+                  options={data.sites.map((s) => ({ value: s.id, label: s.name }))}
+                  bind:selected={domainAssignments[expandedConnection.external_id][domain]}
+                />
               </div>
-            {:else}
-              <!-- Partner mode info card -->
-              <div class="rounded-lg border bg-primary/5 border-primary/20 p-4 space-y-3">
-                <div class="flex items-center gap-2">
-                  <CircleCheck class="h-5 w-5 text-primary" />
-                  <h3 class="font-medium">MSPByte Centralized App (GDAP)</h3>
-                </div>
-                <p class="text-sm text-muted-foreground">
-                  In Partner mode, MSPByte uses its own registered Azure multi-tenant application
-                  with GDAP. You only need to consent once as the MSP admin — no customer action
-                  required.
+            {/each}
+
+            {#if unmappedCount > 0}
+              <div
+                class="mt-3 flex items-center gap-2 rounded-md bg-warning/10 text-warning px-3 py-2"
+              >
+                <CircleAlert class="h-4 w-4 shrink-0" />
+                <p class="text-xs">
+                  {unmappedCount} unmapped domain{unmappedCount === 1 ? '' : 's'} — identities from these
+                  domains will sync without a site assignment.
                 </p>
-                {#if data.partnerClientId}
-                  <p class="text-xs font-mono text-muted-foreground">
-                    App ID: {data.partnerClientId}
-                  </p>
-                {:else}
-                  <p class="text-xs text-destructive">
-                    Warning: MICROSOFT_CLIENT_ID is not configured in the server environment.
-                  </p>
-                {/if}
+              </div>
+            {/if}
 
-                <div class="border-t pt-3 space-y-2">
-                  {#if data.partnerTenantId}
-                    <div class="flex items-center gap-2">
-                      <CircleCheck class="h-4 w-4 text-primary" />
-                      <span class="text-sm font-medium">MSP tenant connected</span>
-                    </div>
-                    <p class="text-xs font-mono text-muted-foreground">{data.partnerTenantId}</p>
-                  {:else}
-                    <div class="flex items-center gap-2">
-                      <CircleAlert class="h-4 w-4 text-warning" />
-                      <span class="text-sm text-muted-foreground">
-                        Not connected — click below to grant MSPByte access
-                      </span>
-                    </div>
+            <!-- Orphaned Identities section -->
+            <div class="mt-4 border-t pt-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <h4 class="text-sm font-medium">Orphaned Identities</h4>
+                  {#if orphanedTotal > 0}
+                    <Badge
+                      class="bg-destructive/15 text-destructive border-destructive/30"
+                      variant="outline"
+                    >
+                      {orphanedTotal}
+                    </Badge>
                   {/if}
                 </div>
-
                 <Button
-                  type="button"
+                  size="sm"
                   variant="outline"
-                  class="w-full"
-                  disabled={connectingMSP || !data.partnerClientId}
-                  onclick={handleConnect}
+                  disabled={loadingOrphans}
+                  onclick={() => handleLoadOrphans(0)}
                 >
-                  {#if connectingMSP}
-                    <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
-                  {:else}
-                    <ExternalLink class="mr-2 h-4 w-4" />
+                  {#if loadingOrphans}
+                    <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
                   {/if}
-                  {data.partnerTenantId
-                    ? 'Re-connect MSPByte to Microsoft'
-                    : 'Connect MSPByte to Microsoft'}
+                  Load
                 </Button>
               </div>
-            {/if}
 
-            <div class="flex gap-2 justify-end pt-4 border-t">
-              <Button
-                type="submit"
-                formaction="?/testConnection"
-                variant="outline"
-                disabled={$submitting}
-              >
-                {#if $delayed && $submitting}
-                  <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
-                {/if}
-                Test Connection
-              </Button>
-              <Button type="submit" disabled={$submitting}>
-                {#if $delayed && $submitting}
-                  <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
-                {/if}
-                {data.integration ? 'Update' : 'Create'} Configuration
-              </Button>
-            </div>
-          </form>
-        </Tabs.Content>
-
-        <!-- ================================================================ -->
-        <!-- CONNECTIONS TAB                                                    -->
-        <!-- ================================================================ -->
-        <Tabs.Content value="connections" class="w-full h-full overflow-hidden">
-          {#if data.integration}
-            {#if expandedConnectionId && expandedConnection}
-              <!-- ── CONNECTION DETAIL VIEW ── -->
-              <div class="flex flex-col size-full gap-4 overflow-hidden">
-                <!-- Detail header -->
-                <div class="flex items-center gap-3 shrink-0">
-                  <button
-                    type="button"
-                    class="text-muted-foreground hover:text-foreground transition-colors"
-                    onclick={() => (expandedConnectionId = null)}
-                  >
-                    <ArrowLeft class="h-4 w-4" />
-                  </button>
-                  <div class="flex-1 min-w-0">
-                    <h3 class="font-semibold truncate">{expandedConnection.name}</h3>
-                    <p class="text-xs font-mono text-muted-foreground truncate">
-                      {expandedConnection.external_id}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    disabled={savingMappings}
-                    onclick={() => handleSaveMappings(expandedConnection.external_id)}
-                  >
-                    {#if savingMappings}
-                      <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
-                    {/if}
-                    Save Mappings
-                  </Button>
+              {#if orphanedEntities.length > 0}
+                <!-- Column headers -->
+                <div class="grid grid-cols-2 gap-2 px-2 pb-1 border-b">
+                  <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    UPN / Display Name
+                  </span>
+                  <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Assign to Site
+                  </span>
                 </div>
 
-                {#if expandedDomains.length === 0}
+                {#each orphanedEntities as entity (entity.id)}
                   <div
-                    class="flex flex-col items-center justify-center flex-1 gap-2 text-center text-muted-foreground"
+                    class="grid grid-cols-2 gap-2 items-center px-2 py-1 rounded hover:bg-muted/40"
                   >
-                    <CircleAlert class="h-8 w-8 opacity-40" />
-                    <p class="text-sm font-medium">No domains cached</p>
-                    <p class="text-xs">
-                      Refresh connections after granting consent to load domains from this tenant.
+                    <p class="text-xs font-mono truncate text-muted-foreground">
+                      {entity.raw_data?.userPrincipalName ?? entity.display_name ?? entity.id}
                     </p>
+                    <SingleSelect
+                      placeholder="-- Assign Site --"
+                      options={data.sites.map((s) => ({ value: s.id, label: s.name }))}
+                      bind:selected={orphanAssignments[entity.id]}
+                    />
                   </div>
-                {:else}
-                  <div class="flex-1 overflow-auto space-y-1">
-                    <!-- Column headers -->
-                    <div class="grid grid-cols-2 gap-2 px-2 pb-1 border-b">
-                      <span
-                        class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                      >
-                        Domain
-                      </span>
-                      <span
-                        class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                      >
-                        Mapped Site
-                      </span>
-                    </div>
+                {/each}
 
-                    {#each expandedDomains as domain (domain)}
-                      {@const isMapped =
-                        !!domainAssignments[expandedConnection.external_id]?.[domain]}
-                      <div
-                        class="grid grid-cols-2 gap-2 items-center px-2 py-1.5 rounded hover:bg-muted/40"
-                      >
-                        <div class="flex items-center gap-1.5 min-w-0">
-                          <span
-                            class="text-sm font-mono truncate {isMapped
-                              ? 'text-foreground'
-                              : 'text-muted-foreground'}"
-                          >
-                            {domain}
-                          </span>
-                          {#if !isMapped}
-                            <CircleAlert class="h-3 w-3 text-warning shrink-0" />
-                          {/if}
-                        </div>
-                        <SingleSelect
-                          placeholder="-- Unmapped --"
-                          options={data.sites.map((s) => ({ value: s.id, label: s.name }))}
-                          bind:selected={domainAssignments[expandedConnection.external_id][domain]}
-                        />
-                      </div>
-                    {/each}
-
-                    {#if unmappedCount > 0}
-                      <div
-                        class="mt-3 flex items-center gap-2 rounded-md bg-warning/10 text-warning px-3 py-2"
-                      >
-                        <CircleAlert class="h-4 w-4 shrink-0" />
-                        <p class="text-xs">
-                          {unmappedCount} unmapped domain{unmappedCount === 1 ? '' : 's'} — identities
-                          from these domains will sync without a site assignment.
-                        </p>
-                      </div>
-                    {/if}
-
-                    <!-- Orphaned Identities section -->
-                    <div class="mt-4 border-t pt-4 space-y-3">
-                      <div class="flex items-center justify-between">
-                        <div class="flex items-center gap-2">
-                          <h4 class="text-sm font-medium">Orphaned Identities</h4>
-                          {#if orphanedTotal > 0}
-                            <Badge
-                              class="bg-destructive/15 text-destructive border-destructive/30"
-                              variant="outline"
-                            >
-                              {orphanedTotal}
-                            </Badge>
-                          {/if}
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={loadingOrphans}
-                          onclick={() => handleLoadOrphans(0)}
-                        >
-                          {#if loadingOrphans}
-                            <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
-                          {/if}
-                          Load
-                        </Button>
-                      </div>
-
-                      {#if orphanedEntities.length > 0}
-                        <!-- Column headers -->
-                        <div class="grid grid-cols-2 gap-2 px-2 pb-1 border-b">
-                          <span
-                            class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                          >
-                            UPN / Display Name
-                          </span>
-                          <span
-                            class="text-xs font-medium text-muted-foreground uppercase tracking-wide"
-                          >
-                            Assign to Site
-                          </span>
-                        </div>
-
-                        {#each orphanedEntities as entity (entity.id)}
-                          <div
-                            class="grid grid-cols-2 gap-2 items-center px-2 py-1 rounded hover:bg-muted/40"
-                          >
-                            <p class="text-xs font-mono truncate text-muted-foreground">
-                              {entity.raw_data?.userPrincipalName ??
-                                entity.display_name ??
-                                entity.id}
-                            </p>
-                            <SingleSelect
-                              placeholder="-- Assign Site --"
-                              options={data.sites.map((s) => ({ value: s.id, label: s.name }))}
-                              bind:selected={orphanAssignments[entity.id]}
-                            />
-                          </div>
-                        {/each}
-
-                        <div class="flex items-center justify-between pt-2">
-                          {#if orphanedEntities.length < orphanedTotal}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              disabled={loadingOrphans}
-                              onclick={() => handleLoadOrphans(orphanedEntities.length)}
-                            >
-                              {#if loadingOrphans}
-                                <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
-                              {/if}
-                              Load More ({orphanedTotal - orphanedEntities.length} remaining)
-                            </Button>
-                          {:else}
-                            <span class="text-xs text-muted-foreground">
-                              {orphanedEntities.length} of {orphanedTotal} loaded
-                            </span>
-                          {/if}
-                          <Button
-                            size="sm"
-                            disabled={savingAssignments ||
-                              Object.values(orphanAssignments).every((v) => !v)}
-                            onclick={handleSaveAssignments}
-                          >
-                            {#if savingAssignments}
-                              <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
-                            {/if}
-                            Save Assignments
-                          </Button>
-                        </div>
-                      {:else if !loadingOrphans}
-                        <p class="text-xs text-muted-foreground px-2">
-                          Click "Load" to fetch identities without a site assignment.
-                        </p>
-                      {/if}
-                    </div>
-
-                    <!-- Tenant Capabilities section -->
-                    <div class="mt-4 border-t pt-4 space-y-3">
-                      <div class="flex items-center justify-between">
-                        <div>
-                          <h4 class="text-sm font-medium">Tenant Capabilities</h4>
-                          {#if (expandedConnection?.meta as any)?.capabilitiesCheckedAt}
-                            <p class="text-xs text-muted-foreground">
-                              Last checked {new Date(
-                                (expandedConnection.meta as any).capabilitiesCheckedAt
-                              ).toLocaleString()}
-                            </p>
-                          {/if}
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={checkingCapabilities}
-                          onclick={() => handleRefreshCapabilities(expandedConnection.external_id)}
-                        >
-                          {#if checkingCapabilities}
-                            <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
-                          {/if}
-                          Refresh Capabilities
-                        </Button>
-                      </div>
-
-                      {#each Object.entries(MS_CAPABILITIES) as [key, capMeta] (key)}
-                        {@const enabled =
-                          (expandedConnection?.meta as any)?.capabilities?.[
-                            key as MSCapabilityKey
-                          ] ?? null}
-                        <div class="flex items-start gap-2 px-2">
-                          {#if enabled === true}
-                            <CircleCheck class="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                            <span class="text-sm">{capMeta.label}</span>
-                          {:else if enabled === false}
-                            <CircleAlert class="h-4 w-4 text-warning mt-0.5 shrink-0" />
-                            <div>
-                              <span class="text-sm">{capMeta.label}</span>
-                              <p class="text-xs text-muted-foreground">
-                                Requires {capMeta.requiredLicense}
-                              </p>
-                            </div>
-                          {:else}
-                            <CircleAlert class="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-                            <span class="text-sm text-muted-foreground"
-                              >{capMeta.label} — not yet checked</span
-                            >
-                          {/if}
-                        </div>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            {:else}
-              <!-- ── CONNECTION LIST VIEW ── -->
-              <div class="flex flex-col size-full gap-3 overflow-hidden">
-                <div class="flex flex-col gap-2 shrink-0">
-                  <div class="flex items-center justify-between">
-                    <div>
-                      <h3 class="font-medium">GDAP Connections</h3>
-                      <p class="text-sm text-muted-foreground">
-                        Customer tenants via delegated admin relationships.
-                      </p>
-                    </div>
+                <div class="flex items-center justify-between pt-2">
+                  {#if orphanedEntities.length < orphanedTotal}
                     <Button
                       size="sm"
-                      variant="outline"
-                      disabled={refreshingConnections || !data.partnerTenantId}
-                      onclick={handleRefreshConnections}
+                      variant="ghost"
+                      disabled={loadingOrphans}
+                      onclick={() => handleLoadOrphans(orphanedEntities.length)}
                     >
-                      {#if refreshingConnections}
+                      {#if loadingOrphans}
                         <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
                       {/if}
-                      {connections.length > 0 ? 'Refresh' : 'Load Connections'}
+                      Load More ({orphanedTotal - orphanedEntities.length} remaining)
                     </Button>
-                  </div>
-                  <Input
-                    bind:value={searchQuery}
-                    placeholder="Search by name..."
-                    class="h-8 text-sm"
-                  />
-                  <div class="flex gap-1 flex-wrap">
-                    {#each [{ key: 'all', label: 'All' }, { key: 'needs-consent', label: 'Needs Consent' }, { key: 'active', label: 'Active' }, { key: 'has-unmapped', label: 'Has Unmapped' }, { key: 'has-orphans', label: 'Has Orphans' }] as chip}
-                      <button
-                        type="button"
-                        class="px-2.5 py-1 text-xs rounded-full border transition-colors {activeFilter ===
-                        chip.key
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30'}"
-                        onclick={() => (activeFilter = chip.key as typeof activeFilter)}
-                      >
-                        {chip.label}
-                      </button>
-                    {/each}
-                  </div>
-                </div>
-
-                {#if !data.partnerTenantId}
-                  <div
-                    class="flex items-center gap-2 rounded-lg border bg-warning/10 text-warning p-3"
-                  >
-                    <CircleAlert class="h-4 w-4 shrink-0" />
-                    <p class="text-sm">
-                      Connect MSPByte to Microsoft first (Configuration tab) before loading GDAP
-                      connections.
-                    </p>
-                  </div>
-                {/if}
-
-                <div class="flex flex-col gap-2 overflow-auto flex-1 pr-1">
-                  {#if connections.length === 0}
-                    <div
-                      class="flex items-center justify-center h-32 text-muted-foreground text-sm"
-                    >
-                      No connections loaded — click "Load Connections" to discover GDAP customers.
-                    </div>
-                  {:else if filteredConnections.length === 0}
-                    <div
-                      class="flex items-center justify-center h-32 text-muted-foreground text-sm"
-                    >
-                      No connections match your search or filter.
-                    </div>
+                  {:else}
+                    <span class="text-xs text-muted-foreground">
+                      {orphanedEntities.length} of {orphanedTotal} loaded
+                    </span>
                   {/if}
-
-                  {#each filteredConnections as conn (conn.id)}
-                    {@const isActive = conn.status === 'active'}
-                    {@const domains = (conn.meta as any)?.domains ?? []}
-                    {@const connUnmapped = getUnmappedCount(conn)}
-                    {@const connOrphans = data.orphanCounts[conn.external_id] ?? 0}
-                    {@const connCaps = (conn.meta as any)?.capabilities}
-                    <div
-                      class="flex items-center gap-3 border rounded-lg px-4 py-3 bg-card hover:bg-muted/30 transition-colors"
-                    >
-                      <!-- Shield status icon -->
-                      {#if isActive}
-                        <ShieldCheck class="h-5 w-5 text-primary shrink-0" />
-                      {:else}
-                        <ShieldAlert class="h-5 w-5 text-warning shrink-0" />
-                      {/if}
-
-                      <!-- Name + tenant ID -->
-                      <div class="flex-1 min-w-0">
-                        <p class="text-sm font-semibold truncate">{conn.name}</p>
-                        <p class="text-xs font-mono text-muted-foreground truncate">
-                          {conn.external_id}
-                        </p>
-                      </div>
-
-                      <!-- Domain count badge (active only) -->
-                      {#if isActive && domains.length > 0}
-                        <Badge
-                          class="bg-primary/15 text-primary border-primary/30"
-                          variant="outline"
-                        >
-                          {domains.length} domain{domains.length === 1 ? '' : 's'}
-                        </Badge>
-                      {/if}
-
-                      <!-- Unmapped domains badge -->
-                      {#if connUnmapped > 0}
-                        <Badge
-                          class="bg-warning/15 text-warning border-warning/30"
-                          variant="outline"
-                        >
-                          {connUnmapped} unmapped
-                        </Badge>
-                      {/if}
-
-                      <!-- Orphaned entities badge -->
-                      {#if connOrphans > 0}
-                        <Badge
-                          class="bg-destructive/15 text-destructive border-destructive/30"
-                          variant="outline"
-                        >
-                          {connOrphans} orphaned
-                        </Badge>
-                      {/if}
-
-                      <!-- Capability warning badges -->
-                      {#if connCaps}
-                        {#each Object.entries(MS_CAPABILITIES) as [key, capMeta] (key)}
-                          {#if connCaps[key as MSCapabilityKey] === false}
-                            <Badge
-                              class="bg-warning/15 text-warning border-warning/30"
-                              variant="outline"
-                            >
-                              No {capMeta.label}
-                            </Badge>
-                          {/if}
-                        {/each}
-                      {/if}
-
-                      <!-- Action button -->
-                      {#if isActive}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          class="text-muted-foreground hover:text-foreground"
-                          onclick={() => handleGDAPConsent(conn.external_id)}
-                        >
-                          <RefreshCw class="h-3 w-3 mr-1" />
-                          Reconsent
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onclick={() => expandConnection(conn.external_id)}
-                        >
-                          <Settings class="h-3 w-3 mr-1" />
-                          Configure Mappings
-                        </Button>
-                      {:else}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          class="border-warning/30 text-warning hover:bg-warning/10"
-                          onclick={() => handleGDAPConsent(conn.external_id)}
-                        >
-                          <ExternalLink class="h-3 w-3 mr-1" />
-                          Grant Consent
-                        </Button>
-                      {/if}
-                    </div>
-                  {/each}
+                  <Button
+                    size="sm"
+                    disabled={savingAssignments ||
+                      Object.values(orphanAssignments).every((v) => !v)}
+                    onclick={handleSaveAssignments}
+                  >
+                    {#if savingAssignments}
+                      <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                    {/if}
+                    Save Assignments
+                  </Button>
                 </div>
+              {:else if !loadingOrphans}
+                <p class="text-xs text-muted-foreground px-2">
+                  Click "Load" to fetch identities without a site assignment.
+                </p>
+              {/if}
+            </div>
+
+            <!-- Tenant Capabilities section -->
+            <div class="mt-4 border-t pt-4 space-y-3">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-sm font-medium">Tenant Capabilities</h4>
+                  {#if (expandedConnection?.meta as any)?.capabilitiesCheckedAt}
+                    <p class="text-xs text-muted-foreground">
+                      Last checked {new Date(
+                        (expandedConnection.meta as any).capabilitiesCheckedAt
+                      ).toLocaleString()}
+                    </p>
+                  {/if}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={checkingCapabilities}
+                  onclick={() => handleRefreshCapabilities(expandedConnection.external_id)}
+                >
+                  {#if checkingCapabilities}
+                    <LoaderCircle class="h-3 w-3 mr-1 animate-spin" />
+                  {/if}
+                  Refresh Capabilities
+                </Button>
               </div>
-            {/if}
-          {/if}
-        </Tabs.Content>
+
+              {#each Object.entries(MS_CAPABILITIES) as [key, capMeta] (key)}
+                {@const enabled =
+                  (expandedConnection?.meta as any)?.capabilities?.[key as MSCapabilityKey] ?? null}
+                <div class="flex items-start gap-2 px-2">
+                  {#if enabled === true}
+                    <CircleCheck class="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                    <span class="text-sm">{capMeta.label}</span>
+                  {:else if enabled === false}
+                    <CircleAlert class="h-4 w-4 text-warning mt-0.5 shrink-0" />
+                    <div>
+                      <span class="text-sm">{capMeta.label}</span>
+                      <p class="text-xs text-muted-foreground">
+                        Requires {capMeta.requiredLicense}
+                      </p>
+                    </div>
+                  {:else}
+                    <CircleAlert class="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <span class="text-sm text-muted-foreground"
+                      >{capMeta.label} — not yet checked</span
+                    >
+                  {/if}
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
-    </Tabs.Root>
+    {:else if data.integration}
+      <!-- ── CONNECTION CARD GRID ── -->
+      {#if !data.partnerTenantId && currentMode === 'partner'}
+        <div class="flex items-center gap-2 rounded-lg border bg-warning/10 text-warning p-3 mb-4">
+          <CircleAlert class="h-4 w-4 shrink-0" />
+          <p class="text-sm">
+            Connect MSPByte to Microsoft first (Configure) before loading GDAP connections.
+          </p>
+        </div>
+      {/if}
+
+      {#if connections.length === 0}
+        <div class="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
+          <Users class="h-10 w-10 opacity-30" />
+          <p class="text-sm font-medium">No connections loaded</p>
+          <p class="text-xs">Click "Refresh Tenants" to discover GDAP customer connections.</p>
+        </div>
+      {:else if filteredConnections.length === 0}
+        <div class="flex items-center justify-center h-48 text-muted-foreground text-sm">
+          No connections match your search or filter.
+        </div>
+      {:else}
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {#each filteredConnections as conn (conn.id)}
+            <ConnectionCard
+              connection={conn}
+              unmappedCount={getUnmappedCount(conn)}
+              orphanCount={data.orphanCounts[conn.external_id] ?? 0}
+              onManage={() => expandConnection(conn.external_id)}
+              onConsent={() => conn.meta?.isMspTenant ? handleConnect() : handleGDAPConsent(conn.external_id)}
+            />
+          {/each}
+        </div>
+      {/if}
+    {:else}
+      <!-- No integration configured yet — prompt to configure -->
+      <div class="flex flex-col items-center justify-center h-48 gap-3 text-muted-foreground">
+        <Cloud class="h-10 w-10 opacity-30" />
+        <p class="text-sm font-medium">No integration configured</p>
+        <p class="text-xs">Configure your Microsoft 365 connection to get started.</p>
+      </div>
+    {/if}
   </div>
 </div>
+
+<!-- ================================================================ -->
+<!-- 6. CONFIGURATION SHEET                                            -->
+<!-- ================================================================ -->
+<Sheet.Root bind:open={configSheetOpen}>
+  <Sheet.Content side="right" class="w-full sm:max-w-lg overflow-y-auto">
+    <Sheet.Header>
+      <Sheet.Title>Configure Microsoft 365</Sheet.Title>
+      <Sheet.Description>Set up credentials and connection mode.</Sheet.Description>
+    </Sheet.Header>
+
+    <div class="flex flex-col gap-2 p-4">
+      <!-- Mode toggle -->
+      <div class="flex gap-2 p-1 bg-muted rounded-lg w-fit">
+        <button
+          type="button"
+          class="px-4 py-1.5 text-sm rounded-md transition-colors {currentMode === 'direct'
+            ? 'bg-background shadow font-medium'
+            : 'text-muted-foreground hover:text-foreground'}"
+          onclick={() => selectMode('direct')}
+        >
+          Direct
+        </button>
+        <button
+          type="button"
+          class="px-4 py-1.5 text-sm rounded-md transition-colors {currentMode === 'partner'
+            ? 'bg-background shadow font-medium'
+            : 'text-muted-foreground hover:text-foreground'}"
+          onclick={() => selectMode('partner')}
+        >
+          Partner (GDAP)
+        </button>
+      </div>
+
+      <form method="POST" action="?/save" class="space-y-6" use:enhance>
+        <input type="hidden" name="mode" value={currentMode} />
+
+        {#if currentMode === 'direct'}
+          <div class="space-y-4">
+            <div class="space-y-2">
+              <Label for="tenantId">
+                Tenant ID
+                <span class="text-destructive">*</span>
+              </Label>
+              <Input
+                id="tenantId"
+                name="tenantId"
+                type="text"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                bind:value={($formData as any).tenantId}
+                aria-invalid={($errors as any).tenantId ? 'true' : undefined}
+                class={($errors as any).tenantId ? 'border-destructive' : ''}
+              />
+              {#if ($errors as any).tenantId}
+                <p class="text-sm text-destructive flex items-center gap-1">
+                  <CircleAlert class="h-3 w-3" />
+                  {($errors as any).tenantId}
+                </p>
+              {/if}
+            </div>
+
+            <div class="space-y-2">
+              <Label for="clientId">
+                Client ID (App ID)
+                <span class="text-destructive">*</span>
+              </Label>
+              <Input
+                id="clientId"
+                name="clientId"
+                type="text"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                bind:value={($formData as any).clientId}
+                aria-invalid={($errors as any).clientId ? 'true' : undefined}
+                class={($errors as any).clientId ? 'border-destructive' : ''}
+              />
+              {#if ($errors as any).clientId}
+                <p class="text-sm text-destructive flex items-center gap-1">
+                  <CircleAlert class="h-3 w-3" />
+                  {($errors as any).clientId}
+                </p>
+              {/if}
+            </div>
+
+            <div class="space-y-2">
+              <Label for="clientSecret">
+                Client Secret
+                <span class="text-destructive">*</span>
+              </Label>
+              <Input
+                id="clientSecret"
+                name="clientSecret"
+                type="password"
+                placeholder={data.integration
+                  ? 'Leave unchanged to keep existing'
+                  : 'your-client-secret'}
+                bind:value={($formData as any).clientSecret}
+                aria-invalid={($errors as any).clientSecret ? 'true' : undefined}
+                class={($errors as any).clientSecret ? 'border-destructive' : ''}
+              />
+              {#if ($errors as any).clientSecret}
+                <p class="text-sm text-destructive flex items-center gap-1">
+                  <CircleAlert class="h-3 w-3" />
+                  {($errors as any).clientSecret}
+                </p>
+              {/if}
+              {#if data.integration && isSecretMasked}
+                <p class="text-xs text-muted-foreground">
+                  Secret is currently saved. Modify to update.
+                </p>
+              {/if}
+            </div>
+          </div>
+        {:else}
+          <!-- Partner mode info card -->
+          <div class="rounded-lg border bg-primary/5 border-primary/20 p-4 space-y-3">
+            <div class="flex items-center gap-2">
+              <CircleCheck class="h-5 w-5 text-primary" />
+              <h3 class="font-medium">MSPByte Centralized App (GDAP)</h3>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              In Partner mode, MSPByte uses its own registered Azure multi-tenant application with
+              GDAP. You only need to consent once as the MSP admin — no customer action required.
+            </p>
+            {#if data.partnerClientId}
+              <p class="text-xs font-mono text-muted-foreground">
+                App ID: {data.partnerClientId}
+              </p>
+            {:else}
+              <p class="text-xs text-destructive">
+                Warning: MICROSOFT_CLIENT_ID is not configured in the server environment.
+              </p>
+            {/if}
+
+            <div class="border-t pt-3 space-y-2">
+              {#if data.partnerTenantId}
+                <div class="flex items-center gap-2">
+                  <CircleCheck class="h-4 w-4 text-primary" />
+                  <span class="text-sm font-medium">MSP tenant connected</span>
+                </div>
+                <p class="text-xs font-mono text-muted-foreground">{data.partnerTenantId}</p>
+              {:else}
+                <div class="flex items-center gap-2">
+                  <CircleAlert class="h-4 w-4 text-warning" />
+                  <span class="text-sm text-muted-foreground">
+                    Not connected — click below to grant MSPByte access
+                  </span>
+                </div>
+              {/if}
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              class="w-full"
+              disabled={connectingMSP || !data.partnerClientId}
+              onclick={handleConnect}
+            >
+              {#if connectingMSP}
+                <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
+              {:else}
+                <ExternalLink class="mr-2 h-4 w-4" />
+              {/if}
+              {data.partnerTenantId
+                ? 'Re-connect MSPByte to Microsoft'
+                : 'Connect MSPByte to Microsoft'}
+            </Button>
+          </div>
+        {/if}
+
+        <Sheet.Footer class="flex gap-2 px-0">
+          <Button
+            type="submit"
+            formaction="?/testConnection"
+            variant="outline"
+            disabled={$submitting}
+          >
+            {#if $delayed && $submitting}
+              <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
+            {/if}
+            Test Connection
+          </Button>
+          <Button type="submit" disabled={$submitting || !canWrite}>
+            {#if $delayed && $submitting}
+              <LoaderCircle class="mr-2 h-4 w-4 animate-spin" />
+            {/if}
+            {data.integration ? 'Update' : 'Save'} Configuration
+          </Button>
+        </Sheet.Footer>
+      </form>
+
+      {#if data.integration}
+        <div class="border-t pt-4">
+          <Button
+            variant="destructive"
+            size="sm"
+            onclick={handleDelete}
+            disabled={$submitting || !canWrite}
+          >
+            <Trash2 class="h-4 w-4 mr-2" />
+            Delete Integration
+          </Button>
+        </div>
+      {/if}
+    </div>
+  </Sheet.Content>
+</Sheet.Root>

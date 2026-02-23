@@ -434,6 +434,41 @@ export const actions: Actions = {
         })
       );
 
+      // Upsert the MSP's own tenant as an active connection
+      const mspExisting = existingByExternalId.get(mspTenantId);
+      const { data: mspDomainData } = await connector.getTenantDomains(undefined, true);
+      const mspDefaultDomain =
+        (mspDomainData?.domains ?? []).find((d: any) => d.isDefault)?.id ?? mspTenantId;
+      const mspDomains = (mspDomainData?.domains ?? [])
+        .filter((d: any) => d.isVerified)
+        .map((d: any) => d.id as string)
+        .filter(Boolean);
+
+      if (!mspExisting) {
+        await locals.orm.insert('public', 'integration_connections', [
+          {
+            integration_id: 'microsoft-365',
+            external_id: mspTenantId,
+            tenant_id: currentTenant,
+            name: mspDefaultDomain,
+            status: 'active',
+            meta: { domains: mspDomains, defaultDomain: mspDefaultDomain, isMspTenant: true },
+            updated_at: new Date().toISOString(),
+          },
+        ]);
+      } else {
+        await locals.orm.update('public', 'integration_connections', mspExisting.id, {
+          name: mspDefaultDomain,
+          meta: {
+            ...((mspExisting.meta as any) ?? {}),
+            domains: mspDomains,
+            defaultDomain: mspDefaultDomain,
+            isMspTenant: true,
+          },
+          updated_at: new Date().toISOString(),
+        });
+      }
+
       // Return updated connections from DB
       const { data: updatedData } = await locals.orm.select(
         'public',
