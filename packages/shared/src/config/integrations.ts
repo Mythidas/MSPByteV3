@@ -1,11 +1,13 @@
+const DAILY = 60 * 24;
+
 export const INTEGRATIONS: Record<IntegrationId, Integration> = {
   'sophos-partner': {
     id: 'sophos-partner',
     name: 'Sophos Partner',
     type: 'security',
     supportedTypes: [
-      { type: 'company', rateMinutes: 60, priority: 5 },
-      { type: 'endpoint', rateMinutes: 15, priority: 3, fanOut: true },
+      { type: 'company', rateMinutes: DAILY, priority: 5 },
+      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true },
     ],
   },
   dattormm: {
@@ -13,8 +15,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: 'DattoRMM',
     type: 'security',
     supportedTypes: [
-      { type: 'company', rateMinutes: 60, priority: 5 },
-      { type: 'endpoint', rateMinutes: 15, priority: 3, fanOut: true },
+      { type: 'company', rateMinutes: DAILY, priority: 5 },
+      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true },
     ],
   },
   cove: {
@@ -22,8 +24,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: 'Cove Backups',
     type: 'security',
     supportedTypes: [
-      { type: 'company', rateMinutes: 60, priority: 5 },
-      { type: 'endpoint', rateMinutes: 30, priority: 3 },
+      { type: 'company', rateMinutes: DAILY, priority: 5 },
+      { type: 'endpoint', rateMinutes: DAILY, priority: 3 },
     ],
   },
   'microsoft-365': {
@@ -31,19 +33,19 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: 'Microsoft 365',
     type: 'security',
     supportedTypes: [
-      { type: 'identity', rateMinutes: 15, priority: 3 },
-      { type: 'group', rateMinutes: 30, priority: 5 },
-      { type: 'license', rateMinutes: 120, priority: 7 },
-      { type: 'role', rateMinutes: 60, priority: 5 },
-      { type: 'policy', rateMinutes: 60, priority: 5 },
-      { type: 'exchange-config', rateMinutes: 1440, priority: 9 },
+      { type: 'identity', rateMinutes: DAILY, priority: 3 },
+      { type: 'group', rateMinutes: DAILY, priority: 5 },
+      { type: 'license', rateMinutes: DAILY, priority: 7 },
+      { type: 'role', rateMinutes: DAILY, priority: 5 },
+      { type: 'policy', rateMinutes: DAILY, priority: 5 },
+      { type: 'exchange-config', rateMinutes: DAILY, priority: 9 },
     ],
   },
   halopsa: {
     id: 'halopsa',
     name: 'HaloPSA',
     type: 'security',
-    supportedTypes: [{ type: 'company', rateMinutes: 60, priority: 5 }],
+    supportedTypes: [{ type: 'company', rateMinutes: DAILY, priority: 5 }],
   },
   mspagent: {
     id: 'mspagent',
