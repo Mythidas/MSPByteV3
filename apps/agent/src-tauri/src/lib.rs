@@ -221,7 +221,6 @@ fn create_tray_icon(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
             // }
             _ => {}
         })
-        .menu_on_left_click(false)
         .build(app)?;
 
     log_to_file(String::from("INFO"), String::from("System tray icon created successfully"));

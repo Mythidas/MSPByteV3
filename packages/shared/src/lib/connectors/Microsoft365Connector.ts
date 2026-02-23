@@ -651,8 +651,8 @@ export class Microsoft365Connector {
     defaultSelect?: string
   ): string => {
     const params = new URLSearchParams();
-    params.set('$top', String(filters?.limit ?? 999));
 
+    if (filters?.limit) params.set('$top', String(filters?.limit ?? 999));
     if (filters?.select) {
       params.set('$select', (filters.select as unknown as string[]).join(','));
     } else if (defaultSelect) {
