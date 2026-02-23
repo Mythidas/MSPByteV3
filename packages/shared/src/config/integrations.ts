@@ -23,10 +23,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     id: 'cove',
     name: 'Cove Backups',
     type: 'security',
-    supportedTypes: [
-      { type: 'company', rateMinutes: DAILY, priority: 5 },
-      { type: 'endpoint', rateMinutes: DAILY, priority: 3 },
-    ],
+    supportedTypes: [],
   },
   'microsoft-365': {
     id: 'microsoft-365',
@@ -45,7 +42,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     id: 'halopsa',
     name: 'HaloPSA',
     type: 'security',
-    supportedTypes: [{ type: 'company', rateMinutes: DAILY, priority: 5 }],
+    supportedTypes: [],
   },
   mspagent: {
     id: 'mspagent',
