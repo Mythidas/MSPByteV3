@@ -33,52 +33,56 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     return redirect(302, '/integrations/microsoft-365?error=state_mismatch');
   }
 
-  if (state.gdapTenantId) {
-    // Customer tenant GDAP consent — assign required directory roles then redirect
-    const connector = new Microsoft365Connector({
-      tenantId: msTenantId,
-      clientId: MICROSOFT_CLIENT_ID,
-      clientSecret: MICROSOFT_CLIENT_SECRET,
-      mode: 'partner',
-    }).forTenant(state.gdapTenantId);
+  // Customer tenant GDAP consent — assign required directory roles then redirect
+  const tenantId = state.gdapTenantId ?? state.mspbyteTenantId;
+  const baseConnector = new Microsoft365Connector({
+    tenantId: msTenantId,
+    clientId: MICROSOFT_CLIENT_ID,
+    clientSecret: MICROSOFT_CLIENT_SECRET,
+    mode: 'partner',
+  });
+  const connector = state.gdapTenantId
+    ? baseConnector.forTenant(state.gdapTenantId)
+    : baseConnector;
 
-    const roleManager = new Microsoft365RoleManager(connector);
-    const { assigned, failed } = await roleManager.ensureDirectoryRoles(REQUIRED_DIRECTORY_ROLES);
+  const roleManager = new Microsoft365RoleManager(connector);
+  const { assigned, failed } = await roleManager.ensureDirectoryRoles(REQUIRED_DIRECTORY_ROLES);
 
-    if (assigned.length > 0) {
-      Logger.info({
-        module: 'consent',
-        context: 'ensureDirectoryRoles',
-        message: `Assigned [${assigned.join(', ')}] to ${state.gdapTenantId}`,
-      });
-    }
-    if (failed.length > 0) {
-      Logger.warn({
-        module: 'consent',
-        context: 'ensureDirectoryRoles',
-        message: `Failed to assign [${failed.join(', ')}] to ${state.gdapTenantId}`,
-      });
-      await writeDiagnosticLog(locals.supabase, {
-        tenant_id: state.mspbyteTenantId!,
-        level: 'warn',
-        module: 'consent',
-        context: 'ensureDirectoryRoles',
-        message: `Failed to assign roles [${failed.join(', ')}] to ${state.gdapTenantId}`,
-        meta: { failed, gdapTenantId: state.gdapTenantId },
-      });
-    }
-
-    // Write audit log for role assignment result
-    await writeAuditLog(locals.supabase, {
-      tenant_id: state.mspbyteTenantId!,
-      actor: 'system',
-      action: 'role_assigned',
-      target_type: 'integration_connection',
-      target_id: state.gdapTenantId,
-      result: failed.length === 0 ? 'success' : assigned.length > 0 ? 'success' : 'failure',
-      detail: { assigned, failed, gdapTenantId: state.gdapTenantId },
+  if (assigned.length > 0) {
+    Logger.info({
+      module: 'consent',
+      context: 'ensureDirectoryRoles',
+      message: `Assigned [${assigned.join(', ')}] to ${tenantId}`,
     });
+  }
+  if (failed.length > 0) {
+    Logger.warn({
+      module: 'consent',
+      context: 'ensureDirectoryRoles',
+      message: `Failed to assign [${failed.join(', ')}] to ${tenantId}`,
+    });
+    await writeDiagnosticLog(locals.supabase, {
+      tenant_id: state.mspbyteTenantId!,
+      level: 'warn',
+      module: 'consent',
+      context: 'ensureDirectoryRoles',
+      message: `Failed to assign roles [${failed.join(', ')}] to ${tenantId}`,
+      meta: { failed, gdapTenantId: tenantId },
+    });
+  }
 
+  // Write audit log for role assignment result
+  await writeAuditLog(locals.supabase, {
+    tenant_id: state.mspbyteTenantId!,
+    actor: 'system',
+    action: 'role_assigned',
+    target_type: 'integration_connection',
+    target_id: tenantId ?? '',
+    result: failed.length === 0 ? 'success' : assigned.length > 0 ? 'success' : 'failure',
+    detail: { assigned, failed, gdapTenantId: tenantId },
+  });
+
+  if (state.gdapTenantId) {
     return redirect(
       302,
       `/integrations/microsoft-365?tab=connections&consentedTenant=${encodeURIComponent(state.gdapTenantId)}`

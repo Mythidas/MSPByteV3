@@ -14,6 +14,7 @@ export class AlertManager {
     integrationId: string,
     syncId: string,
     siteId?: string,
+    connectionId?: string
   ): Promise<{ created: number; updated: number; resolved: number }> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -47,6 +48,7 @@ export class AlertManager {
           entity_id: alert.entityId,
           integration_id: integrationId,
           site_id: siteId || null,
+          connection_id: connectionId || null,
           alert_type: alert.alertType,
           severity: alert.severity,
           message: alert.message,
@@ -112,6 +114,7 @@ export class AlertManager {
           entity_id: existing?.entity_id,
           integration_id: existing?.integration_id ?? integrationId,
           site_id: existing?.site_id ?? siteId ?? null,
+          connection_id: existing?.connection_id ?? connectionId ?? null,
           alert_type: existing?.alert_type,
           fingerprint: existing?.fingerprint,
           created_at: existing?.created_at,
@@ -121,9 +124,7 @@ export class AlertManager {
 
       for (let i = 0; i < upsertRows.length; i += 100) {
         const chunk = upsertRows.slice(i, i + 100);
-        const { error } = await supabase
-          .from('entity_alerts')
-          .upsert(chunk, { onConflict: 'id' });
+        const { error } = await supabase.from('entity_alerts').upsert(chunk, { onConflict: 'id' });
         if (error) {
           Logger.error({
             module: 'AlertManager',
@@ -141,7 +142,11 @@ export class AlertManager {
         .in('id', toResolve);
     }
 
-    const result = { created: toCreate.length, updated: toUpdate.length, resolved: toResolve.length };
+    const result = {
+      created: toCreate.length,
+      updated: toUpdate.length,
+      resolved: toResolve.length,
+    };
 
     Logger.info({
       module: 'AlertManager',

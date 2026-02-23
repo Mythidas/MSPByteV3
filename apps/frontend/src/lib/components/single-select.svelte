@@ -13,7 +13,7 @@
 
   let {
     options = [],
-    selected = $bindable(''),
+    selected = $bindable<string | undefined>(undefined),
     placeholder = 'Select item...',
     searchPlaceholder = 'Search...',
     class: className = '',

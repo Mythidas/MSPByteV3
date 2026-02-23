@@ -11,6 +11,7 @@ export function createSyncContext(params: {
   syncId: string;
   syncJobId?: string;
   siteId?: string;
+  connectionId?: string;
 }): SyncContext {
   return {
     ...params,
@@ -22,7 +23,7 @@ export function createSyncContext(params: {
 
 export async function ensureAllEntitiesLoaded(
   ctx: SyncContext,
-  tracker: PipelineTracker,
+  tracker: PipelineTracker
 ): Promise<Entity[]> {
   if (ctx.allEntities !== null) return ctx.allEntities;
 
@@ -49,7 +50,7 @@ export async function ensureAllEntitiesLoaded(
 
 export async function ensureRelationshipsLoaded(
   ctx: SyncContext,
-  tracker: PipelineTracker,
+  tracker: PipelineTracker
 ): Promise<Relationship[]> {
   if (ctx.relationships !== null) return ctx.relationships;
 
@@ -80,7 +81,7 @@ export async function ensureRelationshipsLoaded(
  */
 export async function ensureSiteEntitiesLoaded(
   ctx: SyncContext,
-  tracker: PipelineTracker,
+  tracker: PipelineTracker
 ): Promise<Entity[]> {
   if (ctx.allEntities !== null) return ctx.allEntities;
 
@@ -92,21 +93,33 @@ export async function ensureSiteEntitiesLoaded(
 
   // Load site-scoped entities (endpoints for this site)
   tracker.trackQuery();
-  const { data: siteData, error: siteError } = await tracker.trackSpan('context:load_site_entities', async () => {
-    return orm.select('public', 'entities', (q) =>
-      q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId).eq('site_id', ctx.siteId!)
-    );
-  });
+  const { data: siteData, error: siteError } = await tracker.trackSpan(
+    'context:load_site_entities',
+    async () => {
+      return orm.select('public', 'entities', (q) =>
+        q
+          .eq('tenant_id', ctx.tenantId)
+          .eq('integration_id', ctx.integrationId)
+          .eq('site_id', ctx.siteId!)
+      );
+    }
+  );
 
   if (siteError) throw new Error(`Failed to load site entities: ${siteError}`);
 
   // Also load company entities (parents needed for relationships)
   tracker.trackQuery();
-  const { data: companyData, error: companyError } = await tracker.trackSpan('context:load_company_entities', async () => {
-    return orm.select('public', 'entities', (q) =>
-      q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId).eq('entity_type', 'company')
-    );
-  });
+  const { data: companyData, error: companyError } = await tracker.trackSpan(
+    'context:load_company_entities',
+    async () => {
+      return orm.select('public', 'entities', (q) =>
+        q
+          .eq('tenant_id', ctx.tenantId)
+          .eq('integration_id', ctx.integrationId)
+          .eq('entity_type', 'company')
+      );
+    }
+  );
 
   if (companyError) throw new Error(`Failed to load company entities: ${companyError}`);
 
@@ -139,7 +152,7 @@ export async function ensureSiteEntitiesLoaded(
  */
 export async function ensureSiteRelationshipsLoaded(
   ctx: SyncContext,
-  tracker: PipelineTracker,
+  tracker: PipelineTracker
 ): Promise<Relationship[]> {
   if (ctx.relationships !== null) return ctx.relationships;
 
@@ -151,7 +164,10 @@ export async function ensureSiteRelationshipsLoaded(
   tracker.trackQuery();
   const { data, error } = await tracker.trackSpan('context:load_site_relationships', async () => {
     return orm.select('public', 'entity_relationships', (q) =>
-      q.eq('tenant_id', ctx.tenantId).eq('integration_id', ctx.integrationId).eq('site_id', ctx.siteId!)
+      q
+        .eq('tenant_id', ctx.tenantId)
+        .eq('integration_id', ctx.integrationId)
+        .eq('site_id', ctx.siteId!)
     );
   });
 

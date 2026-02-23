@@ -14,91 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      audit_logs: {
-        Row: {
-          id: string
-          tenant_id: string
-          actor: string
-          action: string
-          target_type: string
-          target_id: string
-          result: string
-          detail: Json | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          actor: string
-          action: string
-          target_type: string
-          target_id: string
-          result: string
-          detail?: Json | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          actor?: string
-          action?: string
-          target_type?: string
-          target_id?: string
-          result?: string
-          detail?: Json | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "audit_logs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      diagnostic_logs: {
-        Row: {
-          id: string
-          tenant_id: string
-          level: string
-          module: string
-          context: string
-          message: string
-          meta: Json | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          tenant_id: string
-          level: string
-          module: string
-          context: string
-          message: string
-          meta?: Json | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          tenant_id?: string
-          level?: string
-          module?: string
-          context?: string
-          message?: string
-          meta?: Json | null
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "diagnostic_logs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agent_logs: {
         Row: {
           agent_id: string
@@ -281,6 +196,91 @@ export type Database = {
           },
         ]
       }
+      audit_logs: {
+        Row: {
+          action: string
+          actor: string
+          created_at: string
+          id: string
+          meta: Json | null
+          result: string
+          target_id: string
+          target_type: string
+          tenant_id: string
+        }
+        Insert: {
+          action: string
+          actor: string
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          result: string
+          target_id: string
+          target_type: string
+          tenant_id: string
+        }
+        Update: {
+          action?: string
+          actor?: string
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          result?: string
+          target_id?: string
+          target_type?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      diagnostic_logs: {
+        Row: {
+          context: string
+          created_at: string
+          id: string
+          level: string
+          message: string
+          meta: Json | null
+          module: string
+          tenant_id: string
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          id?: string
+          level: string
+          message: string
+          meta?: Json | null
+          module: string
+          tenant_id: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          meta?: Json | null
+          module?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "diagnostic_logs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entities: {
         Row: {
           connection_id: string | null
@@ -367,6 +367,7 @@ export type Database = {
       entity_alerts: {
         Row: {
           alert_type: string
+          connection_id: string | null
           created_at: string
           entity_id: string
           fingerprint: string
@@ -387,6 +388,7 @@ export type Database = {
         }
         Insert: {
           alert_type: string
+          connection_id?: string | null
           created_at?: string
           entity_id: string
           fingerprint: string
@@ -407,6 +409,7 @@ export type Database = {
         }
         Update: {
           alert_type?: string
+          connection_id?: string | null
           created_at?: string
           entity_id?: string
           fingerprint?: string
@@ -426,6 +429,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "entity_alerts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "integration_connections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "entity_alerts_entity_id_fkey"
             columns: ["entity_id"]

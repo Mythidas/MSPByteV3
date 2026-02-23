@@ -102,7 +102,8 @@ export class AnalysisOrchestrator {
       ctx.tenantId,
       ctx.integrationId,
       ctx.syncId,
-      ctx.siteId
+      ctx.siteId,
+      ctx.connectionId
     );
 
     Logger.info({

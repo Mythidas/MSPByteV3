@@ -14,9 +14,11 @@
 
   let {
     integrationId,
+    connectionId,
     data,
   }: {
     integrationId: string;
+    connectionId?: string;
     data: {
       user: { id: string };
       role: { attributes: Json } | null;
@@ -91,6 +93,9 @@
     if (filterSiteIds) {
       if (filterSiteIds.length === 1) q.eq('site_id', filterSiteIds[0]);
       else if (filterSiteIds.length > 1) q.in('site_id', filterSiteIds);
+    }
+    if (connectionId) {
+      q.eq('connection_id', connectionId);
     }
   }
 

@@ -39,7 +39,7 @@ export class AnalysisWorker {
   }
 
   private async handleJob(job: Job<AnalysisJobData>): Promise<void> {
-    const { tenantId, integrationId, integrationDbId, syncId } = job.data;
+    const { tenantId, integrationId, integrationDbId, syncId, connectionId } = job.data;
     const tracker = new PipelineTracker();
 
     Logger.info({
@@ -55,6 +55,7 @@ export class AnalysisWorker {
       integrationDbId,
       entityType: 'analysis',
       syncId,
+      connectionId: connectionId ?? undefined,
     });
 
     try {

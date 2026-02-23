@@ -157,6 +157,7 @@ export interface SyncContext {
   processedEntities: Entity[];
   allEntities: Entity[] | null;
   relationships: Relationship[] | null;
+  connectionId?: string;
 }
 
 // ============================================================================
@@ -168,4 +169,5 @@ export interface AnalysisJobData {
   integrationId: IntegrationId;
   integrationDbId: string;
   syncId: string;
+  connectionId: string | null;
 }

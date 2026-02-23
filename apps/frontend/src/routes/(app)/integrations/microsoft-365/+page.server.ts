@@ -352,7 +352,10 @@ export const actions: Actions = {
         refreshToken,
       });
 
-      const { data: gdapData, error: gdapError } = await connector.getGDAPCustomers(undefined, true);
+      const { data: gdapData, error: gdapError } = await connector.getGDAPCustomers(
+        undefined,
+        true
+      );
       if (gdapError || !gdapData?.customers.length) {
         return fail(500, { error: `Failed to list GDAP customers: ${gdapError?.message}` });
       }
@@ -411,7 +414,9 @@ export const actions: Actions = {
             }
           } else if (existing.status === 'active') {
             // Active connection — refresh domains from Graph API
-            const { data: domainData } = await connector.forTenant(tenantId).getTenantDomains(undefined, true);
+            const { data: domainData } = await connector
+              .forTenant(tenantId)
+              .getTenantDomains(undefined, true);
 
             const defaultDomain = (domainData?.domains ?? []).find((d) => d.isDefault)?.id ?? '';
             const domains = (domainData?.domains ?? [])
@@ -628,7 +633,9 @@ export const actions: Actions = {
         });
       }
 
-      const refreshToken = config?.refreshToken ? Encryption.decrypt(config.refreshToken) : undefined;
+      const refreshToken = config?.refreshToken
+        ? Encryption.decrypt(config.refreshToken)
+        : undefined;
 
       const baseConnector = new Microsoft365Connector({
         tenantId: mspTenantId,

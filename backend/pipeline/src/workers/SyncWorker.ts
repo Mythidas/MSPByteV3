@@ -249,7 +249,7 @@ export class SyncWorker {
   }
 
   private async trackCompletionAndMaybeAnalyze(jobData: SyncJobData): Promise<void> {
-    const { tenantId, integrationId, integrationDbId, entityType, syncId } = jobData;
+    const { tenantId, integrationId, integrationDbId, entityType, syncId, connectionId } = jobData;
 
     const allComplete = await CompletionTracker.markComplete(tenantId, integrationId, entityType);
 
@@ -265,6 +265,7 @@ export class SyncWorker {
         integrationId: integrationId as IntegrationId,
         integrationDbId,
         syncId,
+        connectionId,
       };
 
       await queueManager.addJob(QueueNames.analysis(integrationId), analysisData, {
