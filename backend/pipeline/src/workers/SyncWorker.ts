@@ -10,7 +10,7 @@ import type { AnalysisJobData, SyncJobData } from '../types.js';
 import type { BaseAdapter } from '../adapters/BaseAdapter.js';
 import type { EntityProcessor } from '../processor/EntityProcessor.js';
 import type { BaseLinker } from '../linkers/BaseLinker.js';
-import { IntegrationId, EntityType } from '@workspace/shared/config/integrations.js';
+import { IntegrationId, EntityType, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
 
 /**
  * SyncWorker - Central orchestrator for a single (integrationId, entityType) pair.
@@ -42,15 +42,20 @@ export class SyncWorker {
     if (this.started) return;
 
     const queueName = QueueNames.sync(this.integrationId, this.entityType);
+    const typeConfig = INTEGRATIONS[this.integrationId]?.supportedTypes.find(
+      (t) => t.type === this.entityType
+    );
+    const concurrency = typeConfig?.concurrency ?? 5;
+
     queueManager.createWorker<SyncJobData>(queueName, this.handleJob.bind(this), {
-      concurrency: 5,
+      concurrency,
     });
 
     this.started = true;
     Logger.info({
       module: 'SyncWorker',
       context: 'start',
-      message: `Worker started for ${this.integrationId}:${this.entityType}`,
+      message: `Worker started for ${this.integrationId}:${this.entityType} (concurrency: ${concurrency})`,
     });
   }
 

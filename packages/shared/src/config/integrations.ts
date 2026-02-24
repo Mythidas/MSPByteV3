@@ -7,7 +7,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     type: 'security',
     supportedTypes: [
       { type: 'company', rateMinutes: DAILY, priority: 5 },
-      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true },
+      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
   },
   dattormm: {
@@ -16,7 +16,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     type: 'rmm',
     supportedTypes: [
       { type: 'company', rateMinutes: DAILY, priority: 5 },
-      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true },
+      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
   },
   cove: {
@@ -79,6 +79,7 @@ export interface EntityTypeConfig {
   rateMinutes: number;
   priority: number;
   fanOut?: boolean; // true = created by linker fan-out; reconciler skips these
+  concurrency?: number; // max parallel BullMQ workers for this entity type (default: 5)
 }
 
 export interface Integration {
