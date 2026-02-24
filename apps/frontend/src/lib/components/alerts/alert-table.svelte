@@ -10,7 +10,7 @@
   import { severityClass, alertStatusClass } from './_alert-config.js';
   import AlertDetailSheet from './_alert-detail-sheet.svelte';
 
-  type EntityAlert = Tables<'public', 'entity_alerts'>;
+  type EntityAlert = Tables<'public', 'alerts'>;
 
   let {
     integrationId,
@@ -136,7 +136,7 @@
 {#key `${scope}-${scopeId}-${refreshKey}`}
   <DataTable
     schema="public"
-    table="entity_alerts"
+    table="alerts"
     {columns}
     {modifyQuery}
     enableGlobalSearch={true}

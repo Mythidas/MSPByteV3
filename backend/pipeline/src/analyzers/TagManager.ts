@@ -2,7 +2,7 @@ import { getSupabase } from '../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 
 /**
- * TagManager - Manages entity_tags table.
+ * TagManager - Manages tags table.
  * Uses DELETE WHERE (entity_id, source) + INSERT pattern per analyzer pass.
  */
 export class TagManager {
@@ -48,7 +48,7 @@ export class TagManager {
     for (const [source, entityIds] of entityIdsBySource) {
       for (let i = 0; i < entityIds.length; i += 500) {
         const chunk = entityIds.slice(i, i + 500);
-        await supabase.from('entity_tags').delete().in('entity_id', chunk).eq('source', source);
+        await supabase.from('tags').delete().in('entity_id', chunk).eq('source', source);
       }
     }
 
@@ -57,7 +57,7 @@ export class TagManager {
     if (validInserts.length > 0) {
       for (let i = 0; i < validInserts.length; i += 100) {
         const chunk = validInserts.slice(i, i + 100);
-        const { error } = await supabase.from('entity_tags').upsert(chunk, {
+        const { error } = await supabase.from('tags').upsert(chunk, {
           onConflict: 'entity_id,tag',
           ignoreDuplicates: true,
         });

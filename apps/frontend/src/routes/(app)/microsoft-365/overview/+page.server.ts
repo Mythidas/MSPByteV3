@@ -16,7 +16,7 @@ async function getMetrics({ url, locals }: any) {
 
   const baseAlertQuery = () => {
     let q = locals.supabase
-      .from('entity_alerts')
+      .from('alerts')
       .select('*', { count: 'exact', head: true })
       .eq('integration_id', 'microsoft-365')
       .eq('status', 'active');
@@ -26,7 +26,7 @@ async function getMetrics({ url, locals }: any) {
 
   const baseRecentAlertsQuery = () => {
     let q = locals.supabase
-      .from('entity_alerts')
+      .from('alerts')
       .select('id, message, severity, alert_type, entities(display_name, connection_id)')
       .eq('integration_id', 'microsoft-365')
       .eq('status', 'active')

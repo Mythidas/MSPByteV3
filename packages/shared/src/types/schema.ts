@@ -196,6 +196,115 @@ export type Database = {
           },
         ]
       }
+      alerts: {
+        Row: {
+          alert_type: string
+          connection_id: string | null
+          created_at: string
+          entity_id: string | null
+          fingerprint: string
+          id: string
+          integration_id: string
+          last_seen_at: string
+          message: string
+          metadata: Json | null
+          resolved_at: string | null
+          severity: string
+          site_id: string | null
+          status: string
+          suppressed_at: string | null
+          suppressed_by: string | null
+          sync_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          alert_type: string
+          connection_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          fingerprint: string
+          id?: string
+          integration_id: string
+          last_seen_at?: string
+          message: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity: string
+          site_id?: string | null
+          status?: string
+          suppressed_at?: string | null
+          suppressed_by?: string | null
+          sync_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          alert_type?: string
+          connection_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          fingerprint?: string
+          id?: string
+          integration_id?: string
+          last_seen_at?: string
+          message?: string
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          site_id?: string | null
+          status?: string
+          suppressed_at?: string | null
+          suppressed_by?: string | null
+          sync_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_alerts_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "integration_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_alerts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_alerts_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_alerts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_alerts_suppressed_by_fkey"
+            columns: ["suppressed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_alerts_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -364,115 +473,6 @@ export type Database = {
           },
         ]
       }
-      entity_alerts: {
-        Row: {
-          alert_type: string
-          connection_id: string | null
-          created_at: string
-          entity_id: string
-          fingerprint: string
-          id: string
-          integration_id: string
-          last_seen_at: string
-          message: string
-          metadata: Json | null
-          resolved_at: string | null
-          severity: string
-          site_id: string | null
-          status: string
-          suppressed_at: string | null
-          suppressed_by: string | null
-          sync_id: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          alert_type: string
-          connection_id?: string | null
-          created_at?: string
-          entity_id: string
-          fingerprint: string
-          id?: string
-          integration_id: string
-          last_seen_at?: string
-          message: string
-          metadata?: Json | null
-          resolved_at?: string | null
-          severity: string
-          site_id?: string | null
-          status?: string
-          suppressed_at?: string | null
-          suppressed_by?: string | null
-          sync_id?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          alert_type?: string
-          connection_id?: string | null
-          created_at?: string
-          entity_id?: string
-          fingerprint?: string
-          id?: string
-          integration_id?: string
-          last_seen_at?: string
-          message?: string
-          metadata?: Json | null
-          resolved_at?: string | null
-          severity?: string
-          site_id?: string | null
-          status?: string
-          suppressed_at?: string | null
-          suppressed_by?: string | null
-          sync_id?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entity_alerts_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "integration_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_suppressed_by_fkey"
-            columns: ["suppressed_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       entity_relationships: {
         Row: {
           child_entity_id: string
@@ -554,61 +554,6 @@ export type Database = {
           },
           {
             foreignKeyName: "entity_relationships_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      entity_tags: {
-        Row: {
-          category: string | null
-          created_at: string
-          entity_id: string
-          id: string
-          site_id: string | null
-          source: string | null
-          tag: string
-          tenant_id: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string
-          entity_id: string
-          id?: string
-          site_id?: string | null
-          source?: string | null
-          tag: string
-          tenant_id: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string
-          entity_id?: string
-          id?: string
-          site_id?: string | null
-          source?: string | null
-          tag?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entity_tags_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_tags_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_tags_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1003,6 +948,71 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          category: string | null
+          connection_id: string | null
+          created_at: string
+          entity_id: string | null
+          id: string
+          site_id: string | null
+          source: string | null
+          tag: string
+          tenant_id: string
+        }
+        Insert: {
+          category?: string | null
+          connection_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          site_id?: string | null
+          source?: string | null
+          tag: string
+          tenant_id: string
+        }
+        Update: {
+          category?: string | null
+          connection_id?: string | null
+          created_at?: string
+          entity_id?: string | null
+          id?: string
+          site_id?: string | null
+          source?: string | null
+          tag?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_tags_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_tags_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_tags_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tags_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "integration_connections"
             referencedColumns: ["id"]
           },
         ]

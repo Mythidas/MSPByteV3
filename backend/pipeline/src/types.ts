@@ -76,7 +76,9 @@ export interface AnalysisContext {
 // ============================================================================
 
 export interface Alert {
-  entityId: string;
+  entityId?: string;
+  connectionId?: string;
+  siteId?: string;
   alertType: AlertType;
   severity: AlertSeverity;
   message: string;

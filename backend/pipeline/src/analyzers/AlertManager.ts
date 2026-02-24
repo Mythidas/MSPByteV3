@@ -3,9 +3,12 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Alert } from '../types.js';
 
 /**
- * AlertManager - Fingerprint-based deduplication for entity_alerts.
+ * AlertManager - Fingerprint-based deduplication for alerts.
  * New alerts → insert, existing alerts → touch last_seen_at,
  * missing alerts → resolve (set resolved_at). Respects suppressed status.
+ *
+ * Alerts can target an entity (entityId), connection (connectionId), or site (siteId).
+ * Exactly one target must be set per alert.
  */
 export class AlertManager {
   async processAlerts(
@@ -27,7 +30,7 @@ export class AlertManager {
 
     // Load existing alerts for this integration + tenant, scoped to connection/site
     let query = supabase
-      .from('entity_alerts')
+      .from('alerts')
       .select('*')
       .eq('tenant_id', tenantId)
       .eq('integration_id', integrationId);
@@ -53,10 +56,10 @@ export class AlertManager {
       if (!existing) {
         toCreate.push({
           tenant_id: tenantId,
-          entity_id: alert.entityId,
+          entity_id: alert.entityId ?? null,
+          connection_id: alert.connectionId ?? connectionId ?? null,
+          site_id: alert.siteId ?? siteId ?? null,
           integration_id: integrationId,
-          site_id: siteId || null,
-          connection_id: connectionId || null,
           alert_type: alert.alertType,
           severity: alert.severity,
           message: alert.message,
@@ -100,7 +103,7 @@ export class AlertManager {
 
     // Execute
     if (toCreate.length > 0) {
-      const { error } = await supabase.from('entity_alerts').insert(toCreate);
+      const { error } = await supabase.from('alerts').insert(toCreate);
       if (error) {
         Logger.error({
           module: 'AlertManager',
@@ -132,7 +135,7 @@ export class AlertManager {
 
       for (let i = 0; i < upsertRows.length; i += 100) {
         const chunk = upsertRows.slice(i, i + 100);
-        const { error } = await supabase.from('entity_alerts').upsert(chunk, { onConflict: 'id' });
+        const { error } = await supabase.from('alerts').upsert(chunk, { onConflict: 'id' });
         if (error) {
           Logger.error({
             module: 'AlertManager',
@@ -145,7 +148,7 @@ export class AlertManager {
 
     if (toResolve.length > 0) {
       await supabase
-        .from('entity_alerts')
+        .from('alerts')
         .update({ status: 'resolved', resolved_at: now, updated_at: now })
         .in('id', toResolve);
     }

@@ -13,7 +13,7 @@
   import ShieldOffIcon from '@lucide/svelte/icons/shield-off';
   import ShieldIcon from '@lucide/svelte/icons/shield';
 
-  type EntityAlert = Tables<'public', 'entity_alerts'>;
+  type EntityAlert = Tables<'public', 'alerts'>;
 
   let {
     alert,
@@ -45,7 +45,7 @@
     if (!alert) return;
     suppressing = true;
     const orm = new ORM(supabase);
-    const { error } = await orm.update('public', 'entity_alerts', alert.id, {
+    const { error } = await orm.update('public', 'alerts', alert.id, {
       status: 'suppressed',
       suppressed_at: new Date().toISOString(),
       suppressed_by: userId,
@@ -65,7 +65,7 @@
     if (!alert) return;
     suppressing = true;
     const orm = new ORM(supabase);
-    const { error } = await orm.update('public', 'entity_alerts', alert.id, {
+    const { error } = await orm.update('public', 'alerts', alert.id, {
       status: 'active',
       suppressed_at: null,
       suppressed_by: null,

@@ -24,7 +24,7 @@ export const load: PageServerLoad = async ({ params, locals }) => {
       orm.getCount('public', 'entities', (q) =>
         q.eq('site_id', params.id).eq('integration_id', link.integration_id)
       ),
-      orm.getCount('public', 'entity_alerts', (q) =>
+      orm.getCount('public', 'alerts', (q) =>
         q.eq('site_id', params.id).eq('integration_id', link.integration_id)
       ),
     ])
