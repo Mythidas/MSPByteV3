@@ -5,7 +5,8 @@
     "baseUrl": ".",
     "paths": {
       "@workspace/shared/types/*": ["./src/types/*"],
-      "@workspace/shared/lib/*": ["./src/lib/*"]
+      "@workspace/shared/lib/*": ["./src/lib/*"],
+      "@workspace/shared/config/*": ["./src/config/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

@@ -87,6 +87,22 @@ describe('Microsoft365Adapter', () => {
           ],
         },
       }),
+      getSubscribedSkus: vi.fn().mockResolvedValue({
+        data: {
+          skus: [
+            {
+              skuId: 'sk1',
+              skuPartNumber: 'sk1p',
+              servicePlans: [
+                {
+                  servicePlanId: 'spid1',
+                  servicePlanName: 'SPID',
+                },
+              ],
+            },
+          ],
+        },
+      }),
     };
     // Must use regular function (not arrow) for constructor mocks with `new`
     vi.mocked(Microsoft365Connector).mockImplementation(function () {
@@ -141,6 +157,22 @@ describe('Microsoft365Adapter', () => {
               accountEnabled: true,
               assignedLicenses: [{ skuId: 'sku-1' }],
               assignedPlans: [{ servicePlanId: 'plan-1' }],
+            },
+          ],
+        },
+      }),
+      getSubscribedSkus: vi.fn().mockResolvedValue({
+        data: {
+          skus: [
+            {
+              skuId: 'sk1',
+              skuPartNumber: 'sk1p',
+              servicePlans: [
+                {
+                  servicePlanId: 'spid1',
+                  servicePlanName: 'SPID',
+                },
+              ],
             },
           ],
         },

@@ -1,4 +1,4 @@
-import { IntegrationId } from 'src/config/integrations';
+import { IntegrationId } from '@workspace/shared/config/integrations';
 
 export type AlertConfig = {
   displayName: string;

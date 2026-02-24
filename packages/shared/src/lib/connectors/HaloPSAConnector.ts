@@ -77,7 +77,7 @@ export class HaloPSAConnector {
     };
   }
 
-  async getAssets(siteID: string) {
+  async getAssets(siteID: string): Promise<APIResponse<HaloPSAAsset[]>> {
     type APISchema = HaloPSAPagination & { assets: HaloPSAAsset[] };
 
     const { data: token, error: tokenError } = await this.getToken();
