@@ -2,22 +2,14 @@
   import '../layout.css';
   import favicon from '$lib/assets/favicon.svg';
   import { ModeWatcher } from 'mode-watcher';
-  import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-  import { ChevronDown } from '@lucide/svelte';
   import { Toaster } from '$lib/components/ui/sonner/index.js';
   import { page } from '$app/state';
-  import { cn } from '$lib/utils/index';
   import { hasPermission } from '$lib/utils/permissions';
-  import {
-    MODULES,
-    GLOBAL_NAV_ITEMS,
-    type GlobalNavGroup,
-    type GlobalNavItem,
-  } from '$lib/config/modules';
+  import { MODULES, GLOBAL_NAV_ITEMS, type GlobalNavItem } from '$lib/config/modules';
   import SitePicker from '$lib/components/site-picker.svelte';
-  import * as Select from '$lib/components/ui/select/index.js';
-  import { goto } from '$app/navigation';
-  import { getConnectionIdForScope } from '$lib/utils/scope-filter.js';
+  import SideNav from '$lib/components/side-nav.svelte';
+  import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+  import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
 
   let { children, data } = $props();
 
@@ -60,126 +52,85 @@
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
   let scopeQuery = $derived(scope && scopeId ? `?scope=${scope}&scopeId=${scopeId}` : '');
 
-  const startsWith = (path: string) => page.url.pathname.startsWith(path);
+  let activePage = $derived(
+    activeSubNav.find((link) => page.url.pathname.startsWith(link.href)) ?? null
+  );
 
-  const isGlobalActive = (href: string) => startsWith(href);
-
-  const isGroupActive = (group: GlobalNavGroup) =>
-    group.children.some((child) => startsWith(child.href));
+  let showScopePicker = $derived(
+    activeModule !== null &&
+      (() => {
+        const pickerTypes = activeModule!.pickerTypes ?? ['site', 'group', 'parent'];
+        return pickerTypes.includes('connection')
+          ? data.connections.length > 0
+          : data.sites.length > 0;
+      })()
+  );
 </script>
 
 <svelte:head><link rel="icon" href={favicon} /></svelte:head>
 <ModeWatcher defaultMode="system" />
 <Toaster />
-<div class="flex flex-col relative w-screen h-screen overflow-clip">
-  <div class="absolute inset-0 -z-10">
-    <svg class="size-full" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <pattern id="dot-grid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-          <circle cx="2" cy="2" r="1" class="fill-foreground/12"></circle>
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#dot-grid)"></rect>
-    </svg>
-  </div>
-  <div class="flex w-full h-fit p-2 bg-background shadow">
-    <nav class="flex items-center gap-1 w-full">
-      <Select.Root
-        type="single"
-        onValueChange={(v) => {
-          const mod = visibleModules.find((m) => m.id === v);
-          goto(mod?.navLinks[0].href + scopeQuery);
-        }}
+
+<Sidebar.Provider style="--sidebar-width: 13rem;">
+  <div class="relative flex w-screen h-screen overflow-clip">
+    <!-- Dot-grid background -->
+    <div class="absolute inset-0 -z-10">
+      <svg class="size-full" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="dot-grid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="2" cy="2" r="1" class="fill-foreground/12"></circle>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dot-grid)"></rect>
+      </svg>
+    </div>
+
+    <!-- Side nav -->
+    <SideNav {visibleModules} {activeModule} {activeSubNav} {visibleGlobalItems} {scopeQuery} />
+
+    <!-- Main content -->
+    <Sidebar.Inset class="flex flex-col min-h-0 overflow-hidden bg-background/0!">
+      <!-- Header bar: breadcrumb + scope picker -->
+      <header
+        class="flex h-12 shrink-0 items-center justify-between gap-3 border-b bg-background/80 backdrop-blur-sm px-4"
       >
-        <Select.Trigger class="w-45">
-          {activeModule?.label || 'Select Integration'}
-        </Select.Trigger>
-        <Select.Content>
-          {#each visibleModules as mod}
-            <Select.Item value={mod.id}>{mod.label}</Select.Item>
-          {/each}
-        </Select.Content>
-      </Select.Root>
+        <Breadcrumb.Root>
+          <Breadcrumb.List>
+            {#if activeModule}
+              <Breadcrumb.Item>
+                <Breadcrumb.Link href={activeModule.navLinks[0].href + scopeQuery}>
+                  {activeModule.label}
+                </Breadcrumb.Link>
+              </Breadcrumb.Item>
+              {#if activePage}
+                <Breadcrumb.Separator />
+                <Breadcrumb.Item>
+                  <Breadcrumb.Page>{activePage.label}</Breadcrumb.Page>
+                </Breadcrumb.Item>
+              {/if}
+            {:else}
+              <Breadcrumb.Item><Breadcrumb.Page>MSPByte</Breadcrumb.Page></Breadcrumb.Item>
+            {/if}
+          </Breadcrumb.List>
+        </Breadcrumb.Root>
 
-      <!-- Separator between pills and sub-nav -->
-      {#if visibleModules.length > 0 && activeSubNav.length > 0}
-        <div class="mx-1 h-5 w-px bg-border"></div>
-      {/if}
+        <div class="flex items-center gap-2">
+          {#if showScopePicker}
+            {@const pickerTypes = activeModule!.pickerTypes ?? ['site', 'group', 'parent']}
+            <SitePicker
+              sites={data.sites}
+              groups={data.groups}
+              connections={data.connections}
+              {pickerTypes}
+            />
+          {/if}
+        </div>
+      </header>
 
-      <!-- Active module sub-nav -->
-      {#each activeSubNav as link}
-        <a
-          href={link.href + scopeQuery}
-          class={cn(
-            'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
-            'hover:bg-accent hover:text-accent-foreground',
-            page.url.pathname.startsWith(link.href) && 'bg-accent/50'
-          )}
-        >
-          {link.label}
-        </a>
-      {/each}
-
-      <!-- Site/context picker -->
-      {#if activeModule}
-        {@const pickerTypes = activeModule.pickerTypes ?? ['site', 'group', 'parent']}
-        {@const showPicker = pickerTypes.includes('connection')
-          ? data.connections.length > 0
-          : data.sites.length > 0}
-        {#if showPicker}
-          <div class="mx-1 h-5 w-px bg-border"></div>
-          <SitePicker
-            sites={data.sites}
-            groups={data.groups}
-            connections={data.connections}
-            {pickerTypes}
-          />
-        {/if}
-      {/if}
-
-      <!-- Spacer -->
-      <div class="flex-1"></div>
-
-      <!-- Global nav items (right side) -->
-      {#each visibleGlobalItems as item}
-        {#if item.kind === 'link'}
-          <a
-            href={item.href}
-            class={cn(
-              'inline-flex h-9 items-center rounded-md px-3 text-sm font-medium transition-colors',
-              'hover:bg-accent hover:text-accent-foreground',
-              isGlobalActive(item.href) && 'bg-accent/50'
-            )}
-          >
-            {item.label}
-          </a>
-        {:else}
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger
-              class={cn(
-                'inline-flex h-9 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors',
-                'hover:bg-accent hover:text-accent-foreground',
-                isGroupActive(item) && 'bg-accent/50'
-              )}
-            >
-              {item.label}
-              <ChevronDown class="size-3" />
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Content align="end">
-              {#each item.children as child}
-                <a href={child.href}>
-                  <DropdownMenu.Item class={cn(startsWith(child.href) && 'bg-accent/50')}>
-                    {child.label}
-                  </DropdownMenu.Item>
-                </a>
-              {/each}
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
-        {/if}
-      {/each}
-    </nav>
+      <!-- Scrollable content -->
+      <div class="flex flex-1 min-h-0 overflow-auto">
+        {@render children()}
+      </div>
+    </Sidebar.Inset>
   </div>
-  <div class="flex flex-1 min-h-0">
-    {@render children()}
-  </div>
-</div>
+</Sidebar.Provider>

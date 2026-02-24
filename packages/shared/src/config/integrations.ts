@@ -13,7 +13,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
   dattormm: {
     id: 'dattormm',
     name: 'DattoRMM',
-    type: 'security',
+    type: 'rmm',
     supportedTypes: [
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true },
@@ -22,7 +22,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
   cove: {
     id: 'cove',
     name: 'Cove Backups',
-    type: 'security',
+    type: 'recovery',
     supportedTypes: [],
   },
   'microsoft-365': {
@@ -41,7 +41,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
   halopsa: {
     id: 'halopsa',
     name: 'HaloPSA',
-    type: 'security',
+    type: 'psa',
     supportedTypes: [],
   },
   mspagent: {

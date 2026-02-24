@@ -5,7 +5,7 @@
   import Input from '$lib/components/ui/input/input.svelte';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { Pencil, Check, X, Building2, Users, Link, Boxes, TriangleAlert } from '@lucide/svelte';
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS, type IntegrationId } from '@workspace/shared/config/integrations';
   import { hasPermission } from '$lib/utils/permissions';
   import { invalidateAll } from '$app/navigation';
   import { toast } from 'svelte-sonner';
@@ -177,7 +177,7 @@
       {:else}
         <div class="space-y-3">
           {#each data.integrationLinks as link}
-            {@const info = INTEGRATIONS[link.integration_id]}
+            {@const info = INTEGRATIONS[link.integration_id as IntegrationId]}
             <div class="flex items-center justify-between rounded-md border p-3">
               <div class="flex flex-col gap-1">
                 <span class="text-sm font-medium">{info?.name ?? link.integration_id}</span>

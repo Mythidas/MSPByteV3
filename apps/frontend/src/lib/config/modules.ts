@@ -1,3 +1,5 @@
+import type { Component } from 'svelte';
+import { Server, Monitor, Shield, LayoutGrid } from '@lucide/svelte';
 import type { Permission } from '$lib/utils/permissions';
 import type { ScopeType } from '$lib/utils/scope-filter';
 
@@ -10,6 +12,7 @@ export type ModuleNavLink = {
 export type ModuleConfig = {
   id: string;
   label: string;
+  icon: Component;
   basePath: string;
   permission: Permission | null;
   pickerTypes?: ScopeType[];
@@ -35,6 +38,7 @@ export const MODULES: ModuleConfig[] = [
   {
     id: 'mspagent',
     label: 'MSPAgent',
+    icon: Server,
     basePath: '/mspagent',
     permission: 'Assets.Read',
     navLinks: [
@@ -46,6 +50,7 @@ export const MODULES: ModuleConfig[] = [
   {
     id: 'dattormm',
     label: 'DattoRMM',
+    icon: Monitor,
     basePath: '/dattormm',
     permission: 'Assets.Read',
     navLinks: [
@@ -57,6 +62,7 @@ export const MODULES: ModuleConfig[] = [
   {
     id: 'sophos-partner',
     label: 'Sophos Partner',
+    icon: Shield,
     basePath: '/sophos-partner',
     permission: 'Assets.Read',
     navLinks: [
@@ -68,6 +74,7 @@ export const MODULES: ModuleConfig[] = [
   {
     id: 'microsoft-365',
     label: 'Microsoft 365',
+    icon: LayoutGrid,
     basePath: '/microsoft-365',
     permission: 'Assets.Read',
     pickerTypes: ['connection', 'site', 'group', 'parent'],
