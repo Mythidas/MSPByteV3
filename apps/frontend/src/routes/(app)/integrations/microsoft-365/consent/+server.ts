@@ -2,6 +2,7 @@ import { redirect } from '@sveltejs/kit';
 import { MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET } from '$env/static/private';
 import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
 import { Microsoft365RoleManager } from '@workspace/shared/lib/services/microsoft/RoleManager';
+import { TenantCapabilityService } from '@workspace/shared/lib/services/microsoft/TenantCapabilityService';
 import { REQUIRED_DIRECTORY_ROLES } from '@workspace/shared/config/microsoft';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { writeAuditLog, writeDiagnosticLog } from '@workspace/shared/lib/utils/audit';
@@ -83,6 +84,51 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   });
 
   if (state.gdapTenantId) {
+    // Activate the connection and populate meta with domains + capabilities
+    try {
+      const [domainResult, capsResult, existingResult] = await Promise.all([
+        connector.getTenantDomains(undefined, true),
+        new TenantCapabilityService(connector).probe(),
+        locals.orm.selectSingle('public', 'integration_connections', (q) =>
+          q
+            .eq('integration_id', 'microsoft-365')
+            .eq('tenant_id', state.mspbyteTenantId!)
+            .eq('external_id', state.gdapTenantId!)
+        ),
+      ]);
+
+      const domains = (domainResult.data?.domains ?? [])
+        .filter((d: any) => d.isVerified)
+        .map((d: any) => d.id as string)
+        .filter(Boolean);
+      const defaultDomain =
+        (domainResult.data?.domains ?? []).find((d: any) => d.isDefault)?.id ?? '';
+
+      const existing = existingResult.data;
+      const updatedMeta = {
+        ...((existing?.meta as any) ?? {}),
+        domains,
+        defaultDomain,
+        ...(capsResult.data
+          ? { capabilities: capsResult.data, capabilitiesCheckedAt: new Date().toISOString() }
+          : {}),
+      };
+
+      if (existing) {
+        await locals.orm.update('public', 'integration_connections', existing.id, {
+          status: 'active',
+          meta: updatedMeta,
+          updated_at: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      Logger.warn({
+        module: 'consent',
+        context: 'activateGDAPConnection',
+        message: `Failed to activate connection for ${state.gdapTenantId}: ${safeErrorMessage(err)}`,
+      });
+    }
+
     return redirect(
       302,
       `/integrations/microsoft-365?tab=connections&consentedTenant=${encodeURIComponent(state.gdapTenantId)}`

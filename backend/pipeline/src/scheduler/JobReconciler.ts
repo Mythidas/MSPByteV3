@@ -74,7 +74,7 @@ export class JobReconciler {
       for (const row of integrationRows) {
         const integrationId = row.id as IntegrationId;
         const config = INTEGRATIONS[integrationId];
-        if (!config) continue;
+        if (!config || integrationId !== 'microsoft-365') continue;
 
         const nonFanOutTypes = config.supportedTypes.filter((t) => !t.fanOut);
         if (nonFanOutTypes.length === 0) continue;
