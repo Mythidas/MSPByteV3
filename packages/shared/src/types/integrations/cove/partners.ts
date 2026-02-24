@@ -1,4 +1,4 @@
-import type { CoveDataResponse } from "$lib/types/integrations/cove";
+import type { CoveDataResponse } from "./index.js";
 
 // Core partner/customer entity (the items you usually care about)
 export interface CoveChildPartner {

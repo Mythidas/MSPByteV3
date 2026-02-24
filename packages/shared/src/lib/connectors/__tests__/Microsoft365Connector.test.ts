@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Microsoft365Connector } from './Microsoft365Connector.js';
+import { Microsoft365Connector } from '../Microsoft365Connector.js';
 
 const CONFIG = { tenantId: 'tenant-1', clientId: 'client-1', clientSecret: 'secret-1' };
 

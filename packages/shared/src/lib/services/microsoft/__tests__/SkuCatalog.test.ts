@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SkuCatalog } from './SkuCatalog.js';
+import { SkuCatalog } from '../SkuCatalog.js';
 
 const SAMPLE_CSV = `Product_Display_Name,String_Id,GUID
 "Microsoft 365 Business Basic",O365_BUSINESS_ESSENTIALS,3b555118-da6a-4418-894f-7df1e2096870

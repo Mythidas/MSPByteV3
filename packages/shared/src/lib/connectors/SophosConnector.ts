@@ -11,6 +11,7 @@ import {
   SophosPartnerFirewallLicense,
 } from "@workspace/shared/types/integrations/sophos/firewall";
 import { SophosPartnerLicense } from "@workspace/shared/types/integrations/sophos/licenses";
+import { ConnectorFilters, applyFilters } from "@workspace/shared/types/connector";
 
 export class SophosPartnerConnector {
   private token: string | null = null;
@@ -24,7 +25,9 @@ export class SophosPartnerConnector {
     return { data: !!token };
   }
 
-  async getTenants(): Promise<APIResponse<SophosPartnerTenant[]>> {
+  async getTenants(
+    filters?: ConnectorFilters<SophosPartnerTenant>,
+  ): Promise<APIResponse<SophosPartnerTenant[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -68,9 +71,12 @@ export class SophosPartnerConnector {
         page++;
       }
 
-      return {
-        data: tenants.sort((a, b) => a.name.localeCompare(b.name)),
-      };
+      // Default sort by name when no sort filter provided
+      if (!filters?.sort) {
+        tenants.sort((a, b) => a.name.localeCompare(b.name));
+      }
+
+      return { data: this.applyLocalFilters(tenants, filters) };
     } catch (err) {
       return Logger.error({
         module: "SophosPartnerConnector",
@@ -82,6 +88,7 @@ export class SophosPartnerConnector {
 
   async getEndpoints(
     config: SophosTenantConfig,
+    filters?: ConnectorFilters<SophosPartnerEndpoint>,
   ): Promise<APIResponse<SophosPartnerEndpoint[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
@@ -90,28 +97,36 @@ export class SophosPartnerConnector {
       const path = "/endpoint/v1/endpoints?pageSize=500&pageTotal=true";
       const url = config.apiHost + path;
 
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Tenant-ID": config.tenantId,
-        },
-      });
-
-      if (!response.ok) {
-        return Logger.error({
-          module: "SophosPartnerConnector",
-          context: "getEndpoints",
-          message: `HTTP ${response.status}: ${response.statusText}`,
+      const endpoints: SophosPartnerEndpoint[] = [];
+      let page = 1;
+      while (true) {
+        const response = await fetch(`${url}&page=${page}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Tenant-ID": config.tenantId,
+          },
         });
+
+        if (!response.ok) {
+          return Logger.error({
+            module: "SophosPartnerConnector",
+            context: "getEndpoints",
+            message: `HTTP ${response.status}: ${response.statusText}`,
+          });
+        }
+
+        const data: SophosPartnerAPIResponse<SophosPartnerEndpoint> =
+          (await response.json()) as SophosPartnerAPIResponse<SophosPartnerEndpoint>;
+        endpoints.push(...data.items);
+
+        if (data.pages.current >= data.pages.total) {
+          break;
+        }
+        page++;
       }
 
-      const data: SophosPartnerAPIResponse<SophosPartnerEndpoint> =
-        (await response.json()) as SophosPartnerAPIResponse<SophosPartnerEndpoint>;
-
-      return {
-        data: [...data.items],
-      };
+      return { data: this.applyLocalFilters(endpoints, filters) };
     } catch (err) {
       return Logger.error({
         module: "SophosPartnerConnector",
@@ -123,6 +138,7 @@ export class SophosPartnerConnector {
 
   async getFirewalls(
     config: SophosTenantConfig,
+    filters?: ConnectorFilters<SophosPartnerFirewall>,
   ): Promise<APIResponse<SophosPartnerFirewall[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
@@ -149,7 +165,7 @@ export class SophosPartnerConnector {
       };
 
       if (data.items && data.items.length) {
-        const response = await fetch(url + "/actions/firmware-upgrade-check", {
+        const fwResponse = await fetch(url + "/actions/firmware-upgrade-check", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -161,7 +177,7 @@ export class SophosPartnerConnector {
           }),
         });
 
-        const firmwares = (await response.json()) as any;
+        const firmwares = (await fwResponse.json()) as any;
         if (firmwares.firewalls && firmwares.firewalls.length) {
           for (const check of firmwares.firewalls) {
             const firewall = data.items.find(
@@ -177,13 +193,11 @@ export class SophosPartnerConnector {
         }
       }
 
-      return {
-        data: [...data.items],
-      };
+      return { data: this.applyLocalFilters([...data.items], filters) };
     } catch (err) {
       return Logger.error({
-        module: "SophosPartner",
-        context: "getEndpoints",
+        module: "SophosPartnerConnector",
+        context: "getFirewalls",
         message: String(err),
       });
     }
@@ -191,6 +205,7 @@ export class SophosPartnerConnector {
 
   async getFirewallLicenses(
     config?: SophosTenantConfig,
+    filters?: ConnectorFilters<SophosPartnerFirewallLicense>,
   ): Promise<APIResponse<SophosPartnerFirewallLicense[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
@@ -218,12 +233,18 @@ export class SophosPartnerConnector {
         headers: headers as any,
       });
 
+      if (!response.ok) {
+        return Logger.error({
+          module: "SophosPartnerConnector",
+          context: "getFirewallLicenses",
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
+
       const result =
         (await response.json()) as SophosPartnerAPIResponse<SophosPartnerFirewallLicense>;
 
-      return {
-        data: result.items,
-      };
+      return { data: this.applyLocalFilters(result.items, filters) };
     } catch (err) {
       return Logger.error({
         module: "SophosPartnerConnector",
@@ -250,11 +271,17 @@ export class SophosPartnerConnector {
         },
       });
 
+      if (!response.ok) {
+        return Logger.error({
+          module: "SophosPartnerConnector",
+          context: "getLicenses",
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
+
       const result = (await response.json()) as SophosPartnerLicense;
 
-      return {
-        data: result,
-      };
+      return { data: result };
     } catch (err) {
       return Logger.error({
         module: "SophosPartnerConnector",
@@ -301,7 +328,7 @@ export class SophosPartnerConnector {
     try {
       if (this.token) {
         const expired =
-          new Date().getTime() >= this.expiration.getTime() + 5000;
+          new Date().getTime() >= this.expiration.getTime() - 5000;
         if (!expired) return { data: this.token };
       }
 
@@ -338,6 +365,7 @@ export class SophosPartnerConnector {
         expires_in: number;
         access_token: string;
       };
+      this.token = data.access_token;
       this.expiration = new Date(new Date().getTime() + data.expires_in * 1000);
 
       return {
@@ -350,5 +378,21 @@ export class SophosPartnerConnector {
         message: String(err),
       });
     }
+  }
+
+  private applyLocalFilters<T>(items: T[], filters?: ConnectorFilters<T>): T[] {
+    let result = applyFilters(
+      items as unknown as Record<string, unknown>[],
+      filters as unknown as ConnectorFilters<Record<string, unknown>>,
+    ) as T[];
+    if (filters?.sort) {
+      const { field, direction } = filters.sort;
+      result = result.sort((a, b) => {
+        const cmp = String(a[field]).localeCompare(String(b[field]));
+        return direction === 'desc' ? -cmp : cmp;
+      });
+    }
+    if (filters?.limit) result = result.slice(0, filters.limit);
+    return result;
   }
 }

@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
+    "@types/node": "^22.0.0",
     "@workspace/ts-config": "workspace:*",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.7.3",

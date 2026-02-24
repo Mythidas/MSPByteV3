@@ -1,4 +1,4 @@
-import type { CoveDataResponse } from "$lib/types/integrations/cove";
+import type { CoveDataResponse } from "./index.js";
 
 export type CoveAccountStatistics = {
   AccountId: number;
