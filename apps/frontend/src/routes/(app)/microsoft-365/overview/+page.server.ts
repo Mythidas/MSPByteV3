@@ -1,6 +1,6 @@
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ locals, url }) => {
+async function getMetrics({ url, locals }: any) {
   const scope = url.searchParams.get('scope');
   const scopeId = url.searchParams.get('scopeId');
   const connectionId = scope === 'connection' && scopeId ? scopeId : null;
@@ -89,5 +89,11 @@ export const load: PageServerLoad = async ({ locals, url }) => {
       staleUsers: staleUsersCount.count ?? 0,
       licenseWaste: licenseWasteCount.count ?? 0,
     },
+  };
+}
+
+export const load: PageServerLoad = async ({ locals, url }) => {
+  return {
+    metrics: getMetrics({ locals, url }),
   };
 };

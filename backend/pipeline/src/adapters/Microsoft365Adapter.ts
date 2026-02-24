@@ -216,6 +216,7 @@ export class Microsoft365Adapter extends BaseAdapter {
         allEntities.push(
           ...entities.map((e) => ({
             ...e,
+            externalId: `org-config-${connectionId}`,
             connectionId,
             rawData: { ...e.rawData, _gdapTenantId: gdapTenantId },
           }))
@@ -575,7 +576,7 @@ export class Microsoft365Adapter extends BaseAdapter {
 
     return [
       {
-        externalId: 'org-config',
+        externalId: `org-config`,
         displayName: 'Exchange Organization Config',
         siteId,
         rawData: data,
