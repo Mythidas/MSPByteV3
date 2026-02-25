@@ -63,7 +63,7 @@
       ? 'bg-green-500/15 text-green-500 border-green-500/30'
       : 'bg-destructive/15 text-destructive border-destructive/30'}
   >
-    {value ? 'True' : 'False'}
+    {value ? 'Yes' : 'No'}
   </Badge>
 {/snippet}
 

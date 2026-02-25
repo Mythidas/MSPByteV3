@@ -4,7 +4,7 @@
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { formatStringProper } from '$lib/utils/format.js';
+  import { formatStringProper, formatRelativeDate } from '$lib/utils/format.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
@@ -53,6 +53,11 @@
       cell: scopeCell,
     },
     {
+      key: 'raw_data.modifiedDateTime',
+      title: 'Last Modified',
+      cell: lastModifiedCell,
+    },
+    {
       key: 'connection_name',
       title: 'Tenant',
       sortable: true,
@@ -85,7 +90,7 @@
 {/snippet}
 
 {#snippet controlsCell({ value }: { row: Entity; value: string[] })}
-  {#if Array.isArray(value)}
+  {#if Array.isArray(value) && value.length > 0}
     <div class="flex flex-wrap gap-1">
       {#each value as control}
         <Badge variant="outline" class="bg-primary/15 text-primary border-primary/30 text-xs">
@@ -93,6 +98,8 @@
         </Badge>
       {/each}
     </div>
+  {:else}
+    <span class="text-muted-foreground">—</span>
   {/if}
 {/snippet}
 
@@ -101,7 +108,13 @@
     <span class="text-sm">All Users</span>
   {:else if Array.isArray(value)}
     <span class="text-sm">{value.length} user(s)</span>
+  {:else}
+    <span class="text-muted-foreground">—</span>
   {/if}
+{/snippet}
+
+{#snippet lastModifiedCell({ value }: { row: Entity; value: string | null })}
+  {value ? formatRelativeDate(value) : '—'}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">

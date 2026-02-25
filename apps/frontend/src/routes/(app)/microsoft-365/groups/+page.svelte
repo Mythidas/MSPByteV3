@@ -32,6 +32,16 @@
       cell: groupTypeCell,
     },
     {
+      key: 'raw_data.mail',
+      title: 'Email',
+      cell: nullableTextCell,
+    },
+    {
+      key: 'raw_data.visibility',
+      title: 'Visibility',
+      cell: visibilityCell,
+    },
+    {
       key: 'raw_data.mailEnabled',
       title: 'Mail',
       cell: boolCell,
@@ -49,6 +59,7 @@
     {
       key: 'raw_data.description',
       title: 'Description',
+      cell: descriptionCell,
     },
     {
       key: 'connection_name',
@@ -81,6 +92,30 @@
   {/if}
 {/snippet}
 
+{#snippet nullableTextCell({ value }: { row: Entity; value: string | null })}
+  {#if value}
+    {value}
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
+
+{#snippet visibilityCell({ value }: { row: Entity; value: string | null })}
+  {#if value === 'Private'}
+    <Badge variant="outline" class="bg-muted/15 text-muted-foreground border-muted/30"
+      >Private</Badge
+    >
+  {:else if value === 'Public'}
+    <Badge variant="outline" class="bg-blue-500/15 text-blue-500 border-blue-500/30">Public</Badge>
+  {:else if value === 'HiddenMembership'}
+    <Badge variant="outline" class="bg-yellow-500/15 text-yellow-500 border-yellow-500/30"
+      >Hidden</Badge
+    >
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
+
 {#snippet boolCell({ value }: { row: Entity; value: boolean })}
   <Badge
     variant="outline"
@@ -90,6 +125,14 @@
   >
     {value ? 'Yes' : 'No'}
   </Badge>
+{/snippet}
+
+{#snippet descriptionCell({ value }: { row: Entity; value: string | null })}
+  {#if value}
+    {value}
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">

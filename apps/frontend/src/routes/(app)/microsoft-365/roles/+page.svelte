@@ -33,6 +33,7 @@
     {
       key: 'raw_data.description',
       title: 'Description',
+      cell: descriptionCell,
     },
     {
       key: 'connection_name',
@@ -52,6 +53,14 @@
     }
   }
 </script>
+
+{#snippet descriptionCell({ value }: { row: Entity; value: string | null })}
+  {#if value}
+    {value}
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
   <h1 class="h-fit text-2xl font-bold">Roles</h1>

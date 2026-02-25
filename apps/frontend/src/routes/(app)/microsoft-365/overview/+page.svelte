@@ -2,6 +2,7 @@
   import { page } from '$app/state';
   import { Users, UsersRound, BookKey, ShieldCheck, CreditCard, Mail } from '@lucide/svelte';
   import { formatStringProper } from '$lib/utils/format.js';
+  import { severityClass } from '$lib/components/alerts/_alert-config.js';
 
   const { data } = $props();
 
@@ -9,19 +10,12 @@
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
   let scopeQuery = $derived(scope && scopeId ? `?scope=${scope}&scopeId=${scopeId}` : '');
 
-  const severityConfig: Record<string, { label: string; class: string }> = {
-    critical: {
-      label: 'Critical',
-      class: 'bg-destructive/10 text-destructive border-destructive/30',
-    },
-    high: { label: 'High', class: 'bg-orange-500/10 text-orange-500 border-orange-500/30' },
-    medium: { label: 'Medium', class: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/30' },
-    low: { label: 'Low', class: 'bg-blue-500/10 text-blue-500 border-blue-500/30' },
+  const severityLabels: Record<string, string> = {
+    critical: 'Critical',
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
   };
-
-  function getSeverityClass(severity: string) {
-    return severityConfig[severity]?.class ?? 'bg-muted/10 text-muted-foreground border-muted/30';
-  }
 </script>
 
 <div class="flex flex-col gap-4 p-4 size-full overflow-auto">
@@ -136,11 +130,9 @@
         <div class="flex flex-wrap gap-2">
           {#each Object.entries(metrics.alertCounts) as [severity, count]}
             <span
-              class="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs font-medium {severityConfig[
-                severity
-              ]?.class}"
+              class="inline-flex items-center gap-1.5 rounded border px-2 py-1 text-xs font-medium {severityClass(severity)}"
             >
-              {severityConfig[severity]?.label ?? formatStringProper(severity)}
+              {severityLabels[severity] ?? formatStringProper(severity)}
               <span class="font-bold">{count}</span>
             </span>
           {/each}
@@ -177,9 +169,7 @@
                 {/if}
               </div>
               <span
-                class="inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs font-medium {getSeverityClass(
-                  alert.severity
-                )}"
+                class="inline-flex shrink-0 items-center rounded border px-2 py-0.5 text-xs font-medium {severityClass(alert.severity)}"
               >
                 {formatStringProper(alert.severity)}
               </span>

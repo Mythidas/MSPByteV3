@@ -5,6 +5,7 @@
   import { getSiteIdsForScope } from '$lib/utils/scope-filter';
   import { formatDate, formatRelativeDate, formatStringProper } from '$lib/utils/format.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
+  import { stateClass } from '$lib/utils/state.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
@@ -79,8 +80,10 @@
   }
 </script>
 
-{#snippet stateCell({ value }: { row: Entity; value: string })}
-  {formatStringProper(value)}
+{#snippet stateCell({ value }: { row: Entity; value: string | null })}
+  <Badge variant="outline" class={stateClass(value)}>
+    {value ? formatStringProper(value) : '—'}
+  </Badge>
 {/snippet}
 
 {#snippet tagsCell({ value }: { row: Entity; value: string })}

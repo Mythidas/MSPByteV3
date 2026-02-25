@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
+  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getSiteIdsForScope } from '$lib/utils/scope-filter';
-  import { formatDate, formatRelativeDate, formatStringProper } from '$lib/utils/format.js';
+  import { formatRelativeDate, formatStringProper } from '$lib/utils/format.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
+  import { stateClass } from '$lib/utils/state.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
@@ -31,7 +32,22 @@
         operators: ['ilike', 'eq'],
         placeholder: 'Search type...',
       },
-      cell: stateCell,
+      cell: typeCell,
+    },
+    {
+      key: 'raw_data.online',
+      title: 'Online',
+      cell: onlineCell,
+    },
+    {
+      key: 'raw_data.os.name',
+      title: 'OS',
+      cell: osCell,
+    },
+    {
+      key: 'raw_data.health.overall',
+      title: 'Health',
+      cell: healthCell,
     },
     {
       key: 'site_name',
@@ -80,18 +96,64 @@
   }
 </script>
 
-{#snippet stateCell({ value }: { row: Entity; value: string })}
-  {formatStringProper(value)}
+{#snippet typeCell({ value }: { row: Entity; value: string | null })}
+  {formatStringProper(value) || '—'}
 {/snippet}
 
-{#snippet tagsCell({ value }: { row: Entity; value: string })}
-  {#each value as tag}
-    <Badge variant="outline">{formatStringProper(tag)}</Badge>
-  {/each}
+{#snippet onlineCell({ value }: { row: Entity; value: boolean | null })}
+  {#if value === true}
+    <Badge variant="outline" class="bg-green-500/15 text-green-500 border-green-500/30"
+      >Online</Badge
+    >
+  {:else if value === false}
+    <Badge variant="outline" class="bg-muted/15 text-muted-foreground border-muted/30"
+      >Offline</Badge
+    >
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
 {/snippet}
 
-{#snippet lastSeenCell({ value }: { row: Entity; value: number })}
-  {formatRelativeDate(new Date(value).toISOString())}
+{#snippet osCell({ value }: { row: Entity; value: string | null })}
+  {#if value}
+    {value}
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
+
+{#snippet healthCell({ value }: { row: Entity; value: string | null })}
+  {#if value === 'good'}
+    <Badge variant="outline" class="bg-green-500/15 text-green-500 border-green-500/30">Good</Badge>
+  {:else if value === 'suspicious' || value === 'bad'}
+    <Badge variant="outline" class="bg-destructive/15 text-destructive border-destructive/30">
+      {formatStringProper(value)}
+    </Badge>
+  {:else if value}
+    <Badge variant="outline">{formatStringProper(value)}</Badge>
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
+
+{#snippet stateCell({ value }: { row: Entity; value: string | null })}
+  <Badge variant="outline" class={stateClass(value)}>
+    {value ? formatStringProper(value) : '—'}
+  </Badge>
+{/snippet}
+
+{#snippet tagsCell({ value }: { row: Entity; value: string[] | null })}
+  {#if value?.length}
+    {#each value as tag}
+      <Badge variant="outline">{formatStringProper(tag)}</Badge>
+    {/each}
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
+
+{#snippet lastSeenCell({ value }: { row: Entity; value: string | null })}
+  {value ? formatRelativeDate(value) : '—'}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
