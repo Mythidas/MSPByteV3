@@ -37,7 +37,7 @@ export class Microsoft365Analyzer extends BaseAnalyzer {
       if (now - lastSignInDate.getTime() > NINETY_DAYS_MS) {
         result.alerts.push(
           this.createAlert(
-            identity.id,
+            identity,
             'stale-user',
             'medium',
             `User "${identity.display_name}" has not signed in for ${daysSince} days`,
@@ -62,7 +62,7 @@ export class Microsoft365Analyzer extends BaseAnalyzer {
       if (!accountEnabled && assignedLicenses.length > 0) {
         result.alerts.push(
           this.createAlert(
-            identity.id,
+            identity,
             'license-waste',
             'high',
             `Disabled user "${identity.display_name}" has ${assignedLicenses.length} license(s) assigned`,
@@ -100,7 +100,7 @@ export class Microsoft365Analyzer extends BaseAnalyzer {
       for (const identity of identities) {
         result.alerts.push(
           this.createAlert(
-            identity.id,
+            identity,
             'mfa-not-enforced',
             'critical',
             `No MFA policy targets user "${identity.display_name}"`,
@@ -136,7 +136,7 @@ export class Microsoft365Analyzer extends BaseAnalyzer {
       if (!coveredUserIds.has(identity.external_id)) {
         result.alerts.push(
           this.createAlert(
-            identity.id,
+            identity,
             'mfa-partial-enforced',
             'high',
             `User "${identity.display_name}" is not targeted by any MFA Conditional Access policy`,
@@ -160,7 +160,7 @@ export class Microsoft365Analyzer extends BaseAnalyzer {
       if (rejectDirectSend === false) {
         result.alerts.push(
           this.createAlert(
-            exchangeConfig.id,
+            exchangeConfig,
             'policy-gap',
             'high',
             'Exchange Online DirectSend is open — unauthenticated external mail is accepted',

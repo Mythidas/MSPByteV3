@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    type RowAction,
+    type TableView,
+  } from '$lib/components/data-table';
   import { supabase } from '$lib/supabase.js';
   import { ORM } from '@workspace/shared/lib/utils/orm.js';
   import type { Tables } from '@workspace/shared/types/database';
@@ -167,6 +172,7 @@
       {columns}
       {rowActions}
       {modifyQuery}
+      defaultSort={{ field: 'site_name', dir: 'asc' }}
       enableRowSelection={canWrite}
       enableGlobalSearch={true}
       enableFilters={true}

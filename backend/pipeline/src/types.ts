@@ -13,6 +13,7 @@ export interface Entity {
   tenant_id: string;
   integration_id: string;
   site_id: string | null;
+  connection_id: string | null;
   entity_type: string;
   external_id: string;
   display_name: string | null;

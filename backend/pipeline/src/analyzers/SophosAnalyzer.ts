@@ -37,7 +37,7 @@ export class SophosAnalyzer extends BaseAnalyzer {
       if (now - lastSeenDate.getTime() > THIRTY_DAYS_MS && !online) {
         result.alerts.push(
           this.createAlert(
-            endpoint.id,
+            endpoint,
             'device-offline',
             'medium',
             `Device "${endpoint.display_name}" has been offline for ${daysSince} days`
@@ -61,7 +61,7 @@ export class SophosAnalyzer extends BaseAnalyzer {
       if (!tamperProtectionEnabled) {
         result.alerts.push(
           this.createAlert(
-            endpoint.id,
+            endpoint,
             'tamper-disabled',
             'high',
             `Device "${endpoint.display_name}" has Tamper Protection Disabled`
@@ -85,7 +85,7 @@ export class SophosAnalyzer extends BaseAnalyzer {
       if (children.length === 0) {
         result.alerts.push(
           this.createAlert(
-            site.id,
+            site,
             'site-empty',
             'low',
             `Site "${site.display_name}" has no devices`

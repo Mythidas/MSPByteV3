@@ -4,6 +4,7 @@ async function getMetrics({ url, locals }: any) {
   const scope = url.searchParams.get('scope');
   const scopeId = url.searchParams.get('scopeId');
   const connectionId = scope === 'connection' && scopeId ? scopeId : null;
+  const siteId = scope === 'site' && scopeId ? scopeId : null;
 
   const baseEntityQuery = () => {
     let q = locals.supabase
@@ -11,6 +12,7 @@ async function getMetrics({ url, locals }: any) {
       .select('*', { count: 'exact', head: true })
       .eq('integration_id', 'microsoft-365');
     if (connectionId) q = q.eq('connection_id', connectionId);
+    if (siteId) q = q.eq('site_id', siteId);
     return q;
   };
 
@@ -21,6 +23,7 @@ async function getMetrics({ url, locals }: any) {
       .eq('integration_id', 'microsoft-365')
       .eq('status', 'active');
     if (connectionId) q = q.eq('connection_id', connectionId);
+    if (siteId) q = q.eq('site_id', siteId);
     return q;
   };
 
@@ -33,6 +36,7 @@ async function getMetrics({ url, locals }: any) {
       .order('severity', { ascending: true })
       .limit(5);
     if (connectionId) q = q.eq('connection_id', connectionId);
+    if (siteId) q = q.eq('site_id', siteId);
     return q;
   };
 

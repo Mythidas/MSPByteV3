@@ -13,7 +13,7 @@
   import ShieldOffIcon from '@lucide/svelte/icons/shield-off';
   import ShieldIcon from '@lucide/svelte/icons/shield';
 
-  type EntityAlert = Tables<'public', 'alerts'>;
+  type EntityAlert = Tables<'views', 'd_alerts_view'>;
 
   let {
     alert,
@@ -31,7 +31,7 @@
 
   let suppressing = $state(false);
 
-  let guidance = $derived(alert ? ALERT_TYPE_GUIDANCE[alert.alert_type] : null);
+  let guidance = $derived(alert ? ALERT_TYPE_GUIDANCE[alert.alert_type!] : null);
 
   let metadataEntries = $derived.by(() => {
     if (!alert?.metadata || typeof alert.metadata !== 'object' || Array.isArray(alert.metadata)) {
@@ -45,7 +45,7 @@
     if (!alert) return;
     suppressing = true;
     const orm = new ORM(supabase);
-    const { error } = await orm.update('public', 'alerts', alert.id, {
+    const { error } = await orm.update('public', 'alerts', alert.id!, {
       status: 'suppressed',
       suppressed_at: new Date().toISOString(),
       suppressed_by: userId,
@@ -65,7 +65,7 @@
     if (!alert) return;
     suppressing = true;
     const orm = new ORM(supabase);
-    const { error } = await orm.update('public', 'alerts', alert.id, {
+    const { error } = await orm.update('public', 'alerts', alert.id!, {
       status: 'active',
       suppressed_at: null,
       suppressed_by: null,
@@ -95,10 +95,10 @@
         <Sheet.Title>{formatStringProper(alert.alert_type)}</Sheet.Title>
         <Sheet.Description>{alert.message}</Sheet.Description>
         <div class="flex gap-2">
-          <Badge variant="outline" class={severityClass(alert.severity)}>
+          <Badge variant="outline" class={severityClass(alert.severity!)}>
             {formatStringProper(alert.severity)}
           </Badge>
-          <Badge variant="outline" class={alertStatusClass(alert.status)}>
+          <Badge variant="outline" class={alertStatusClass(alert.status!)}>
             {formatStringProper(alert.status)}
           </Badge>
         </div>
@@ -110,11 +110,11 @@
         <div class="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p class="text-muted-foreground">Created</p>
-            <p>{formatDate(alert.created_at)}</p>
+            <p>{formatDate(alert.created_at!)}</p>
           </div>
           <div>
             <p class="text-muted-foreground">Last Seen</p>
-            <p>{formatDate(alert.last_seen_at)}</p>
+            <p>{formatDate(alert.last_seen_at!)}</p>
           </div>
           {#if alert.resolved_at}
             <div>
@@ -169,7 +169,12 @@
         </Sheet.Footer>
       {:else if canSuppress && alert.status === 'suppressed'}
         <Sheet.Footer>
-          <Button variant="outline" class="w-full" onclick={handleUnsuppress} disabled={suppressing}>
+          <Button
+            variant="outline"
+            class="w-full"
+            onclick={handleUnsuppress}
+            disabled={suppressing}
+          >
             <ShieldIcon class="size-4 mr-2" />
             {suppressing ? 'Unsuppressing...' : 'Unsuppress Alert'}
           </Button>

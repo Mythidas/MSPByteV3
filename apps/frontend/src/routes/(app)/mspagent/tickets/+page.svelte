@@ -97,6 +97,7 @@
       table="d_agent_tickets_view"
       {columns}
       {modifyQuery}
+      defaultSort={{ field: 'created_at', dir: 'desc' }}
       enableGlobalSearch={true}
       enableFilters={true}
       enablePagination={true}

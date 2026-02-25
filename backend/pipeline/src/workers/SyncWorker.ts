@@ -47,9 +47,7 @@ export class SyncWorker {
     );
     const concurrency = typeConfig?.concurrency ?? 5;
 
-    queueManager.createWorker<SyncJobData>(queueName, this.handleJob.bind(this), {
-      concurrency,
-    });
+    queueManager.createWorker<SyncJobData>(queueName, this.handleJob.bind(this), { concurrency });
 
     this.started = true;
     Logger.info({

@@ -1154,6 +1154,48 @@ export type Database = {
         }
         Relationships: []
       }
+      d_alerts_view: {
+        Row: {
+          alert_type: string | null
+          connection_id: string | null
+          connection_name: string | null
+          created_at: string | null
+          entity_id: string | null
+          entity_name: string | null
+          fingerprint: string | null
+          id: string | null
+          integration_id: string | null
+          last_seen_at: string | null
+          message: string | null
+          metadata: Json | null
+          resolved_at: string | null
+          severity: string | null
+          site_id: string | null
+          site_name: string | null
+          status: string | null
+          suppressed_at: string | null
+          suppressed_by: string | null
+          sync_id: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_alerts_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "d_entities_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entity_alerts_suppressed_by_fkey"
+            columns: ["suppressed_by"]
+            isOneToOne: false
+            referencedRelation: "d_users_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       d_entities_view: {
         Row: {
           connection_id: string | null

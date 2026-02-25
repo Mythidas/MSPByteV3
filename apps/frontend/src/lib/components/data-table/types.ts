@@ -43,6 +43,7 @@ export interface TableView {
   description?: string;
   icon?: Component;
   filters: Omit<TableFilter, 'id'>[];
+  sort?: { field: string; dir: 'asc' | 'desc' };
   isDefault?: boolean;
 }
 
@@ -75,6 +76,7 @@ export interface DataTableProps<S extends Schemas, T extends TableOrView<S>> {
   globalSearchFields?: string[];
   filterMap?: Record<string, string>;
   defaultPageSize?: number;
+  defaultSort?: { field: string; dir: 'asc' | 'desc' };
 
   // Events
   onrowclick?: (row: Tables<S, T>) => void;

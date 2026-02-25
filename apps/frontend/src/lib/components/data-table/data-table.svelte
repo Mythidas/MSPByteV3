@@ -41,6 +41,7 @@
     globalSearchFields,
     filterMap,
     defaultPageSize = 25,
+    defaultSort,
     onrowclick,
     onselectionchange,
   }: DataTableProps<S, T> = $props();
@@ -49,24 +50,33 @@
   function getInitialState() {
     if (enableURLState && typeof window !== 'undefined') {
       const url = new URL(window.location.href);
+      const rawViewId = url.searchParams.get('view') || undefined;
+      const isExplicitNone = rawViewId === '_none';
+      const urlViewId = isExplicitNone ? undefined : rawViewId;
+      const defaultView = !isExplicitNone ? views.find((v) => v.isDefault) : undefined;
+      const resolvedViewId = urlViewId ?? defaultView?.id;
+      const viewFromUrl = views.find((v) => v.id === resolvedViewId);
+      const urlSortField = url.searchParams.get('sortField') || undefined;
+      const urlSortDir = (url.searchParams.get('sortDir') as 'asc' | 'desc') || undefined;
       return {
         page: parseInt(url.searchParams.get('page') || '0'),
         pageSize: parseInt(url.searchParams.get('size') || String(defaultPageSize)),
         globalSearch: url.searchParams.get('search') || '',
         filters: deserializeFilters(url.searchParams.get('filters') || ''),
-        activeViewId: url.searchParams.get('view') || undefined,
-        sortField: url.searchParams.get('sortField') || undefined,
-        sortDir: (url.searchParams.get('sortDir') as 'asc' | 'desc') || undefined,
+        activeViewId: resolvedViewId,
+        sortField: urlSortField ?? viewFromUrl?.sort?.field ?? defaultSort?.field,
+        sortDir: urlSortDir ?? viewFromUrl?.sort?.dir ?? defaultSort?.dir,
       };
     }
+    const defaultView = views.find((v) => v.isDefault);
     return {
       page: 0,
       pageSize: defaultPageSize,
       globalSearch: '',
       filters: [] as TableFilter[],
-      activeViewId: views.find((v) => v.isDefault)?.id,
-      sortField: undefined as string | undefined,
-      sortDir: undefined as 'asc' | 'desc' | undefined,
+      activeViewId: defaultView?.id,
+      sortField: defaultView?.sort?.field ?? defaultSort?.field,
+      sortDir: defaultView?.sort?.dir ?? defaultSort?.dir,
     };
   }
 
@@ -200,6 +210,8 @@
 
     if (activeViewId) {
       url.searchParams.set('view', activeViewId);
+    } else if (views.some((v) => v.isDefault)) {
+      url.searchParams.set('view', '_none');
     } else {
       url.searchParams.delete('view');
     }
@@ -276,6 +288,8 @@
     activeViewId = view?.id;
     currentPage = 0;
     allSelected = false;
+    sortField = view?.sort?.field ?? defaultSort?.field;
+    sortDir = view?.sort?.dir ?? defaultSort?.dir;
   }
 
   function handleSort(columnKey: string) {
@@ -502,16 +516,21 @@
             variant="ghost"
             size="sm"
             class="text-sm ml-2"
-            onclick={() => { allSelected = false; selectedRowIds = new Set(); }}
-          >Clear selection</Button>
+            onclick={() => {
+              allSelected = false;
+              selectedRowIds = new Set();
+            }}>Clear selection</Button
+          >
         {:else if allRowsSelected && total > data.length}
           <span class="text-muted-foreground mr-2"> of {total} total</span>
           <Button
             variant="ghost"
             size="sm"
             class="text-sm"
-            onclick={() => { allSelected = true; }}
-          >Select All {total} rows</Button>
+            onclick={() => {
+              allSelected = true;
+            }}>Select All {total} rows</Button
+          >
         {/if}
       </span>
       <div class="flex gap-2">

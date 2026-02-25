@@ -36,7 +36,7 @@ export class DattoRMMAnalyzer extends BaseAnalyzer {
       if (now - lastSeenDate.getTime() > THIRTY_DAYS_MS && !online) {
         result.alerts.push(
           this.createAlert(
-            endpoint.id,
+            endpoint,
             'device-offline',
             'medium',
             `Device "${endpoint.display_name}" has been offline for ${daysSince} days`
@@ -60,7 +60,7 @@ export class DattoRMMAnalyzer extends BaseAnalyzer {
       if (children.length === 0) {
         result.alerts.push(
           this.createAlert(
-            site.id,
+            site,
             'site-empty',
             'low',
             `Site "${site.display_name}" has no devices`

@@ -1,5 +1,5 @@
 import { AlertType, AlertSeverity } from '@workspace/shared/config/integrations/alerts.js';
-import type { AnalysisContext, AnalyzerResult, Alert, EntityState } from '../types.js';
+import type { AnalysisContext, AnalyzerResult, Alert, EntityState, Entity } from '../types.js';
 
 export abstract class BaseAnalyzer {
   abstract getName(): string;
@@ -14,18 +14,20 @@ export abstract class BaseAnalyzer {
   }
 
   protected createAlert(
-    entityId: string,
+    entity: Entity,
     alertType: AlertType,
     severity: AlertSeverity,
     message: string,
     metadata?: Record<string, any>
   ): Alert {
     return {
-      entityId,
+      entityId: entity.id,
+      siteId: entity.site_id ?? undefined,
+      connectionId: entity.connection_id ?? undefined,
       alertType,
       severity,
       message,
-      fingerprint: `${alertType}:${entityId}`,
+      fingerprint: `${alertType}:${entity.id}`,
       metadata,
     };
   }

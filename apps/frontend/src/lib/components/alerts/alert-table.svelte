@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import { DataTable, type DataTableColumn, type TableView } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import type { Json } from '@workspace/shared/types/schema';
   import { page } from '$app/state';
@@ -10,7 +10,7 @@
   import { severityClass, alertStatusClass } from './_alert-config.js';
   import AlertDetailSheet from './_alert-detail-sheet.svelte';
 
-  type EntityAlert = Tables<'public', 'alerts'>;
+  type EntityAlert = Tables<'views', 'd_alerts_view'>;
 
   let {
     integrationId,
@@ -83,9 +83,21 @@
         ],
       },
     },
+    { key: 'site_name', title: 'Site', sortable: true, searchable: true },
+    { key: 'connection_name', title: 'Tenant', sortable: true, searchable: true },
     { key: 'message', title: 'Message', sortable: false, searchable: true },
     { key: 'last_seen_at', title: 'Last Seen', sortable: true, cell: relativeCell },
     { key: 'created_at', title: 'Created', sortable: true, cell: dateCell },
+  ];
+
+  let views: TableView[] = [
+    {
+      id: 'active',
+      label: 'Active',
+      isDefault: true,
+      filters: [{ field: 'status', operator: 'eq', value: 'active' }],
+      sort: { field: 'severity', dir: 'asc' },
+    },
   ];
 
   function modifyQuery(q: any) {
@@ -135,10 +147,11 @@
 
 {#key `${scope}-${scopeId}-${refreshKey}`}
   <DataTable
-    schema="public"
-    table="alerts"
+    schema="views"
+    table="d_alerts_view"
     {columns}
     {modifyQuery}
+    {views}
     enableGlobalSearch={true}
     enableFilters={true}
     enablePagination={true}
