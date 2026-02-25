@@ -51,7 +51,7 @@
   });
 
   let filteredOptions = $derived(
-    options.filter((o) => o.name.toLowerCase().includes(search.toLowerCase())),
+    options.filter((o) => o.name.toLowerCase().includes(search.toLowerCase()))
   );
 
   let selectedLabel = $derived(options.find((o) => o.id === scopeId)?.name ?? null);
@@ -124,7 +124,7 @@
   }
 </script>
 
-<div class="flex items-center gap-1">
+<div class="flex items-center gap-0">
   <Select.Root
     type="single"
     value={scopeType}
@@ -132,13 +132,28 @@
       if (v) changeScope(v);
     }}
   >
-    <Select.Trigger size="sm" class="w-25">
+    <Select.Trigger size="sm" class="w-22 rounded-r-none border-r-0">
       {scopeTypeLabel}
     </Select.Trigger>
     <Select.Content>
       {#each pickerTypes as pt}
-        <Select.Item value={pt} label={pt === 'site' ? 'Site' : pt === 'group' ? 'Group' : pt === 'parent' ? 'Parent' : 'Tenant'}>
-          {pt === 'site' ? 'Site' : pt === 'group' ? 'Group' : pt === 'parent' ? 'Parent' : 'Tenant'}
+        <Select.Item
+          value={pt}
+          label={pt === 'site'
+            ? 'Site'
+            : pt === 'group'
+              ? 'Group'
+              : pt === 'parent'
+                ? 'Parent'
+                : 'Tenant'}
+        >
+          {pt === 'site'
+            ? 'Site'
+            : pt === 'group'
+              ? 'Group'
+              : pt === 'parent'
+                ? 'Parent'
+                : 'Tenant'}
         </Select.Item>
       {/each}
     </Select.Content>
@@ -153,7 +168,7 @@
           size="sm"
           role="combobox"
           aria-expanded={open}
-          class="w-45 justify-between"
+          class="w-56 justify-between rounded-l-none"
         >
           {#if scopeType === 'connection'}
             <Network class="size-3.5 shrink-0 opacity-50" />
@@ -173,10 +188,7 @@
           {#each filteredOptions as option (option.id)}
             <Command.Item value={option.id} onSelect={() => selectItem(option.id)}>
               <Check
-                class={cn(
-                  'size-4 shrink-0',
-                  scopeId === option.id ? 'opacity-100' : 'opacity-0',
-                )}
+                class={cn('size-4 shrink-0', scopeId === option.id ? 'opacity-100' : 'opacity-0')}
               />
               <span>{option.name}</span>
             </Command.Item>

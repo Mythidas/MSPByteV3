@@ -41,6 +41,7 @@ export const MODULES: ModuleConfig[] = [
     icon: Server,
     basePath: '/mspagent',
     permission: 'Assets.Read',
+    pickerTypes: ['site'],
     navLinks: [
       { href: '/mspagent/agents', label: 'Agents', permission: null },
       { href: '/mspagent/tickets', label: 'Tickets', permission: null },
@@ -53,6 +54,7 @@ export const MODULES: ModuleConfig[] = [
     icon: Monitor,
     basePath: '/dattormm',
     permission: 'Assets.Read',
+    pickerTypes: ['site'],
     navLinks: [
       { href: '/dattormm/alerts', label: 'Alerts', permission: null },
       { href: '/dattormm/endpoints', label: 'Endpoints', permission: null },
@@ -65,6 +67,7 @@ export const MODULES: ModuleConfig[] = [
     icon: Shield,
     basePath: '/sophos-partner',
     permission: 'Assets.Read',
+    pickerTypes: ['site'],
     navLinks: [
       { href: '/sophos-partner/alerts', label: 'Alerts', permission: null },
       { href: '/sophos-partner/endpoints', label: 'Endpoints', permission: null },
@@ -77,7 +80,7 @@ export const MODULES: ModuleConfig[] = [
     icon: LayoutGrid,
     basePath: '/microsoft-365',
     permission: 'Assets.Read',
-    pickerTypes: ['connection', 'site', 'group', 'parent'],
+    pickerTypes: ['site', 'connection'],
     navLinks: [
       { href: '/microsoft-365/overview', label: 'Overview', permission: null },
       { href: '/microsoft-365/alerts', label: 'Alerts', permission: null },

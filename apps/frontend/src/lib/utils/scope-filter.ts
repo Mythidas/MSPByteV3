@@ -12,7 +12,7 @@ export function getSiteIdsForScope(
   scope: string | null,
   scopeId: string | null,
   sites: SiteRef[],
-  siteToGroup: SiteToGroupRef[],
+  siteToGroup: SiteToGroupRef[]
 ): string[] | null {
   if (!scope || !scopeId) return null;
 
@@ -35,7 +35,7 @@ export function getSiteIdsForScope(
  */
 export function getConnectionIdForScope(
   scope: string | null,
-  scopeId: string | null,
+  scopeId: string | null
 ): string | null {
   if (scope === 'connection' && scopeId) return scopeId;
   return null;

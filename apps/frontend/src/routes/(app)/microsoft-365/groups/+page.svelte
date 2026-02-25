@@ -2,7 +2,7 @@
   import { DataTable, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
-  import { getConnectionIdForScope } from '$lib/utils/scope-filter';
+  import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
 
   type Entity = Tables<'views', 'd_entities_view'>;
@@ -12,6 +12,7 @@
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
   let filterConnectionId = $derived(getConnectionIdForScope(scope, scopeId));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
 
   const columns: DataTableColumn<Entity>[] = [
     {
@@ -61,14 +62,22 @@
     if (filterConnectionId) {
       q.eq('connection_id', filterConnectionId);
     }
+    if (filterSiteIds) {
+      if (filterSiteIds.length === 1) q.eq('site_id', filterSiteIds[0]);
+      else if (filterSiteIds.length > 1) q.in('site_id', filterSiteIds);
+    }
   }
 </script>
 
 {#snippet groupTypeCell({ value }: { row: Entity; value: string[] })}
   {#if Array.isArray(value) && value.includes('Unified')}
-    <Badge variant="outline" class="bg-blue-500/15 text-blue-500 border-blue-500/30">Microsoft 365</Badge>
+    <Badge variant="outline" class="bg-blue-500/15 text-blue-500 border-blue-500/30"
+      >Microsoft 365</Badge
+    >
   {:else}
-    <Badge variant="outline" class="bg-muted/15 text-muted-foreground border-muted/30">Security</Badge>
+    <Badge variant="outline" class="bg-muted/15 text-muted-foreground border-muted/30"
+      >Security</Badge
+    >
   {/if}
 {/snippet}
 
