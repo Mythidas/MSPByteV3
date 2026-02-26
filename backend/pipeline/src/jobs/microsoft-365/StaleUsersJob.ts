@@ -37,7 +37,7 @@ export class StaleUsersJob extends BaseJob {
       const lastSignIn = identity.raw_data?.signInActivity?.lastSignInDateTime;
       const enabled: boolean = identity.raw_data?.accountEnabled ?? false;
 
-      if (!lastSignIn || enabled) continue;
+      if (!lastSignIn || !enabled) continue;
 
       const lastSignInDate = new Date(lastSignIn);
       if (isNaN(lastSignInDate.getTime())) continue;
