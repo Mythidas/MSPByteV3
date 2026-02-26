@@ -76,7 +76,7 @@ export type FilterPrimitiveTuple = [FilterPrimitive, FilterPrimitive];
 export type FilterValue =
   | { op: Exclude<FilterOperations, "bt">; value: FilterPrimitive | undefined }
   | { op: "bt"; value: FilterPrimitiveTuple };
-export type Filters = Record<string, FilterValue>;
+export type Filters = Record<string, FilterValue | FilterValue[]>;
 
 export type DataResponse<T> = {
   rows: T[];

@@ -137,7 +137,15 @@
   function convertFilters(tableFilters: TableFilter[]): Filters {
     const result: Filters = {};
     for (const f of tableFilters) {
-      result[f.field] = { op: f.operator as any, value: f.value };
+      const filterVal: FilterValue = { op: f.operator as any, value: f.value };
+      const existing = result[f.field];
+      if (existing === undefined) {
+        result[f.field] = filterVal;
+      } else if (Array.isArray(existing)) {
+        result[f.field] = [...existing, filterVal];
+      } else {
+        result[f.field] = [existing, filterVal];
+      }
     }
     return result;
   }

@@ -142,6 +142,7 @@
     table="d_sites_view"
     {columns}
     {rowActions}
+    defaultSort={{ field: 'name', dir: 'asc' }}
     enableRowSelection={canWrite}
     enableGlobalSearch={true}
     enableFilters={true}
