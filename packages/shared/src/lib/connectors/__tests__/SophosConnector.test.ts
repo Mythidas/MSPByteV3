@@ -2,12 +2,18 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { SophosPartnerConnector } from '../SophosConnector.js';
 
 const CONFIG = { clientId: 'client-1', clientSecret: 'secret-1' };
-const TENANT_CONFIG = { apiHost: 'https://api.tenant.sophos.com', tenantName: 'Acme', tenantId: 'tenant-1' };
+const TENANT_CONFIG = {
+  apiHost: 'https://api.tenant.sophos.com',
+  tenantName: 'Acme',
+  tenantId: 'tenant-1',
+};
 
 const TOKEN_RESPONSE = { ok: true, body: { access_token: 'tok-1', expires_in: 3600 } };
 const WHOAMI_RESPONSE = { ok: true, body: { id: 'partner-1' } };
 
-function mockFetch(responses: Array<{ ok: boolean; status?: number; statusText?: string; body: unknown }>) {
+function mockFetch(
+  responses: Array<{ ok: boolean; status?: number; statusText?: string; body: unknown }>
+) {
   let call = 0;
   return vi.fn().mockImplementation(() => {
     const r = responses[call++] ?? responses[responses.length - 1];
@@ -28,7 +34,12 @@ function makeTenant(name: string, id = name): object {
     showAs: name,
     status: 'active',
     apiHost: 'https://api.sophos.com',
-    contact: { email: '', address: { city: '', state: '', address1: '', postalCode: '', countryCode: '' }, lastName: '', firstName: '' },
+    contact: {
+      email: '',
+      address: { city: '', state: '', address1: '', postalCode: '', countryCode: '' },
+      lastName: '',
+      firstName: '',
+    },
     partner: { id: 'partner-1' },
     products: [],
     dataRegion: 'EU',
@@ -41,9 +52,20 @@ function makeTenant(name: string, id = name): object {
 function makeEndpoint(id: string, hostname: string): object {
   return {
     id,
-    os: { name: 'Windows', build: 1, isServer: false, platform: 'windows', majorVersion: 10, minorVersion: 0 },
+    os: {
+      name: 'Windows',
+      build: 1,
+      isServer: false,
+      platform: 'windows',
+      majorVersion: 10,
+      minorVersion: 0,
+    },
     type: 'computer',
-    health: { overall: 'good', threats: { status: 'good' }, services: { status: 'good', serviceDetails: [] } },
+    health: {
+      overall: 'good',
+      threats: { status: 'good' },
+      services: { status: 'good', serviceDetails: [] },
+    },
     online: true,
     tenant: { id: 'tenant-1' },
     modules: [],
@@ -65,7 +87,12 @@ function makeFirewall(id: string, name: string): object {
     name,
     hostname: name,
     serialNumber: `SN-${id}`,
-    cluster: { id: '', mode: 'activePassive', status: 'primary', peers: { id: '', serialNumber: '' } },
+    cluster: {
+      id: '',
+      mode: 'activePassive',
+      status: 'primary',
+      peers: { id: '', serialNumber: '' },
+    },
     tenant: { id: 'tenant-1' },
     group: { id: 'g1', name: 'Default' },
     firmwareVersion: '19.5.0',
@@ -111,9 +138,7 @@ describe('SophosPartnerConnector', () => {
       const connector = new SophosPartnerConnector(CONFIG);
       await connector.checkHealth();
       await connector.checkHealth();
-      const tokenCalls = fetch.mock.calls.filter(([url]) =>
-        (url as string).includes('oauth2')
-      );
+      const tokenCalls = fetch.mock.calls.filter(([url]) => (url as string).includes('oauth2'));
       expect(tokenCalls).toHaveLength(1);
     });
 
@@ -127,8 +152,14 @@ describe('SophosPartnerConnector', () => {
 
   describe('getTenants', () => {
     it('returns tenants sorted by name', async () => {
-      const page1 = { items: [makeTenant('Zebra'), makeTenant('Alpha')], pages: { total: 1, current: 1 } };
-      vi.stubGlobal('fetch', mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: true, body: page1 }]));
+      const page1 = {
+        items: [makeTenant('Zebra'), makeTenant('Alpha')],
+        pages: { total: 1, current: 1 },
+      };
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: true, body: page1 }])
+      );
       const { data } = await new SophosPartnerConnector(CONFIG).getTenants();
       expect(data).toHaveLength(2);
       expect(data![0].name).toBe('Alpha');
@@ -138,12 +169,15 @@ describe('SophosPartnerConnector', () => {
     it('paginates through 2 pages', async () => {
       const page1 = { items: [makeTenant('Alpha')], pages: { total: 2, current: 1 } };
       const page2 = { items: [makeTenant('Beta')], pages: { total: 2, current: 2 } };
-      vi.stubGlobal('fetch', mockFetch([
-        TOKEN_RESPONSE,
-        WHOAMI_RESPONSE,
-        { ok: true, body: page1 },
-        { ok: true, body: page2 },
-      ]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          TOKEN_RESPONSE,
+          WHOAMI_RESPONSE,
+          { ok: true, body: page1 },
+          { ok: true, body: page2 },
+        ])
+      );
       const { data } = await new SophosPartnerConnector(CONFIG).getTenants();
       expect(data).toHaveLength(2);
     });
@@ -153,7 +187,10 @@ describe('SophosPartnerConnector', () => {
         items: [makeTenant('Alpha'), makeTenant('Beta'), makeTenant('Gamma')],
         pages: { total: 1, current: 1 },
       };
-      vi.stubGlobal('fetch', mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: true, body: page1 }]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: true, body: page1 }])
+      );
       const { data } = await new SophosPartnerConnector(CONFIG).getTenants({
         where: [{ field: 'name', op: 'eq', value: 'Beta' }],
       });
@@ -161,23 +198,28 @@ describe('SophosPartnerConnector', () => {
       expect(data![0].name).toBe('Beta');
     });
 
-    it('applies sort and limit', async () => {
+    it('applies sort', async () => {
       const page1 = {
         items: [makeTenant('Charlie'), makeTenant('Alpha'), makeTenant('Beta')],
         pages: { total: 1, current: 1 },
       };
-      vi.stubGlobal('fetch', mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: true, body: page1 }]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: true, body: page1 }])
+      );
       const { data } = await new SophosPartnerConnector(CONFIG).getTenants({
         sort: { field: 'name', direction: 'asc' },
-        limit: 2,
       });
-      expect(data).toHaveLength(2);
+      expect(data).toHaveLength(3);
       expect(data![0].name).toBe('Alpha');
       expect(data![1].name).toBe('Beta');
     });
 
     it('returns error on HTTP failure', async () => {
-      vi.stubGlobal('fetch', mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: false, status: 500, body: {} }]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: false, status: 500, body: {} }])
+      );
       const { error } = await new SophosPartnerConnector(CONFIG).getTenants();
       expect(error).toBeDefined();
     });
@@ -195,11 +237,10 @@ describe('SophosPartnerConnector', () => {
     it('paginates through 2 pages', async () => {
       const page1 = { items: [makeEndpoint('ep-1', 'host-1')], pages: { total: 2, current: 1 } };
       const page2 = { items: [makeEndpoint('ep-2', 'host-2')], pages: { total: 2, current: 2 } };
-      vi.stubGlobal('fetch', mockFetch([
-        TOKEN_RESPONSE,
-        { ok: true, body: page1 },
-        { ok: true, body: page2 },
-      ]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, { ok: true, body: page1 }, { ok: true, body: page2 }])
+      );
       const { data } = await new SophosPartnerConnector(CONFIG).getEndpoints(TENANT_CONFIG);
       expect(data).toHaveLength(2);
     });
@@ -225,20 +266,33 @@ describe('SophosPartnerConnector', () => {
       const fw = makeFirewall('fw-1', 'XGS-1');
       const firewallsResponse = { items: [fw] };
       const firmwareResponse = {
-        firewalls: [{ id: 'fw-1', firmwareVersion: '19.5.0', upgradeToVersion: ['20.0.0'], serialNumber: 'SN-fw-1' }],
+        firewalls: [
+          {
+            id: 'fw-1',
+            firmwareVersion: '19.5.0',
+            upgradeToVersion: ['20.0.0'],
+            serialNumber: 'SN-fw-1',
+          },
+        ],
       };
-      vi.stubGlobal('fetch', mockFetch([
-        TOKEN_RESPONSE,
-        { ok: true, body: firewallsResponse },
-        { ok: true, body: firmwareResponse },
-      ]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([
+          TOKEN_RESPONSE,
+          { ok: true, body: firewallsResponse },
+          { ok: true, body: firmwareResponse },
+        ])
+      );
       const { data } = await new SophosPartnerConnector(CONFIG).getFirewalls(TENANT_CONFIG);
       expect(data).toHaveLength(1);
       expect(data![0].firmware?.newestFirmware).toBe('20.0.0');
     });
 
     it('returns error on HTTP failure', async () => {
-      vi.stubGlobal('fetch', mockFetch([TOKEN_RESPONSE, { ok: false, status: 500, body: 'Server Error' }]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, { ok: false, status: 500, body: 'Server Error' }])
+      );
       const { error } = await new SophosPartnerConnector(CONFIG).getFirewalls(TENANT_CONFIG);
       expect(error).toBeDefined();
     });
@@ -249,7 +303,10 @@ describe('SophosPartnerConnector', () => {
       const fetch = mockFetch([
         TOKEN_RESPONSE,
         WHOAMI_RESPONSE,
-        { ok: true, body: { items: [makeFirewallLicense('SN-1')], pages: { total: 1, current: 1 } } },
+        {
+          ok: true,
+          body: { items: [makeFirewallLicense('SN-1')], pages: { total: 1, current: 1 } },
+        },
       ]);
       vi.stubGlobal('fetch', fetch);
       const { data } = await new SophosPartnerConnector(CONFIG).getFirewallLicenses();
@@ -264,7 +321,10 @@ describe('SophosPartnerConnector', () => {
       const fetch = mockFetch([
         TOKEN_RESPONSE,
         WHOAMI_RESPONSE,
-        { ok: true, body: { items: [makeFirewallLicense('SN-1')], pages: { total: 1, current: 1 } } },
+        {
+          ok: true,
+          body: { items: [makeFirewallLicense('SN-1')], pages: { total: 1, current: 1 } },
+        },
       ]);
       vi.stubGlobal('fetch', fetch);
       const { data } = await new SophosPartnerConnector(CONFIG).getFirewallLicenses(TENANT_CONFIG);
@@ -276,11 +336,10 @@ describe('SophosPartnerConnector', () => {
     });
 
     it('returns error on HTTP failure', async () => {
-      vi.stubGlobal('fetch', mockFetch([
-        TOKEN_RESPONSE,
-        WHOAMI_RESPONSE,
-        { ok: false, status: 500, body: {} },
-      ]));
+      vi.stubGlobal(
+        'fetch',
+        mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: false, status: 500, body: {} }])
+      );
       const { error } = await new SophosPartnerConnector(CONFIG).getFirewallLicenses();
       expect(error).toBeDefined();
     });

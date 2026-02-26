@@ -9,6 +9,7 @@ import { PowerShellRunner } from '@workspace/shared/lib/utils/PowerShellRunner';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
 import type { MSCapabilities } from '@workspace/shared/types/integrations/microsoft/capabilities.js';
+import { MSGraphIdentity } from '@workspace/shared/types/integrations/microsoft/identity.js';
 
 export class Microsoft365Adapter extends BaseAdapter {
   constructor() {
@@ -374,14 +375,14 @@ export class Microsoft365Adapter extends BaseAdapter {
     const { data: caps } = await new TenantCapabilityService(connector).probe();
     const includeSignInActivity = caps?.signInActivity ?? false;
 
-    const select: string[] = [
+    const select: (keyof MSGraphIdentity)[] = [
       'id',
       'displayName',
       'userPrincipalName',
       'accountEnabled',
       'assignedLicenses',
-      'assignedPlans',
       'userType',
+      'proxyAddresses',
     ];
     if (includeSignInActivity) {
       select.push('signInActivity');
@@ -407,12 +408,11 @@ export class Microsoft365Adapter extends BaseAdapter {
     });
 
     return data.identities.map((u: any) => {
-      const { assignedPlans: _ap, ...userRest } = u;
       return {
         externalId: u.id,
         displayName: u.displayName || u.userPrincipalName,
         siteId,
-        rawData: userRest,
+        rawData: u,
       };
     });
   }

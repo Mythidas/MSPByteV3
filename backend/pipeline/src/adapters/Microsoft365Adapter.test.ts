@@ -156,7 +156,6 @@ describe('Microsoft365Adapter', () => {
               userPrincipalName: 'bob@contoso.com',
               accountEnabled: true,
               assignedLicenses: [{ skuId: 'sku-1' }],
-              assignedPlans: [{ servicePlanId: 'plan-1' }],
             },
           ],
         },

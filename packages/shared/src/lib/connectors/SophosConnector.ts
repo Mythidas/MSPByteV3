@@ -27,7 +27,7 @@ export class SophosPartnerConnector {
 
   async getTenants(
     filters?: ConnectorFilters<SophosPartnerTenant>
-  ): Promise<APIResponse<SophosPartnerTenant[]>> {
+  ): Promise<APIResponse<Partial<SophosPartnerTenant>[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -90,7 +90,7 @@ export class SophosPartnerConnector {
   async getEndpoints(
     config: SophosTenantConfig,
     filters?: ConnectorFilters<SophosPartnerEndpoint>
-  ): Promise<APIResponse<SophosPartnerEndpoint[]>> {
+  ): Promise<APIResponse<Partial<SophosPartnerEndpoint>[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -144,7 +144,7 @@ export class SophosPartnerConnector {
   async getFirewalls(
     config: SophosTenantConfig,
     filters?: ConnectorFilters<SophosPartnerFirewall>
-  ): Promise<APIResponse<SophosPartnerFirewall[]>> {
+  ): Promise<APIResponse<Partial<SophosPartnerFirewall>[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -217,7 +217,7 @@ export class SophosPartnerConnector {
   async getFirewallLicenses(
     config?: SophosTenantConfig,
     filters?: ConnectorFilters<SophosPartnerFirewallLicense>
-  ): Promise<APIResponse<SophosPartnerFirewallLicense[]>> {
+  ): Promise<APIResponse<Partial<SophosPartnerFirewallLicense>[]>> {
     try {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
@@ -428,11 +428,11 @@ export class SophosPartnerConnector {
     throw new Error('fetchWithRetry: exceeded retry logic');
   }
 
-  private applyLocalFilters<T>(items: T[], filters?: ConnectorFilters<T>): T[] {
+  private applyLocalFilters<T>(items: T[], filters?: ConnectorFilters<T>): Partial<T>[] {
     let result = applyFilters(
       items as unknown as Record<string, unknown>[],
       filters as unknown as ConnectorFilters<Record<string, unknown>>
-    ) as T[];
+    ) as Partial<T>[];
     if (filters?.sort) {
       const { field, direction } = filters.sort;
       result = result.sort((a, b) => {
@@ -440,7 +440,17 @@ export class SophosPartnerConnector {
         return direction === 'desc' ? -cmp : cmp;
       });
     }
-    if (filters?.limit) result = result.slice(0, filters.limit);
+
+    if (filters?.select) {
+      result = result.map((r) => {
+        const obj: Record<string, any> = {};
+        for (const key of filters.select!) {
+          obj[key as string] = r[key];
+        }
+        return obj as Partial<T>;
+      });
+    }
+
     return result;
   }
 }

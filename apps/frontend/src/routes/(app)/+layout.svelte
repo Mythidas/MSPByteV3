@@ -59,7 +59,7 @@
   let showScopePicker = $derived(
     activeModule !== null &&
       (() => {
-        const pickerTypes = activeModule!.pickerTypes ?? ['site', 'group', 'parent'];
+        const pickerTypes = activeModule!.pickerTypes ?? ['site', 'group'];
         return pickerTypes.includes('connection')
           ? data.connections.length > 0
           : data.sites.length > 0;
@@ -116,7 +116,7 @@
 
         <div class="flex items-center gap-2">
           {#if showScopePicker}
-            {@const pickerTypes = activeModule!.pickerTypes ?? ['site', 'group', 'parent']}
+            {@const pickerTypes = activeModule!.pickerTypes ?? ['site', 'group']}
             <SitePicker
               sites={data.sites}
               groups={data.groups}
