@@ -207,6 +207,41 @@ export class Microsoft365Connector {
     }
   }
 
+  async getUserMemberOf(
+    userId: string,
+    fetchAll?: boolean
+  ): Promise<APIResponse<{ members: any[]; next?: string }>> {
+    try {
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
+
+      const url = this.makeGraphURL(
+        `https://graph.microsoft.com/v1.0/users/${userId}/memberOf`,
+        undefined,
+        'id,displayName,description,groupTypes,mailEnabled,securityEnabled,membershipRule'
+      );
+
+      if (fetchAll) {
+        const values = await this.getAllPaged(url);
+        return { data: { members: values } };
+      }
+
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) await this.throwGraphError(response);
+
+      const json = await response.json();
+      return { data: { members: json.value || [], next: json['@odata.nextLink'] || undefined } };
+    } catch (err) {
+      return Logger.error({
+        module: 'Microsoft365Connector',
+        context: 'getUserMemberOf',
+        message: String(err),
+      });
+    }
+  }
+
   async getSubscribedSkus(
     filters?: ConnectorFilters<MSGraphSubscribedSku>,
     fetchAll?: boolean
