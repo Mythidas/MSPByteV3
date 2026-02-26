@@ -1,12 +1,12 @@
-export interface CoveConnectorConfig {
+export type CoveConnectorConfig = {
   server: string; // API base URL
   clientId: string;
   clientSecret: string;
   partnerId: number;
-}
+};
 
-export interface CoveDataResponse<T> {
-  jsonrpc: "2.0";
+export type CoveDataResponse<T> = {
+  jsonrpc: '2.0';
   id: string;
   visa?: string; // Present in your example
   result?: {
@@ -17,4 +17,4 @@ export interface CoveDataResponse<T> {
     message: string;
     data?: unknown;
   };
-}
+};

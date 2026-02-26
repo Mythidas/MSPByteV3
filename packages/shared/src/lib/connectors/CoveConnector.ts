@@ -4,6 +4,7 @@ import {
   CoveChildPartner,
   CoveEnumerateChildPartnersResponse,
 } from '@workspace/shared/types/integrations/cove/partners';
+import { CODE_TO_NAME } from '@workspace/shared/types/integrations/cove/short_codes';
 import {
   CoveAccountStatistics,
   CoveEnumerateAccountStatisticsResponse,
@@ -113,10 +114,19 @@ export class CoveConnector {
     }
   }
 
-  async getAccountStatistics(): Promise<APIResponse<CoveAccountStatistics[]>> {
+  async getAccountStatistics(): Promise<
+    APIResponse<
+      { AccountId: number; Flags: string[]; PartnerId: number; Settings: Record<string, string> }[]
+    >
+  > {
     try {
       const token = await this.getVisa();
-      const statistics: CoveAccountStatistics[] = [];
+      const statistics: {
+        AccountId: number;
+        Flags: string[];
+        PartnerId: number;
+        Settings: Record<string, string>;
+      }[] = [];
 
       while (true) {
         const response = await fetch(this.config.server, {
@@ -139,7 +149,7 @@ export class CoveConnector {
                 SelectionMode: 'Merged',
                 StartRecordNumber: statistics.length,
                 Totals: [],
-                Columns: ['AR'],
+                Columns: ['AN', 'AR', 'MN', 'OP', 'PN', 'T3', 'US', 'TB', 'YV', 'YS', 'T7'], // DeviceCode, Customer, Machine Name, Policy, Retention, Selected Size, Used Storage, Last 28 days, LSV Status, Storage Status, Error Count
               },
             },
           }),
@@ -152,7 +162,24 @@ export class CoveConnector {
         const data = (await response.json()) as CoveEnumerateAccountStatisticsResponse;
 
         if (!data.result || !data.result.result || data.result.result.length === 0) break;
-        statistics.push(...data.result.result);
+        const results: {
+          AccountId: number;
+          Flags: string[];
+          PartnerId: number;
+          Settings: Record<string, string>;
+        }[] = [];
+
+        for (const r of data.result.result) {
+          const parsedSettings: Record<string, string> = {};
+          for (const s of r.Settings) {
+            const [key, string] = Object.entries(s)[0];
+            parsedSettings[CODE_TO_NAME[key]] = string;
+          }
+
+          results.push({ ...r, Settings: parsedSettings });
+        }
+
+        statistics.push(...results);
       }
 
       return { data: statistics };

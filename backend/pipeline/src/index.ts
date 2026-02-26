@@ -30,6 +30,8 @@ import { SophosOfflineDevicesJob } from './jobs/sophos-partner/OfflineDevicesJob
 import { SophosEmptySitesJob } from './jobs/sophos-partner/EmptySitesJob.js';
 import { DattoRMMOfflineDevicesJob } from './jobs/dattormm/OfflineDevicesJob.js';
 import { DattoRMMEmptySitesJob } from './jobs/dattormm/EmptySitesJob.js';
+import { CoveAdapter } from './adapters/CoveAdapter.js';
+import { CoveLinker } from './linkers/CoveLinker.js';
 
 /**
  * Pipeline Entry Point
@@ -73,12 +75,14 @@ async function main() {
     dattormm: new DattoRMMAdapter(),
     'sophos-partner': new SophosAdapter(),
     'microsoft-365': new Microsoft365Adapter(),
+    cove: new CoveAdapter(),
   };
 
   const linkers: Partial<Record<IntegrationId, BaseLinker>> = {
     dattormm: new DattoRMMLinker(),
     'sophos-partner': new SophosLinker(),
     'microsoft-365': new Microsoft365Linker(),
+    cove: new CoveLinker(),
   };
 
   // Shared services

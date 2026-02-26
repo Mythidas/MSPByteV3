@@ -1,5 +1,5 @@
 import type { Component } from 'svelte';
-import { Server, Monitor, Shield, LayoutGrid } from '@lucide/svelte';
+import { Server, Monitor, Shield, LayoutGrid, Cloud } from '@lucide/svelte';
 import type { Permission } from '$lib/utils/permissions';
 import type { ScopeType } from '$lib/utils/scope-filter';
 
@@ -59,6 +59,18 @@ export const MODULES: ModuleConfig[] = [
       { href: '/dattormm/alerts', label: 'Alerts', permission: null },
       { href: '/dattormm/endpoints', label: 'Endpoints', permission: null },
       { href: '/dattormm/companies', label: 'Companies', permission: null },
+    ],
+  },
+  {
+    id: 'cove',
+    label: 'Cove',
+    icon: Cloud,
+    basePath: '/cove',
+    permission: 'Assets.Read',
+    pickerTypes: ['site'],
+    navLinks: [
+      { href: '/cove/alerts', label: 'Alerts', permission: null },
+      { href: '/cove/endpoints', label: 'Endpoints', permission: null },
     ],
   },
   {

@@ -74,7 +74,7 @@ export class JobReconciler {
       for (const row of integrationRows) {
         const integrationId = row.id as IntegrationId;
         const config = INTEGRATIONS[integrationId];
-        if (!config || integrationId !== 'sophos-partner') continue;
+        if (!config || integrationId !== 'cove') continue;
 
         const nonFanOutTypes = config.supportedTypes.filter((t) => !t.fanOut);
         if (nonFanOutTypes.length === 0) continue;

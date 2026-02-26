@@ -23,7 +23,10 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     id: 'cove',
     name: 'Cove Backups',
     type: 'recovery',
-    supportedTypes: [],
+    supportedTypes: [
+      { type: 'company', rateMinutes: DAILY, priority: 5 },
+      { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
+    ],
   },
   'microsoft-365': {
     id: 'microsoft-365',

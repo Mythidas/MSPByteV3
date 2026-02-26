@@ -62,6 +62,7 @@
 
     return { tenants: tenants.data, links: links.data };
   };
+
 </script>
 
 <div class="flex flex-col relative size-full items-center p-4 gap-2">
@@ -244,6 +245,7 @@
             {/await}
           {/if}
         </Tabs.Content>
+
       </div>
     </Tabs.Root>
   </div>
