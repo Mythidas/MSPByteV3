@@ -35,7 +35,9 @@ export class StaleUsersJob extends BaseJob {
 
     for (const identity of ctx.entities.identities) {
       const lastSignIn = identity.raw_data?.signInActivity?.lastSignInDateTime;
-      if (!lastSignIn) continue;
+      const enabled: boolean = identity.raw_data?.accountEnabled ?? false;
+
+      if (!lastSignIn || enabled) continue;
 
       const lastSignInDate = new Date(lastSignIn);
       if (isNaN(lastSignInDate.getTime())) continue;
@@ -48,8 +50,8 @@ export class StaleUsersJob extends BaseJob {
             identity,
             'stale-user',
             'medium',
-            `User "${identity.display_name}" has not signed in for ${daysSince} days`,
-          ),
+            `User "${identity.display_name}" has not signed in for ${daysSince} days`
+          )
         );
         this.addTags(result, identity.id, [
           { tag: 'stale', category: 'activity', source: 'microsoft-365' },
