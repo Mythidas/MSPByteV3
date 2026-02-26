@@ -7,7 +7,6 @@ import { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/asset
 import { getSupabase } from '@/lib/supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import Encryption from '@workspace/shared/lib/utils/encryption';
-import { HaloPSAUser } from '@workspace/shared/types/integrations/halopsa/users';
 
 export default async function (fastify: FastifyInstance) {
   fastify.post('/', async (req) => {

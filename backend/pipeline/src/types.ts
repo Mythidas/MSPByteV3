@@ -163,14 +163,3 @@ export interface SyncContext {
   connectionId?: string;
 }
 
-// ============================================================================
-// ANALYSIS JOB TYPES
-// ============================================================================
-
-export interface AnalysisJobData {
-  tenantId: string;
-  integrationId: IntegrationId;
-  integrationDbId: string;
-  syncId: string;
-  connectionId: string | null;
-}

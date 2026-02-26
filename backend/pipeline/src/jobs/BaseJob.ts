@@ -1,11 +1,17 @@
 import { AlertType, AlertSeverity } from '@workspace/shared/config/integrations/alerts.js';
-import type { AnalysisContext, AnalyzerResult, Alert, EntityState, Entity } from '../types.js';
+import type { Entity, EntityState } from '../types.js';
+import type { JobContext, JobResult } from './types.js';
 
-export abstract class BaseAnalyzer {
+export abstract class BaseJob {
   abstract getName(): string;
-  abstract analyze(context: AnalysisContext): Promise<AnalyzerResult>;
+  abstract getIntegrationId(): string;
+  abstract getScheduleHours(): number;
+  abstract getScope(): 'connection' | 'site';
+  abstract getDependsOn(): string[];
+  abstract getAlertTypes(): AlertType[];
+  abstract execute(ctx: JobContext): Promise<JobResult>;
 
-  protected createEmptyResult(): AnalyzerResult {
+  protected createEmptyResult(): JobResult {
     return {
       alerts: [],
       entityTags: new Map(),
@@ -19,7 +25,7 @@ export abstract class BaseAnalyzer {
     severity: AlertSeverity,
     message: string,
     metadata?: Record<string, any>
-  ): Alert {
+  ) {
     return {
       entityId: entity.id,
       siteId: entity.site_id ?? undefined,
@@ -33,7 +39,7 @@ export abstract class BaseAnalyzer {
   }
 
   protected addTags(
-    result: AnalyzerResult,
+    result: JobResult,
     entityId: string,
     tags: { tag: string; category?: string; source: string }[]
   ): void {
@@ -41,7 +47,7 @@ export abstract class BaseAnalyzer {
     result.entityTags.set(entityId, [...existing, ...tags]);
   }
 
-  protected setState(result: AnalyzerResult, entityId: string, state: EntityState): void {
+  protected setState(result: JobResult, entityId: string, state: EntityState): void {
     const existing = result.entityStates.get(entityId);
     if (!existing || getStatePriority(state) > getStatePriority(existing)) {
       result.entityStates.set(entityId, state);

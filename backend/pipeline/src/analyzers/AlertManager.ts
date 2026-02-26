@@ -1,5 +1,6 @@
 import { getSupabase } from '../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
+import type { AlertType } from '@workspace/shared/config/integrations/alerts.js';
 import type { Alert } from '../types.js';
 
 /**
@@ -17,7 +18,8 @@ export class AlertManager {
     integrationId: string,
     syncId: string,
     siteId?: string,
-    connectionId?: string
+    connectionId?: string,
+    alertTypes?: AlertType[],
   ): Promise<{ created: number; updated: number; resolved: number }> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
@@ -39,6 +41,10 @@ export class AlertManager {
       query = query.eq('connection_id', connectionId);
     } else if (siteId) {
       query = query.eq('site_id', siteId);
+    }
+
+    if (alertTypes && alertTypes.length > 0) {
+      query = query.in('alert_type', alertTypes);
     }
 
     const { data: existingAlerts } = await query;
@@ -149,7 +155,7 @@ export class AlertManager {
     if (toResolve.length > 0) {
       await supabase
         .from('alerts')
-        .update({ status: 'resolved', resolved_at: now, updated_at: now })
+        .update({ status: 'resolved', resolved_at: now, updated_at: now, resolved_by_sync_id: syncId })
         .in('id', toResolve);
     }
 

@@ -5,8 +5,7 @@ import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { JobScheduler } from '../scheduler/JobScheduler.js';
 import { createSyncContext } from '../context.js';
-import { CompletionTracker } from '../lib/completionTracker.js';
-import type { AnalysisJobData, SyncJobData } from '../types.js';
+import type { SyncJobData } from '../types.js';
 import type { BaseAdapter } from '../adapters/BaseAdapter.js';
 import type { EntityProcessor } from '../processor/EntityProcessor.js';
 import type { BaseLinker } from '../linkers/BaseLinker.js';
@@ -14,7 +13,7 @@ import { IntegrationId, EntityType, INTEGRATIONS } from '@workspace/shared/confi
 
 /**
  * SyncWorker - Central orchestrator for a single (integrationId, entityType) pair.
- * Analysis is deferred to AnalysisWorker after all entity types complete.
+ * Business logic runs via the Query Jobs system (QueryJobScheduler + QueryJobWorker).
  */
 export class SyncWorker {
   private integrationId: IntegrationId;
@@ -162,24 +161,6 @@ export class SyncWorker {
         try {
           await tracker.trackSpan('stage:linker', async () => {
             await this.linker!.linkAndReconcile(ctx, tracker);
-
-            // TODO: What is this for?
-            // Track expected endpoint count for fan-out integrations (DattoRMM)
-            if (entityType === 'company' && 'fanOutEndpointJobs' in this.linker!) {
-              const expectedCount = await this.getExpectedEndpointCount(
-                tenantId,
-                integrationDbId,
-                tracker
-              );
-              if (expectedCount > 0) {
-                await CompletionTracker.setExpectedCount(
-                  tenantId,
-                  integrationId,
-                  'endpoint',
-                  expectedCount
-                );
-              }
-            }
           });
         } catch (linkerError) {
           Logger.error({
@@ -190,9 +171,6 @@ export class SyncWorker {
           throw linkerError;
         }
       }
-
-      // 4. Analysis is DEFERRED — track completion and trigger when all types done
-      await this.trackCompletionAndMaybeAnalyze(job.data);
 
       // 5. Mark completed + schedule next
       const completedAt = new Date().toISOString();
@@ -252,53 +230,4 @@ export class SyncWorker {
     }
   }
 
-  private async trackCompletionAndMaybeAnalyze(jobData: SyncJobData): Promise<void> {
-    const { tenantId, integrationId, integrationDbId, entityType, syncId, connectionId } = jobData;
-
-    const allComplete = await CompletionTracker.markComplete(
-      tenantId,
-      integrationId,
-      entityType,
-      connectionId ?? undefined
-    );
-
-    if (allComplete) {
-      Logger.info({
-        module: 'SyncWorker',
-        context: 'trackCompletionAndMaybeAnalyze',
-        message: `All entity types complete for ${integrationId}, enqueuing analysis`,
-      });
-
-      const analysisData: AnalysisJobData = {
-        tenantId,
-        integrationId: integrationId as IntegrationId,
-        integrationDbId,
-        syncId,
-        connectionId,
-      };
-
-      const jobIdParts = ['analysis', tenantId, integrationId];
-      if (connectionId) jobIdParts.push(connectionId);
-      jobIdParts.push(Date.now().toString());
-
-      await queueManager.addJob(QueueNames.analysis(integrationId), analysisData, {
-        jobId: jobIdParts.join('-'),
-      });
-    }
-  }
-
-  private async getExpectedEndpointCount(
-    tenantId: string,
-    integrationDbId: string,
-    tracker: PipelineTracker
-  ): Promise<number> {
-    const supabase = getSupabase();
-    tracker.trackQuery();
-    const { data, count } = await supabase
-      .from('site_to_integration')
-      .select('id', { count: 'exact', head: true })
-      .eq('integration_id', integrationDbId)
-      .eq('tenant_id', tenantId);
-    return count ?? 0;
-  }
 }

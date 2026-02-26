@@ -2,23 +2,34 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { disconnectRedis } from './lib/redis.js';
 import { queueManager } from './lib/queue.js';
 import { EntityProcessor } from './processor/EntityProcessor.js';
-import { AnalysisOrchestrator } from './analyzers/AnalysisOrchestrator.js';
 import { JobScheduler } from './scheduler/JobScheduler.js';
 import { JobReconciler } from './scheduler/JobReconciler.js';
 import { SyncWorker } from './workers/SyncWorker.js';
-import { AnalysisWorker } from './workers/AnalysisWorker.js';
 import { DattoRMMAdapter } from './adapters/DattoRMMAdapter.js';
 import { DattoRMMLinker } from './linkers/DattoRMMLinker.js';
-import { DattoRMMAnalyzer } from './analyzers/DattoRMMAnalyzer.js';
 import type { BaseAdapter } from './adapters/BaseAdapter.js';
 import type { BaseLinker } from './linkers/BaseLinker.js';
 import { SophosAdapter } from './adapters/SophosAdapter.js';
 import { SophosLinker } from './linkers/SophosLinker.js';
-import { SophosAnalyzer } from './analyzers/SophosAnalyzer.js';
 import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
 import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
-import { Microsoft365Analyzer } from './analyzers/Microsoft365Analyzer.js';
 import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
+
+// Query Jobs system
+import { QueryJobRunner } from './jobs/QueryJobRunner.js';
+import { QueryJobWorker } from './jobs/QueryJobWorker.js';
+import { QueryJobReconciler } from './jobs/QueryJobReconciler.js';
+import { QueryJobScheduler } from './jobs/QueryJobScheduler.js';
+import type { BaseJob } from './jobs/BaseJob.js';
+import { MFACoverageJob } from './jobs/microsoft-365/MFACoverageJob.js';
+import { StaleUsersJob } from './jobs/microsoft-365/StaleUsersJob.js';
+import { LicenseWasteJob } from './jobs/microsoft-365/LicenseWasteJob.js';
+import { DirectSendJob } from './jobs/microsoft-365/DirectSendJob.js';
+import { TamperProtectionJob } from './jobs/sophos-partner/TamperProtectionJob.js';
+import { SophosOfflineDevicesJob } from './jobs/sophos-partner/OfflineDevicesJob.js';
+import { SophosEmptySitesJob } from './jobs/sophos-partner/EmptySitesJob.js';
+import { DattoRMMOfflineDevicesJob } from './jobs/dattormm/OfflineDevicesJob.js';
+import { DattoRMMEmptySitesJob } from './jobs/dattormm/EmptySitesJob.js';
 
 /**
  * Pipeline Entry Point
@@ -28,8 +39,9 @@ import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integratio
  *     1. adapter.fetchAll()
  *     2. processor.process()
  *     3. linker.linkAndReconcile()  (optional)
- *     4. track completion → enqueue analysis when all types done
- *   AnalysisWorker runs analysis once per integration after all syncs complete.
+ *
+ *   query_jobs table → QueryJobScheduler → BullMQ → QueryJobWorker:
+ *     Fans out per site/connection, checks sync deps, runs business logic jobs.
  */
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || 'info';
@@ -71,11 +83,6 @@ async function main() {
 
   // Shared services
   const processor = new EntityProcessor();
-  const orchestrator = new AnalysisOrchestrator([
-    new DattoRMMAnalyzer(),
-    new SophosAnalyzer(),
-    new Microsoft365Analyzer(),
-  ]);
 
   // Create SyncWorker for each (integrationId, entityType) pair
   const workers: SyncWorker[] = [];
@@ -100,28 +107,50 @@ async function main() {
     message: `Started ${workers.length} sync workers`,
   });
 
-  // Create one AnalysisWorker per integration
-  const analysisWorkers: AnalysisWorker[] = [];
+  // Built-in query jobs (one instance per job type)
+  const builtInJobs: BaseJob[] = [
+    new MFACoverageJob(),
+    new StaleUsersJob(),
+    new LicenseWasteJob(),
+    new DirectSendJob(),
+    new TamperProtectionJob(),
+    new SophosOfflineDevicesJob(),
+    new SophosEmptySitesJob(),
+    new DattoRMMOfflineDevicesJob(),
+    new DattoRMMEmptySitesJob(),
+  ];
+
+  // Query job runner (shared across all workers)
+  const queryJobRunner = new QueryJobRunner(builtInJobs);
+
+  // One QueryJobWorker per integration
   for (const [, config] of Object.entries(INTEGRATIONS)) {
-    const analysisWorker = new AnalysisWorker(config.id, orchestrator);
-    analysisWorker.start();
-    analysisWorkers.push(analysisWorker);
+    const worker = new QueryJobWorker(config.id, queryJobRunner);
+    worker.start();
   }
 
   Logger.info({
     module: 'Pipeline',
     context: 'main',
-    message: `Started ${analysisWorkers.length} analysis workers`,
+    message: `Started ${Object.keys(INTEGRATIONS).length} query job workers`,
   });
 
-  // Start job reconciler — ensures missing jobs are created before the scheduler polls
+  // Start job reconciler — ensures missing sync_jobs are created
   const reconciler = new JobReconciler();
   await reconciler.reconcile();
   reconciler.start();
 
-  // Start job scheduler
+  // Start query job reconciler — seeds query_jobs definitions per tenant
+  const queryJobReconciler = new QueryJobReconciler(builtInJobs);
+  await queryJobReconciler.reconcile();
+  queryJobReconciler.start();
+
+  // Start schedulers
   const scheduler = new JobScheduler();
   scheduler.start();
+
+  const queryJobScheduler = new QueryJobScheduler(builtInJobs);
+  queryJobScheduler.start();
 
   Logger.info({
     module: 'Pipeline',
@@ -140,6 +169,8 @@ async function main() {
     try {
       reconciler.stop();
       scheduler.stop();
+      queryJobReconciler.stop();
+      queryJobScheduler.stop();
       await queueManager.closeAll();
       await disconnectRedis();
 

@@ -209,6 +209,7 @@ export type Database = {
           message: string
           metadata: Json | null
           resolved_at: string | null
+          resolved_by_sync_id: string | null
           severity: string
           site_id: string | null
           status: string
@@ -230,6 +231,7 @@ export type Database = {
           message: string
           metadata?: Json | null
           resolved_at?: string | null
+          resolved_by_sync_id?: string | null
           severity: string
           site_id?: string | null
           status?: string
@@ -251,6 +253,7 @@ export type Database = {
           message?: string
           metadata?: Json | null
           resolved_at?: string | null
+          resolved_by_sync_id?: string | null
           severity?: string
           site_id?: string | null
           status?: string
@@ -637,6 +640,158 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "integrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      query_job_history: {
+        Row: {
+          alerts_created: number
+          alerts_resolved: number
+          completed_at: string | null
+          connection_id: string | null
+          created_at: string
+          duration_ms: number | null
+          entities_updated: number
+          error: string | null
+          id: string
+          job_id: string
+          metrics: Json | null
+          site_id: string | null
+          started_at: string
+          status: string
+          tags_applied: number
+          tenant_id: string
+        }
+        Insert: {
+          alerts_created?: number
+          alerts_resolved?: number
+          completed_at?: string | null
+          connection_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          entities_updated?: number
+          error?: string | null
+          id?: string
+          job_id: string
+          metrics?: Json | null
+          site_id?: string | null
+          started_at?: string
+          status?: string
+          tags_applied?: number
+          tenant_id: string
+        }
+        Update: {
+          alerts_created?: number
+          alerts_resolved?: number
+          completed_at?: string | null
+          connection_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          entities_updated?: number
+          error?: string | null
+          id?: string
+          job_id?: string
+          metrics?: Json | null
+          site_id?: string | null
+          started_at?: string
+          status?: string
+          tags_applied?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "query_job_history_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "integration_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "query_job_history_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "query_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "query_job_history_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "query_job_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      query_jobs: {
+        Row: {
+          created_at: string
+          depends_on: string[]
+          enabled: boolean
+          id: string
+          integration_id: string
+          is_built_in: boolean
+          last_run_at: string | null
+          name: string
+          next_run_at: string
+          repeated: boolean
+          schedule_hours: number
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          depends_on?: string[]
+          enabled?: boolean
+          id?: string
+          integration_id: string
+          is_built_in?: boolean
+          last_run_at?: string | null
+          name: string
+          next_run_at?: string
+          repeated?: boolean
+          schedule_hours: number
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          depends_on?: string[]
+          enabled?: boolean
+          id?: string
+          integration_id?: string
+          is_built_in?: boolean
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string
+          repeated?: boolean
+          schedule_hours?: number
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "query_jobs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "query_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

@@ -6,7 +6,7 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 export default async function (fastify: FastifyInstance) {
   fastify.post('/', async (req) => {
     try {
-      const { site_id, hostname, version, guid, mac, platform, ip_address, ext_address, username } =
+      const { site_id, hostname, version, guid, mac, platform, ip_address, ext_address } =
         req.body as string as {
           site_id?: string;
           hostname?: string;
