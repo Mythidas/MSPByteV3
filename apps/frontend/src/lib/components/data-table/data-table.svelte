@@ -490,7 +490,10 @@
               {#each visibleColumns as column (column.key)}
                 {@const value = getNestedValue(row, column.key)}
                 <Table.Cell>
-                  {#if column.cell}
+                  {#if column.cellComponent}
+                    {@const CellComp = column.cellComponent}
+                    <CellComp {value} {row} {...(column.cellProps ?? {})} />
+                  {:else if column.cell}
                     {@render column.cell({ row, value })}
                   {:else}
                     {value ?? ''}

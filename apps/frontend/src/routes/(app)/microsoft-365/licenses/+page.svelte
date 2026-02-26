@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import { DataTable, displayNameColumn, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
@@ -31,17 +31,7 @@
       },
       cell: capabilityStatusCell,
     },
-    {
-      key: 'display_name',
-      title: 'Name',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search name...',
-      },
-    },
+    displayNameColumn<Entity>(),
     {
       key: 'raw_data.skuPartNumber',
       title: 'SKU',

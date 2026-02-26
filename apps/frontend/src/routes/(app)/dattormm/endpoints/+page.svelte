@@ -1,42 +1,24 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    type RowAction,
+    stateColumn,
+    tagsColumn,
+    relativeDateColumn,
+    displayNameColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getSiteIdsForScope } from '$lib/utils/scope-filter';
-  import { formatDate, formatRelativeDate, formatStringProper } from '$lib/utils/format.js';
-  import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { stateClass } from '$lib/utils/state.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
   const { data } = $props();
 
   const columns: DataTableColumn<Entity>[] = $derived([
-    {
-      key: 'state',
-      title: 'State',
-      sortable: true,
-      cell: stateCell,
-      filter: {
-        type: 'select',
-        operators: ['eq', 'neq'],
-        options: [
-          { label: 'Normal', value: 'normal' },
-          { label: 'Warn', value: 'warn' },
-        ],
-      },
-    },
-    {
-      key: 'display_name',
-      title: 'Hostname',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search hostname...',
-      },
-    },
+    stateColumn<Entity>(),
+    displayNameColumn<Entity>(),
     {
       key: 'site_name',
       title: 'Site',
@@ -53,18 +35,8 @@
         placeholder: 'Search type...',
       },
     },
-    {
-      key: 'raw_data.lastSeen',
-      title: 'Last Online',
-      sortable: true,
-      cell: lastSeenCell,
-    },
-    {
-      key: 'tags',
-      title: 'Tags',
-      sortable: true,
-      cell: tagsCell,
-    },
+    relativeDateColumn<Entity>('raw_data.lastSeen', 'Last Online', { sortable: true }),
+    tagsColumn<Entity>(),
   ]);
 
   let scope = $derived(page.url.searchParams.get('scope'));
@@ -79,22 +51,6 @@
     }
   }
 </script>
-
-{#snippet stateCell({ value }: { row: Entity; value: string | null })}
-  <Badge variant="outline" class={stateClass(value)}>
-    {value ? formatStringProper(value) : '—'}
-  </Badge>
-{/snippet}
-
-{#snippet tagsCell({ value }: { row: Entity; value: string })}
-  {#each value as tag}
-    <Badge variant="outline">{formatStringProper(tag)}</Badge>
-  {/each}
-{/snippet}
-
-{#snippet lastSeenCell({ value }: { row: Entity; value: number })}
-  {formatRelativeDate(new Date(value).toISOString())}
-{/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
   <h1 class="h-fit text-2xl font-bold">Endpoints</h1>

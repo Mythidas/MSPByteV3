@@ -1,53 +1,37 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    stateColumn,
+    tagsColumn,
+    boolBadgeColumn,
+    nullableTextColumn,
+    relativeDateColumn,
+    displayNameColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getSiteIdsForScope } from '$lib/utils/scope-filter';
-  import { formatRelativeDate, formatStringProper } from '$lib/utils/format.js';
+  import { formatStringProper } from '$lib/utils/format.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { stateClass } from '$lib/utils/state.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
   const { data } = $props();
 
   const columns: DataTableColumn<Entity>[] = $derived([
-    {
-      key: 'state',
-      title: 'State',
-      sortable: true,
-      cell: stateCell,
-      filter: {
-        type: 'select',
-        operators: ['eq', 'neq'],
-        options: [
-          { label: 'Normal', value: 'normal' },
-          { label: 'Warn', value: 'warn' },
-        ],
-      },
-    },
-    {
-      key: 'display_name',
-      title: 'Hostname',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search hostname...',
-      },
-    },
+    stateColumn<Entity>(),
+    displayNameColumn<Entity>(),
     {
       key: 'site_name',
       title: 'Site',
       sortable: true,
       searchable: true,
     },
-    {
-      key: 'raw_data.online',
-      title: 'Online',
-      cell: onlineCell,
-    },
+    boolBadgeColumn<Entity>('raw_data.online', 'Online', {
+      trueLabel: 'Online',
+      falseLabel: 'Offline',
+    }),
     {
       key: 'raw_data.type',
       title: 'Type',
@@ -59,28 +43,14 @@
       },
       cell: typeCell,
     },
-    {
-      key: 'raw_data.os.name',
-      title: 'OS',
-      cell: osCell,
-    },
+    nullableTextColumn<Entity>('raw_data.os.name', 'OS'),
     {
       key: 'raw_data.health.overall',
       title: 'Health',
       cell: healthCell,
     },
-    {
-      key: 'raw_data.lastSeenAt',
-      title: 'Last Online',
-      sortable: true,
-      cell: lastSeenCell,
-    },
-    {
-      key: 'tags',
-      title: 'Tags',
-      sortable: true,
-      cell: tagsCell,
-    },
+    relativeDateColumn<Entity>('raw_data.lastSeenAt', 'Last Online', { sortable: true }),
+    tagsColumn<Entity>(),
   ]);
 
   let scope = $derived(page.url.searchParams.get('scope'));
@@ -100,28 +70,6 @@
   {formatStringProper(value) || '—'}
 {/snippet}
 
-{#snippet onlineCell({ value }: { row: Entity; value: boolean | null })}
-  {#if value === true}
-    <Badge variant="outline" class="bg-green-500/15 text-green-500 border-green-500/30"
-      >Online</Badge
-    >
-  {:else if value === false}
-    <Badge variant="outline" class="bg-muted/15 text-muted-foreground border-muted/30"
-      >Offline</Badge
-    >
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
-
-{#snippet osCell({ value }: { row: Entity; value: string | null })}
-  {#if value}
-    {value}
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
-
 {#snippet healthCell({ value }: { row: Entity; value: string | null })}
   {#if value === 'good'}
     <Badge variant="outline" class="bg-green-500/15 text-green-500 border-green-500/30">Good</Badge>
@@ -134,26 +82,6 @@
   {:else}
     <span class="text-muted-foreground">—</span>
   {/if}
-{/snippet}
-
-{#snippet stateCell({ value }: { row: Entity; value: string | null })}
-  <Badge variant="outline" class={stateClass(value)}>
-    {value ? formatStringProper(value) : '—'}
-  </Badge>
-{/snippet}
-
-{#snippet tagsCell({ value }: { row: Entity; value: string[] | null })}
-  {#if value?.length}
-    {#each value as tag}
-      <Badge variant="outline">{formatStringProper(tag)}</Badge>
-    {/each}
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
-
-{#snippet lastSeenCell({ value }: { row: Entity; value: string | null })}
-  {value ? formatRelativeDate(value) : '—'}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">

@@ -29,6 +29,8 @@ export interface DataTableColumn<TData> {
   key: string;
   title: string;
   cell?: Snippet<[{ row: TData; value: any }]>;
+  cellComponent?: Component<{ value: any; row?: TData; [key: string]: any }>;
+  cellProps?: Record<string, any>;
   exportValue?: (context: { row: TData; value: any }) => string | number | boolean | null;
   sortable?: boolean;
   searchable?: boolean;

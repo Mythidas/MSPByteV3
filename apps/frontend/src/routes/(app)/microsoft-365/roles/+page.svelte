@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    displayNameColumn,
+    nullableTextColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
@@ -14,17 +19,7 @@
   let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
 
   const columns: DataTableColumn<Entity>[] = [
-    {
-      key: 'display_name',
-      title: 'Name',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search name...',
-      },
-    },
+    displayNameColumn<Entity>(),
     {
       key: 'connection_name',
       title: 'Tenant',
@@ -35,11 +30,7 @@
       title: 'Members',
       sortable: true,
     },
-    {
-      key: 'raw_data.description',
-      title: 'Description',
-      cell: descriptionCell,
-    },
+    nullableTextColumn<Entity>('raw_data.description', 'Description'),
   ];
 
   function modifyQuery(q: any) {
@@ -53,14 +44,6 @@
     }
   }
 </script>
-
-{#snippet descriptionCell({ value }: { row: Entity; value: string | null })}
-  {#if value}
-    {value}
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
   <h1 class="h-fit text-2xl font-bold">Roles</h1>

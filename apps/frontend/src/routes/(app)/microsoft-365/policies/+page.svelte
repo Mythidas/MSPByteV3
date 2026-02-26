@@ -1,10 +1,15 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    displayNameColumn,
+    relativeDateColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { formatStringProper, formatRelativeDate } from '$lib/utils/format.js';
+  import { formatStringProper } from '$lib/utils/format.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
@@ -31,17 +36,7 @@
         ],
       },
     },
-    {
-      key: 'display_name',
-      title: 'Name',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search name...',
-      },
-    },
+    displayNameColumn<Entity>(),
     {
       key: 'connection_name',
       title: 'Tenant',
@@ -57,11 +52,7 @@
       title: 'Scope',
       cell: scopeCell,
     },
-    {
-      key: 'raw_data.modifiedDateTime',
-      title: 'Last Modified',
-      cell: lastModifiedCell,
-    },
+    relativeDateColumn<Entity>('raw_data.modifiedDateTime', 'Last Modified'),
   ];
 
   function modifyQuery(q: any) {
@@ -111,10 +102,6 @@
   {:else}
     <span class="text-muted-foreground">—</span>
   {/if}
-{/snippet}
-
-{#snippet lastModifiedCell({ value }: { row: Entity; value: string | null })}
-  {value ? formatRelativeDate(value) : '—'}
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">

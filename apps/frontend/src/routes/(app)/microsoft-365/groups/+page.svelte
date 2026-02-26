@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    nullableTextColumn,
+    boolBadgeColumn,
+    displayNameColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
@@ -20,42 +26,20 @@
       title: 'Type',
       cell: groupTypeCell,
     },
-    {
-      key: 'display_name',
-      title: 'Name',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search name...',
-      },
-    },
+    displayNameColumn<Entity>(),
     {
       key: 'connection_name',
       title: 'Tenant',
       sortable: true,
     },
-    {
-      key: 'raw_data.mail',
-      title: 'Email',
-      cell: nullableTextCell,
-    },
+    nullableTextColumn<Entity>('raw_data.mail', 'Email'),
     {
       key: 'raw_data.visibility',
       title: 'Visibility',
       cell: visibilityCell,
     },
-    {
-      key: 'raw_data.mailEnabled',
-      title: 'Mail',
-      cell: boolCell,
-    },
-    {
-      key: 'raw_data.securityEnabled',
-      title: 'Security',
-      cell: boolCell,
-    },
+    boolBadgeColumn<Entity>('raw_data.mailEnabled', 'Mail'),
+    boolBadgeColumn<Entity>('raw_data.securityEnabled', 'Security'),
     {
       key: 'member_count',
       title: 'Members',
@@ -92,14 +76,6 @@
   {/if}
 {/snippet}
 
-{#snippet nullableTextCell({ value }: { row: Entity; value: string | null })}
-  {#if value}
-    {value}
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
-
 {#snippet visibilityCell({ value }: { row: Entity; value: string | null })}
   {#if value === 'Private'}
     <Badge variant="outline" class="bg-muted/15 text-muted-foreground border-muted/30"
@@ -114,17 +90,6 @@
   {:else}
     <span class="text-muted-foreground">—</span>
   {/if}
-{/snippet}
-
-{#snippet boolCell({ value }: { row: Entity; value: boolean })}
-  <Badge
-    variant="outline"
-    class={value
-      ? 'bg-green-500/15 text-green-500 border-green-500/30'
-      : 'bg-muted/15 text-muted-foreground border-muted/30'}
-  >
-    {value ? 'Yes' : 'No'}
-  </Badge>
 {/snippet}
 
 {#snippet descriptionCell({ value }: { row: Entity; value: string | null })}

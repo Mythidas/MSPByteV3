@@ -1,10 +1,15 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type TableView } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    type TableView,
+    relativeDateColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import type { Json } from '@workspace/shared/types/schema';
   import { page } from '$app/state';
   import { getSiteIdsForScope } from '$lib/utils/scope-filter';
-  import { formatDate, formatRelativeDate, formatStringProper } from '$lib/utils/format.js';
+  import { formatDate, formatStringProper } from '$lib/utils/format.js';
   import { hasPermission } from '$lib/utils/permissions';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { severityClass, alertStatusClass } from './_alert-config.js';
@@ -86,7 +91,7 @@
     { key: 'site_name', title: 'Site', sortable: true, searchable: true },
     { key: 'connection_name', title: 'Tenant', sortable: true, searchable: true },
     { key: 'message', title: 'Message', sortable: false, searchable: true },
-    { key: 'last_seen_at', title: 'Last Seen', sortable: true, cell: relativeCell },
+    relativeDateColumn<EntityAlert>('last_seen_at', 'Last Seen', { sortable: true }),
     { key: 'created_at', title: 'Created', sortable: true, cell: dateCell },
   ];
 
@@ -135,10 +140,6 @@
   <Badge variant="outline" class={alertStatusClass(value)}>
     {formatStringProper(value)}
   </Badge>
-{/snippet}
-
-{#snippet relativeCell({ value }: { row: EntityAlert; value: string | null })}
-  {value ? formatRelativeDate(value) : '—'}
 {/snippet}
 
 {#snippet dateCell({ value }: { row: EntityAlert; value: string | null })}

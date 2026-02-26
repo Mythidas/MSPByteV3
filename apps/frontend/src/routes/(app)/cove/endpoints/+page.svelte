@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import {
+    DataTable,
+    displayNameColumn,
+    stateColumn,
+    type DataTableColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getSiteIdsForScope } from '$lib/utils/scope-filter';
@@ -45,27 +50,8 @@
   };
 
   const columns: DataTableColumn<Entity>[] = [
-    {
-      key: 'state',
-      title: 'State',
-      sortable: true,
-      cell: stateCell,
-      filter: {
-        type: 'select',
-        operators: ['eq', 'neq'],
-        options: [
-          { label: 'Normal', value: 'normal' },
-          { label: 'Warn', value: 'warn' },
-        ],
-      },
-    },
-    {
-      key: 'display_name',
-      title: 'Computer',
-      sortable: true,
-      searchable: true,
-      filter: { type: 'text', operators: ['ilike', 'eq'], placeholder: 'Search computer...' },
-    },
+    stateColumn<Entity>(),
+    displayNameColumn<Entity>(),
     {
       key: 'site_name',
       title: 'Site',

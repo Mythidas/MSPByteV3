@@ -1,11 +1,18 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    stateColumn,
+    tagsColumn,
+    boolBadgeColumn,
+    relativeDateColumn,
+    displayNameColumn,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getSiteIdsForScope, getConnectionIdForScope } from '$lib/utils/scope-filter';
-  import { formatStringProper, formatRelativeDate } from '$lib/utils/format.js';
+  import { formatStringProper } from '$lib/utils/format.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { stateClass } from '$lib/utils/state.js';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
@@ -17,44 +24,27 @@
   let filterConnectionId = $derived(getConnectionIdForScope(scope, scopeId));
 
   const columns: DataTableColumn<Entity>[] = [
-    {
-      key: 'state',
-      title: 'State',
-      sortable: true,
-      cell: stateCell,
-      filter: {
-        type: 'select',
-        operators: ['eq', 'neq'],
-        options: [
-          { label: 'Normal', value: 'normal' },
-          { label: 'Warn', value: 'warn' },
-        ],
+    stateColumn<Entity>(),
+    boolBadgeColumn<Entity>(
+      'raw_data.accountEnabled',
+      'Status',
+      {
+        trueLabel: 'Enabled',
+        falseLabel: 'Disabled',
+        falseVariant: 'destructive',
       },
-    },
-    {
-      key: 'raw_data.accountEnabled',
-      title: 'Status',
-      cell: accountEnabledCell,
-      filter: {
-        type: 'select',
-        operators: ['eq'],
-        options: [
-          { label: 'Enabled', value: 'true' },
-          { label: 'Disabled', value: 'false' },
-        ],
-      },
-    },
-    {
-      key: 'display_name',
-      title: 'Name',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search name...',
-      },
-    },
+      {
+        filter: {
+          type: 'select',
+          operators: ['eq'],
+          options: [
+            { label: 'Enabled', value: 'true' },
+            { label: 'Disabled', value: 'false' },
+          ],
+        },
+      }
+    ),
+    displayNameColumn<Entity>(),
     {
       key: 'raw_data.userPrincipalName',
       title: 'UPN',
@@ -85,16 +75,8 @@
       title: 'Licenses',
       cell: licensesCell,
     },
-    {
-      key: 'raw_data.signInActivity.lastSignInDateTime',
-      title: 'Last Sign-In',
-      cell: lastSignInCell,
-    },
-    {
-      key: 'tags',
-      title: 'Tags',
-      cell: tagsCell,
-    },
+    relativeDateColumn<Entity>('raw_data.signInActivity.lastSignInDateTime', 'Last Sign-In'),
+    tagsColumn<Entity>(),
   ];
 
   function modifyQuery(q: any) {
@@ -107,17 +89,6 @@
     }
   }
 </script>
-
-{#snippet accountEnabledCell({ value }: { row: Entity; value: boolean })}
-  <Badge
-    variant="outline"
-    class={value
-      ? 'bg-green-500/15 text-green-500 border-green-500/30'
-      : 'bg-destructive/15 text-destructive border-destructive/30'}
-  >
-    {value ? 'Enabled' : 'Disabled'}
-  </Badge>
-{/snippet}
 
 {#snippet userTypeCell({ value }: { row: Entity; value: string | null })}
   {#if value === 'Member'}
@@ -133,32 +104,12 @@
   {/if}
 {/snippet}
 
-{#snippet lastSignInCell({ value }: { row: Entity; value: string | null })}
-  {value ? formatRelativeDate(value) : '—'}
-{/snippet}
-
 {#snippet licensesCell({ value }: { row: Entity; value: unknown[] })}
   {#if Array.isArray(value) && value.length > 0}
     <Badge variant="outline">{value.length}</Badge>
   {:else}
     <span class="text-muted-foreground">—</span>
   {/if}
-{/snippet}
-
-{#snippet tagsCell({ value }: { row: Entity; value: string[] })}
-  {#if Array.isArray(value) && value.length > 0}
-    {#each value as tag}
-      <Badge variant="outline" class="mr-1">{formatStringProper(tag)}</Badge>
-    {/each}
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
-
-{#snippet stateCell({ value }: { row: Entity; value: string | null })}
-  <Badge variant="outline" class={stateClass(value)}>
-    {value ? formatStringProper(value) : '—'}
-  </Badge>
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
