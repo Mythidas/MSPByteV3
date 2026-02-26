@@ -27,7 +27,7 @@
     data: {
       user: { id: string };
       role: { attributes: Json } | null;
-      sites: { id: string; name: string; parent_id: string | null }[];
+      sites: { id: string; name: string }[];
       siteToGroup: { site_id: string; group_id: string }[];
     };
   } = $props();
@@ -38,7 +38,7 @@
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
-  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.siteToGroup));
 
   let canSuppress = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Assets.Write')

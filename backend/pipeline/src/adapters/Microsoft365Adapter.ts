@@ -493,7 +493,7 @@ export class Microsoft365Adapter extends BaseAdapter {
     });
 
     return data.roles.map((r) => ({
-      externalId: r.id,
+      externalId: r.roleTemplateId,
       displayName: r.displayName,
       siteId,
       rawData: r,

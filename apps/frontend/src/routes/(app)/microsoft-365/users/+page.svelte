@@ -144,7 +144,10 @@
       enableColumnToggle={true}
       enableExport={true}
       enableURLState={true}
-      onrowclick={(row) => { selectedUser = row; sheetOpen = true; }}
+      onrowclick={(row) => {
+        selectedUser = row;
+        sheetOpen = true;
+      }}
     />
   {/key}
 </div>

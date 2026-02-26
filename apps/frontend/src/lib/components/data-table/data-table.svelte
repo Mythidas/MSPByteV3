@@ -1,6 +1,5 @@
 <script lang="ts" generics="S extends Schemas, T extends TableOrView<S>">
   import { untrack } from 'svelte';
-  import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { ORM } from '@workspace/shared/lib/utils/orm';
   import { supabase } from '$lib/supabase';
@@ -42,7 +41,7 @@
     rowActions = [],
     globalSearchFields,
     filterMap,
-    defaultPageSize = 25,
+    defaultPageSize = 100,
     defaultSort,
     onrowclick,
     onselectionchange,

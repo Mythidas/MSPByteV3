@@ -10,15 +10,19 @@
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { formatStringProper } from '$lib/utils/format.js';
+  import PolicyDetailSheet from './_policy-detail-sheet.svelte';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
   const { data } = $props();
 
+  let selectedPolicy = $state<Entity | null>(null);
+  let sheetOpen = $state(false);
+
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
   let filterConnectionId = $derived(getConnectionIdForScope(scope, scopeId));
-  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.siteToGroup));
 
   const columns: DataTableColumn<Entity>[] = [
     {
@@ -46,11 +50,6 @@
       key: 'raw_data.grantControls.builtInControls',
       title: 'Controls',
       cell: controlsCell,
-    },
-    {
-      key: 'raw_data.conditions.users.includeUsers',
-      title: 'Scope',
-      cell: scopeCell,
     },
     relativeDateColumn<Entity>('raw_data.modifiedDateTime', 'Last Modified'),
   ];
@@ -94,16 +93,6 @@
   {/if}
 {/snippet}
 
-{#snippet scopeCell({ value }: { row: Entity; value: string[] })}
-  {#if Array.isArray(value) && value.includes('All')}
-    <span class="text-sm">All Users</span>
-  {:else if Array.isArray(value)}
-    <span class="text-sm">{value.length} user(s)</span>
-  {:else}
-    <span class="text-muted-foreground">—</span>
-  {/if}
-{/snippet}
-
 <div class="flex flex-col gap-2 p-4 size-full">
   <h1 class="h-fit text-2xl font-bold">Conditional Access Policies</h1>
 
@@ -113,12 +102,19 @@
       table="d_entities_view"
       {columns}
       {modifyQuery}
+      defaultSort={{ field: 'connection_name', dir: 'asc' }}
       enableGlobalSearch={true}
       enableFilters={true}
       enablePagination={true}
       enableColumnToggle={true}
       enableExport={true}
       enableURLState={true}
+      onrowclick={(row) => {
+        selectedPolicy = row;
+        sheetOpen = true;
+      }}
     />
   {/key}
 </div>
+
+<PolicyDetailSheet bind:open={sheetOpen} bind:policy={selectedPolicy} />

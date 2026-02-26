@@ -41,7 +41,7 @@
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
-  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.siteToGroup));
 
   function modifyQuery(q: any) {
     q.eq('integration_id', 'dattormm').eq('entity_type', 'endpoint');

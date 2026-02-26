@@ -16,7 +16,7 @@
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
   let filterConnectionId = $derived(getConnectionIdForScope(scope, scopeId));
-  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.siteToGroup));
 
   const columns: DataTableColumn<Entity>[] = [
     displayNameColumn<Entity>(),
@@ -54,6 +54,7 @@
       table="d_entities_view"
       {columns}
       {modifyQuery}
+      defaultSort={{ field: 'connection_name', dir: 'asc' }}
       enableGlobalSearch={true}
       enableFilters={true}
       enablePagination={true}
