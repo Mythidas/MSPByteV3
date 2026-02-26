@@ -18,6 +18,33 @@
 
   const columns: DataTableColumn<Entity>[] = [
     {
+      key: 'state',
+      title: 'State',
+      sortable: true,
+      cell: stateCell,
+      filter: {
+        type: 'select',
+        operators: ['eq', 'neq'],
+        options: [
+          { label: 'Normal', value: 'normal' },
+          { label: 'Warn', value: 'warn' },
+        ],
+      },
+    },
+    {
+      key: 'raw_data.accountEnabled',
+      title: 'Status',
+      cell: accountEnabledCell,
+      filter: {
+        type: 'select',
+        operators: ['eq'],
+        options: [
+          { label: 'Enabled', value: 'true' },
+          { label: 'Disabled', value: 'false' },
+        ],
+      },
+    },
+    {
       key: 'display_name',
       title: 'Name',
       sortable: true,
@@ -39,39 +66,6 @@
       },
     },
     {
-      key: 'raw_data.accountEnabled',
-      title: 'Status',
-      cell: accountEnabledCell,
-      filter: {
-        type: 'select',
-        operators: ['eq'],
-        options: [
-          { label: 'Enabled', value: 'true' },
-          { label: 'Disabled', value: 'false' },
-        ],
-      },
-    },
-    {
-      key: 'raw_data.userType',
-      title: 'User Type',
-      cell: userTypeCell,
-    },
-    {
-      key: 'raw_data.signInActivity.lastSignInDateTime',
-      title: 'Last Sign-In',
-      cell: lastSignInCell,
-    },
-    {
-      key: 'raw_data.assignedLicenses',
-      title: 'Licenses',
-      cell: licensesCell,
-    },
-    {
-      key: 'tags',
-      title: 'Tags',
-      cell: tagsCell,
-    },
-    {
       key: 'site_name',
       title: 'Site',
       sortable: true,
@@ -82,18 +76,24 @@
       sortable: true,
     },
     {
-      key: 'state',
-      title: 'State',
-      sortable: true,
-      cell: stateCell,
-      filter: {
-        type: 'select',
-        operators: ['eq', 'neq'],
-        options: [
-          { label: 'Normal', value: 'normal' },
-          { label: 'Warn', value: 'warn' },
-        ],
-      },
+      key: 'raw_data.userType',
+      title: 'User Type',
+      cell: userTypeCell,
+    },
+    {
+      key: 'raw_data.assignedLicenses',
+      title: 'Licenses',
+      cell: licensesCell,
+    },
+    {
+      key: 'raw_data.signInActivity.lastSignInDateTime',
+      title: 'Last Sign-In',
+      cell: lastSignInCell,
+    },
+    {
+      key: 'tags',
+      title: 'Tags',
+      cell: tagsCell,
     },
   ];
 

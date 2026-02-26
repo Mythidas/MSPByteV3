@@ -16,6 +16,22 @@
 
   const columns: DataTableColumn<Entity>[] = [
     {
+      key: 'raw_data.capabilityStatus',
+      title: 'Status',
+      filter: {
+        type: 'select',
+        operators: ['eq'],
+        options: [
+          { label: 'Enabled', value: 'Enabled' },
+          { label: 'Warning', value: 'Warning' },
+          { label: 'Suspended', value: 'Suspended' },
+          { label: 'Deleted', value: 'Deleted' },
+          { label: 'Locked Out', value: 'LockedOut' },
+        ],
+      },
+      cell: capabilityStatusCell,
+    },
+    {
       key: 'display_name',
       title: 'Name',
       sortable: true,
@@ -33,6 +49,11 @@
       searchable: true,
     },
     {
+      key: 'connection_name',
+      title: 'Tenant',
+      sortable: true,
+    },
+    {
       key: 'raw_data.prepaidUnits.enabled',
       title: 'Total',
       sortable: true,
@@ -46,27 +67,6 @@
       key: 'raw_data',
       title: 'Available',
       cell: availableCell,
-    },
-    {
-      key: 'raw_data.capabilityStatus',
-      title: 'Status',
-      filter: {
-        type: 'select',
-        operators: ['eq'],
-        options: [
-          { label: 'Enabled', value: 'Enabled' },
-          { label: 'Warning', value: 'Warning' },
-          { label: 'Suspended', value: 'Suspended' },
-          { label: 'Deleted', value: 'Deleted' },
-          { label: 'Locked Out', value: 'LockedOut' },
-        ],
-      },
-      cell: capabilityStatusCell,
-    },
-    {
-      key: 'connection_name',
-      title: 'Tenant',
-      sortable: true,
     },
   ];
 

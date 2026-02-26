@@ -41,18 +41,6 @@
 
   const columns: DataTableColumn<EntityAlert>[] = [
     {
-      key: 'alert_type',
-      title: 'Type',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search type...',
-      },
-      cell: typeCell,
-    },
-    {
       key: 'severity',
       title: 'Severity',
       sortable: true,
@@ -82,6 +70,18 @@
           { label: 'Suppressed', value: 'suppressed' },
         ],
       },
+    },
+    {
+      key: 'alert_type',
+      title: 'Type',
+      sortable: true,
+      searchable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search type...',
+      },
+      cell: typeCell,
     },
     { key: 'site_name', title: 'Site', sortable: true, searchable: true },
     { key: 'connection_name', title: 'Tenant', sortable: true, searchable: true },

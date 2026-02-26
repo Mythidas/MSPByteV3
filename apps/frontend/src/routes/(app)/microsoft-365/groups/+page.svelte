@@ -16,6 +16,11 @@
 
   const columns: DataTableColumn<Entity>[] = [
     {
+      key: 'raw_data.groupTypes',
+      title: 'Type',
+      cell: groupTypeCell,
+    },
+    {
       key: 'display_name',
       title: 'Name',
       sortable: true,
@@ -27,9 +32,9 @@
       },
     },
     {
-      key: 'raw_data.groupTypes',
-      title: 'Type',
-      cell: groupTypeCell,
+      key: 'connection_name',
+      title: 'Tenant',
+      sortable: true,
     },
     {
       key: 'raw_data.mail',
@@ -60,11 +65,6 @@
       key: 'raw_data.description',
       title: 'Description',
       cell: descriptionCell,
-    },
-    {
-      key: 'connection_name',
-      title: 'Tenant',
-      sortable: true,
     },
   ];
 
@@ -129,7 +129,7 @@
 
 {#snippet descriptionCell({ value }: { row: Entity; value: string | null })}
   {#if value}
-    {value}
+    <span class="truncate max-w-20">{value.substring(0, 50)}{value.length > 50 ? '...' : ''}</span>
   {:else}
     <span class="text-muted-foreground">—</span>
   {/if}

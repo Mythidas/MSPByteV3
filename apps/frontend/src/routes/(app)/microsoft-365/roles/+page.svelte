@@ -26,6 +26,11 @@
       },
     },
     {
+      key: 'connection_name',
+      title: 'Tenant',
+      sortable: true,
+    },
+    {
       key: 'member_count',
       title: 'Members',
       sortable: true,
@@ -34,11 +39,6 @@
       key: 'raw_data.description',
       title: 'Description',
       cell: descriptionCell,
-    },
-    {
-      key: 'connection_name',
-      title: 'Tenant',
-      sortable: true,
     },
   ];
 

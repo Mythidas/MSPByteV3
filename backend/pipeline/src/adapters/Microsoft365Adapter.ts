@@ -381,6 +381,7 @@ export class Microsoft365Adapter extends BaseAdapter {
       'accountEnabled',
       'assignedLicenses',
       'assignedPlans',
+      'userType',
     ];
     if (includeSignInActivity) {
       select.push('signInActivity');

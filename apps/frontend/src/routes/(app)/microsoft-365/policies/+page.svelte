@@ -17,17 +17,6 @@
 
   const columns: DataTableColumn<Entity>[] = [
     {
-      key: 'display_name',
-      title: 'Name',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search name...',
-      },
-    },
-    {
       key: 'raw_data.state',
       title: 'State',
       sortable: true,
@@ -43,6 +32,22 @@
       },
     },
     {
+      key: 'display_name',
+      title: 'Name',
+      sortable: true,
+      searchable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search name...',
+      },
+    },
+    {
+      key: 'connection_name',
+      title: 'Tenant',
+      sortable: true,
+    },
+    {
       key: 'raw_data.grantControls.builtInControls',
       title: 'Controls',
       cell: controlsCell,
@@ -56,11 +61,6 @@
       key: 'raw_data.modifiedDateTime',
       title: 'Last Modified',
       cell: lastModifiedCell,
-    },
-    {
-      key: 'connection_name',
-      title: 'Tenant',
-      sortable: true,
     },
   ];
 

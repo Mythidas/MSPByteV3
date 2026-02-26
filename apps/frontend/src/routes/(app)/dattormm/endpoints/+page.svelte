@@ -13,33 +13,6 @@
 
   const columns: DataTableColumn<Entity>[] = $derived([
     {
-      key: 'display_name',
-      title: 'Hostname',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search hostname...',
-      },
-    },
-    {
-      key: 'raw_data.deviceType.category',
-      title: 'Type',
-      sortable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search type...',
-      },
-    },
-    {
-      key: 'site_name',
-      title: 'Site',
-      sortable: true,
-      searchable: true,
-    },
-    {
       key: 'state',
       title: 'State',
       sortable: true,
@@ -54,16 +27,43 @@
       },
     },
     {
-      key: 'tags',
-      title: 'Tags',
+      key: 'display_name',
+      title: 'Hostname',
       sortable: true,
-      cell: tagsCell,
+      searchable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search hostname...',
+      },
+    },
+    {
+      key: 'site_name',
+      title: 'Site',
+      sortable: true,
+      searchable: true,
+    },
+    {
+      key: 'raw_data.deviceType.category',
+      title: 'Type',
+      sortable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search type...',
+      },
     },
     {
       key: 'raw_data.lastSeen',
       title: 'Last Online',
       sortable: true,
       cell: lastSeenCell,
+    },
+    {
+      key: 'tags',
+      title: 'Tags',
+      sortable: true,
+      cell: tagsCell,
     },
   ]);
 

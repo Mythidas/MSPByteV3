@@ -13,49 +13,6 @@
 
   const columns: DataTableColumn<Entity>[] = $derived([
     {
-      key: 'display_name',
-      title: 'Hostname',
-      sortable: true,
-      searchable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search hostname...',
-      },
-    },
-    {
-      key: 'raw_data.type',
-      title: 'Type',
-      sortable: true,
-      filter: {
-        type: 'text',
-        operators: ['ilike', 'eq'],
-        placeholder: 'Search type...',
-      },
-      cell: typeCell,
-    },
-    {
-      key: 'raw_data.online',
-      title: 'Online',
-      cell: onlineCell,
-    },
-    {
-      key: 'raw_data.os.name',
-      title: 'OS',
-      cell: osCell,
-    },
-    {
-      key: 'raw_data.health.overall',
-      title: 'Health',
-      cell: healthCell,
-    },
-    {
-      key: 'site_name',
-      title: 'Site',
-      sortable: true,
-      searchable: true,
-    },
-    {
       key: 'state',
       title: 'State',
       sortable: true,
@@ -70,16 +27,59 @@
       },
     },
     {
-      key: 'tags',
-      title: 'Tags',
+      key: 'display_name',
+      title: 'Hostname',
       sortable: true,
-      cell: tagsCell,
+      searchable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search hostname...',
+      },
+    },
+    {
+      key: 'site_name',
+      title: 'Site',
+      sortable: true,
+      searchable: true,
+    },
+    {
+      key: 'raw_data.online',
+      title: 'Online',
+      cell: onlineCell,
+    },
+    {
+      key: 'raw_data.type',
+      title: 'Type',
+      sortable: true,
+      filter: {
+        type: 'text',
+        operators: ['ilike', 'eq'],
+        placeholder: 'Search type...',
+      },
+      cell: typeCell,
+    },
+    {
+      key: 'raw_data.os.name',
+      title: 'OS',
+      cell: osCell,
+    },
+    {
+      key: 'raw_data.health.overall',
+      title: 'Health',
+      cell: healthCell,
     },
     {
       key: 'raw_data.lastSeenAt',
       title: 'Last Online',
       sortable: true,
       cell: lastSeenCell,
+    },
+    {
+      key: 'tags',
+      title: 'Tags',
+      sortable: true,
+      cell: tagsCell,
     },
   ]);
 
