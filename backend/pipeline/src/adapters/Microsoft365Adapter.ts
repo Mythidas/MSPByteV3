@@ -236,6 +236,7 @@ export class Microsoft365Adapter extends BaseAdapter {
     const select: (keyof MSGraphIdentity)[] = [
       'id',
       'displayName',
+      'userType',
       'userPrincipalName',
       'accountEnabled',
       'assignedLicenses',
