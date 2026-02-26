@@ -66,25 +66,16 @@ pub async fn save_settings(settings: &Settings) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+pub fn get_hostname() -> Option<String> {
+    return Some(hostname::get().ok()?.to_string_lossy().to_string());
+}
+
 pub async fn complete_settings() -> Result<Settings, Box<dyn std::error::Error>> {
     let mut settings = get_settings().await?;
 
-    // If already complete, return as-is
-    if settings.guid.is_some() && settings.hostname.is_some() {
-        return Ok(settings);
-    }
-
-    // Complete missing fields
-    if settings.guid.is_none() {
-        settings.guid = Some(get_machine_id()?);
-    }
-
-    if settings.hostname.is_none() {
-        settings.hostname = Some(hostname::get()?.to_string_lossy().to_string());
-    }
+    settings.hostname = get_hostname();
 
     save_settings(&settings).await?;
-
     Ok(settings)
 }
 
@@ -108,65 +99,13 @@ pub async fn is_device_registered() -> bool {
     }
 }
 
-pub fn get_machine_id() -> Result<String, Box<dyn std::error::Error>> {
-    #[cfg(target_os = "windows")]
-    {
-        const CREATE_NO_WINDOW: u32 = 0x08000000;
-        let output = Command::new("reg")
-            .args(&[
-                "query",
-                "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography",
-                "/v",
-                "MachineGuid",
-            ])
-            .creation_flags(CREATE_NO_WINDOW)
-            .output()?;
-
-        let output_str = String::from_utf8_lossy(&output.stdout);
-
-        for line in output_str.lines() {
-            if line.contains("MachineGuid") {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 3 {
-                    return Ok(parts[2].to_string());
-                }
-            }
-        }
-
-        Err("Could not find MachineGuid".into())
+pub async fn get_machine_id() -> Result<String, Box<dyn std::error::Error>> {
+    let mut settings = get_settings().await?;
+    if let Some(guid) = settings.guid {
+        return Ok(guid);
     }
 
-    #[cfg(target_os = "macos")]
-    {
-        let output = Command::new("ioreg")
-            .args(&["-rd1", "-c", "IOPlatformExpertDevice"])
-            .output()?;
-
-        let output_str = String::from_utf8_lossy(&output.stdout);
-
-        for line in output_str.lines() {
-            if line.contains("IOPlatformUUID") {
-                if let Some(uuid) = line.split('"').nth(3) {
-                    return Ok(uuid.to_string());
-                }
-            }
-        }
-
-        Err("Could not find IOPlatformUUID".into())
-    }
-
-    #[cfg(target_os = "linux")]
-    {
-        if let Ok(id) = std::fs::read_to_string("/etc/machine-id") {
-            return Ok(id.trim().to_string());
-        }
-
-        if let Ok(id) = std::fs::read_to_string("/var/lib/dbus/machine-id") {
-            return Ok(id.trim().to_string());
-        }
-
-        Err("Could not find machine-id".into())
-    }
+    Err("Could not find GUID in settings".into())
 }
 
 pub fn get_serial_number() -> Option<String> {

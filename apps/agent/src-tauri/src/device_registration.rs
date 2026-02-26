@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub struct RegistrationRequest {
     pub guid: Option<String>,
     pub site_id: String,
+    pub device_id: Option<String>,
     pub hostname: String,
     pub version: String,
     pub platform: String,
@@ -37,7 +38,7 @@ pub async fn register_device_with_server(
     let api_url = get_api_endpoint("/v1.0/register").await?;
 
     // Try to get machine GUID, but allow None if not available
-    let guid = get_machine_id().ok();
+    let guid = get_machine_id().await.ok();
     let serial = get_serial_number();
     let mac = get_primary_mac();
 
@@ -49,6 +50,7 @@ pub async fn register_device_with_server(
     let request = RegistrationRequest {
         guid: guid.clone(),
         site_id: settings.site_id.clone(),
+        device_id: settings.device_id.clone(),
         hostname: settings
             .hostname
             .clone()
