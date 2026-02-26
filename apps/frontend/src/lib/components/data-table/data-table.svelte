@@ -1,4 +1,5 @@
 <script lang="ts" generics="S extends Schemas, T extends TableOrView<S>">
+  import { untrack } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
   import { ORM } from '@workspace/shared/lib/utils/orm';
@@ -247,8 +248,10 @@
     sortField;
     sortDir;
 
-    fetchData();
-    updateURL();
+    untrack(() => {
+      fetchData();
+      updateURL();
+    });
   });
 
   // Selection change callback
