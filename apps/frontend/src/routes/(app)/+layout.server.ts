@@ -4,7 +4,7 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
   const isM365 = url.pathname.startsWith('/microsoft-365');
 
   const [{ data: sites }, { data: groups }, { data: siteToGroup }] = await Promise.all([
-    locals.supabase.from('sites').select('id, name, parent_id').order('name', { ascending: true }),
+    locals.supabase.from('sites').select('id, name').order('name', { ascending: true }),
     locals.supabase.from('site_groups').select('id, name').order('name', { ascending: true }),
     locals.supabase.from('site_to_group').select('site_id, group_id'),
   ]);

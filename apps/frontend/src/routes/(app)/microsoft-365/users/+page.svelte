@@ -11,7 +11,6 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getSiteIdsForScope, getConnectionIdForScope } from '$lib/utils/scope-filter';
-  import { formatStringProper } from '$lib/utils/format.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
 
   type Entity = Tables<'views', 'd_entities_view'>;
