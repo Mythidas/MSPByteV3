@@ -53,9 +53,59 @@ export class CoveLinker extends BaseLinker {
 
     // Post-link steps only after company sync
     if (ctx.entityType === 'company' && ctx.integrationDbId) {
+      await this.assignSiteIds(ctx, tracker);
       await this.cleanupStaleMappings(ctx, tracker);
       await this.fanOutEndpointJobs(ctx, tracker);
     }
+  }
+
+  private async assignSiteIds(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
+    const orm = getORM();
+
+    // Load site_to_integration mappings for this integration
+    tracker.trackQuery();
+    const { data: mappings } = await getSupabase()
+      .from('site_to_integration')
+      .select('site_id, external_id')
+      .eq('integration_id', ctx.integrationDbId)
+      .eq('tenant_id', ctx.tenantId);
+
+    if (!mappings || mappings.length === 0) return;
+
+    // Build map: external_id → site_id
+    const externalIdToSiteId = new Map<string, string>();
+    for (const mapping of mappings) {
+      externalIdToSiteId.set(mapping.external_id, mapping.site_id);
+    }
+
+    // Group company entities by target site_id (skip those already correct)
+    const companyEntities = ctx.processedEntities.filter((e) => e.entity_type === 'company');
+    const updateGroups = new Map<string, string[]>();
+
+    for (const entity of companyEntities) {
+      const targetSiteId = externalIdToSiteId.get(entity.external_id);
+      if (!targetSiteId || entity.site_id === targetSiteId) continue;
+
+      if (!updateGroups.has(targetSiteId)) updateGroups.set(targetSiteId, []);
+      updateGroups.get(targetSiteId)!.push(entity.id);
+    }
+
+    if (updateGroups.size === 0) return;
+
+    for (const [siteId, entityIds] of updateGroups) {
+      tracker.trackUpsert();
+      const { error } = await orm.batchUpdate('public', 'entities', entityIds, {
+        site_id: siteId,
+      } as any);
+      if (error) throw new Error(`Failed to assign site_id to company entities: ${error}`);
+    }
+
+    const totalUpdated = [...updateGroups.values()].reduce((sum, ids) => sum + ids.length, 0);
+    Logger.info({
+      module: 'CoveLinker',
+      context: 'assignSiteIds',
+      message: `Assigned site_id to ${totalUpdated} company entities`,
+    });
   }
 
   private async cleanupStaleMappings(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {

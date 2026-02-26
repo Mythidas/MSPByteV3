@@ -978,7 +978,6 @@ export type Database = {
           created_at: string
           id: string
           name: string
-          parent_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -986,7 +985,6 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
-          parent_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -994,18 +992,10 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
-          parent_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "sites_parent_id_fkey"
-            columns: ["parent_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "sites_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -1287,6 +1277,13 @@ export type Database = {
             referencedRelation: "d_agents_view"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "agent_tickets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
         ]
       }
       d_agents_view: {
@@ -1307,7 +1304,15 @@ export type Database = {
           updated_at: string | null
           version: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "agents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       d_alerts_view: {
         Row: {
@@ -1343,6 +1348,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "entity_alerts_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "entity_alerts_suppressed_by_fkey"
             columns: ["suppressed_by"]
             isOneToOne: false
@@ -1373,7 +1385,15 @@ export type Database = {
           tenant_id: string | null
           updated_at: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "entities_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       d_roles_view: {
         Row: {
@@ -1386,6 +1406,17 @@ export type Database = {
           tenant_id: string | null
           updated_at: string | null
           user_count: number | null
+        }
+        Relationships: []
+      }
+      d_sites_view: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          mapped_integrations: string[] | null
+          name: string | null
+          tenant_id: string | null
+          updated_at: string | null
         }
         Relationships: []
       }

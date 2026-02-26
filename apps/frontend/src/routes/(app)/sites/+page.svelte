@@ -6,8 +6,11 @@
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '$lib/utils/permissions';
   import { goto } from '$app/navigation';
+  import { INTEGRATIONS, type IntegrationId } from '@workspace/shared/config/integrations.js';
+  import Badge from '$lib/components/ui/badge/badge.svelte';
+  import { formatDate } from '$lib/utils/format';
 
-  type Site = Tables<'public', 'sites'>;
+  type Site = Tables<'views', 'd_sites_view'>;
 
   const { data } = $props();
   let isDeleting = $state(false);
@@ -15,9 +18,21 @@
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
   );
 
-  function formatDate(dateStr: string): string {
-    return new Date(dateStr).toLocaleDateString();
-  }
+  const getColor = (id: IntegrationId) => {
+    switch (id) {
+      case 'sophos-partner':
+        return 'bg-blue-500/30 border-blue-500/70';
+      case 'cove':
+        return 'bg-fuchsia-500/30 border-fuchsia-500/70';
+      case 'dattormm':
+        return 'bg-cyan-500/30 border-cyan-500/70';
+      case 'halopsa':
+        return 'bg-rose-500/30 border-rose-500/70';
+      case 'microsoft-365':
+        return 'bg-emerald-500/30 border-emerald-500/70';
+    }
+    return `bg-primary/30 border-primary/70`;
+  };
 
   // Define columns with all features
   const columns: DataTableColumn<Site>[] = $derived([
@@ -33,6 +48,23 @@
       },
     },
     {
+      key: 'mapped_integrations',
+      title: 'Integrations',
+      sortable: true,
+      searchable: true,
+      filter: {
+        type: 'select',
+        operators: ['cs', 'not.cs'],
+        defaultOperator: 'cs',
+        options: Object.entries(INTEGRATIONS).map(([key, val]) => ({
+          label: val.name,
+          value: key,
+        })),
+        multiple: true,
+      },
+      cell: integrationsCell,
+    },
+    {
       key: 'created_at',
       title: 'Created',
       sortable: true,
@@ -43,15 +75,6 @@
       cell: createdAtCell,
     },
   ]);
-
-  // Predefined views
-  // const views: TableView[] = [
-  //   {
-  //     id: 'recent',
-  //     label: 'Recently Created',
-  //     filters: [{ field: 'created_at', operator: 'gt', value: '2024-01-01' }],
-  //   },
-  // ];
 
   // Bulk actions (only available with write permission)
   let rowActions: RowAction<Site>[] = $derived(
@@ -70,7 +93,7 @@
               const { error } = await orm.delete('public', 'sites', (q) =>
                 q.in(
                   'id',
-                  rows.map((r) => r.id)
+                  rows.map((r) => r.id!)
                 )
               );
 
@@ -97,6 +120,16 @@
   }
 </script>
 
+{#snippet integrationsCell({ value }: { row: Site; value: IntegrationId[] })}
+  <div class="flex gap-1">
+    {#each value as id}
+      <Badge variant="outline" class={getColor(id)}>
+        {INTEGRATIONS[id].name}
+      </Badge>
+    {/each}
+  </div>
+{/snippet}
+
 {#snippet createdAtCell({ value }: { row: Site; value: string })}
   {formatDate(value)}
 {/snippet}
@@ -105,8 +138,8 @@
   <h1 class="h-fit text-2xl font-bold">Sites</h1>
 
   <DataTable
-    schema="public"
-    table="sites"
+    schema="views"
+    table="d_sites_view"
     {columns}
     {rowActions}
     enableRowSelection={canWrite}

@@ -15,7 +15,7 @@ export interface TableFilter {
   value: any;
 }
 
-export interface FilterConfig {
+export type FilterConfig = {
   label?: string;
   type: 'text' | 'select' | 'date' | 'number' | 'boolean';
   operators: FilterOperator[];
@@ -23,9 +23,9 @@ export interface FilterConfig {
   options?: { label: string; value: any }[];
   placeholder?: string;
   multiple?: boolean;
-}
+};
 
-export interface DataTableColumn<TData> {
+export type DataTableColumn<TData> = {
   key: string;
   title: string;
   cell?: Snippet<[{ row: TData; value: any }]>;
@@ -37,7 +37,7 @@ export interface DataTableColumn<TData> {
   hideable?: boolean;
   width?: string;
   filter?: FilterConfig;
-}
+};
 
 export interface TableView {
   id: string;
