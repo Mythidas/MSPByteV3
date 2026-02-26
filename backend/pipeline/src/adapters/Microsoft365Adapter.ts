@@ -4,7 +4,6 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
 import { SkuCatalog } from '@workspace/shared/lib/services/microsoft/SkuCatalog';
-import { TenantCapabilityService } from '@workspace/shared/lib/services/microsoft/TenantCapabilityService';
 import { PowerShellRunner } from '@workspace/shared/lib/utils/PowerShellRunner';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
 import type { AdapterFetchResult, RawEntity, SyncJobData } from '../types.js';
@@ -44,11 +43,7 @@ export class Microsoft365Adapter extends BaseAdapter {
       }
     }
 
-    if (mode === 'partner') {
-      return this.fetchPartnerEntities(config, jobData, siteMap, domainMap, tracker);
-    }
-
-    return this.fetchDirectEntities(config, jobData, siteMap, tracker);
+    return this.fetchPartnerEntities(config, jobData, siteMap, domainMap, tracker);
   }
 
   // ---------------------------------------------------------------------------
@@ -167,7 +162,7 @@ export class Microsoft365Adapter extends BaseAdapter {
 
       if (entityType === 'identity') {
         // Filter users by domain → assign siteId per user; unmapped stored with site_id = null
-        const entities = await this.fetchPartnerIdentities(
+        const entities = await this.fetchIdentities(
           connector,
           gdapTenantId,
           domainMap,
@@ -230,7 +225,7 @@ export class Microsoft365Adapter extends BaseAdapter {
     return { entities: allEntities, pagination: { hasMore: false } };
   }
 
-  private async fetchPartnerIdentities(
+  private async fetchIdentities(
     connector: Microsoft365Connector,
     gdapTenantId: string,
     domainMap: Map<string, string>, // domain → siteId
@@ -238,15 +233,16 @@ export class Microsoft365Adapter extends BaseAdapter {
     tracker: PipelineTracker,
     capabilities: MSCapabilities
   ): Promise<RawEntity[]> {
-    const select: string[] = [
+    const select: (keyof MSGraphIdentity)[] = [
       'id',
       'displayName',
       'userPrincipalName',
-      'mail',
       'accountEnabled',
-      'createdDateTime',
       'assignedLicenses',
       'assignedPlans',
+      'proxyAddresses',
+      'companyName',
+      'jobTitle',
     ];
     if (capabilities.signInActivity) {
       select.push('signInActivity');
@@ -291,130 +287,6 @@ export class Microsoft365Adapter extends BaseAdapter {
     });
 
     return entities;
-  }
-
-  // ---------------------------------------------------------------------------
-  // DIRECT MODE — uses per-integration credentials from the DB config
-  // ---------------------------------------------------------------------------
-
-  private async fetchDirectEntities(
-    config: any,
-    jobData: SyncJobData,
-    _siteMap: Map<string, string>,
-    tracker: PipelineTracker
-  ): Promise<AdapterFetchResult> {
-    const connector = new Microsoft365Connector({
-      tenantId: config.tenantId,
-      clientId: config.clientId,
-      clientSecret: config.clientSecret,
-      mode: 'direct',
-      certificatePem: config.certificatePem,
-      domainMappings: config.domainMappings,
-    });
-
-    tracker.trackApiCall();
-    const entities = await this.fetchEntitiesForTenant(
-      connector,
-      jobData,
-      jobData.siteId || undefined,
-      config.certificatePem,
-      config.tenantId,
-      tracker
-    );
-
-    return { entities, pagination: { hasMore: false } };
-  }
-
-  // ---------------------------------------------------------------------------
-  // SHARED — fetch a single entity type for one tenant
-  // ---------------------------------------------------------------------------
-
-  private async fetchEntitiesForTenant(
-    connector: Microsoft365Connector,
-    jobData: SyncJobData,
-    siteId: string | undefined,
-    certPem: string | undefined,
-    customerTenantId: string,
-    tracker: PipelineTracker
-  ): Promise<RawEntity[]> {
-    const { entityType } = jobData;
-
-    if (entityType === 'identity') {
-      return this.fetchIdentities(connector, siteId, tracker);
-    }
-
-    if (entityType === 'group') {
-      return this.fetchGroups(connector, siteId, tracker);
-    }
-
-    if (entityType === 'license') {
-      return this.fetchLicenses(connector, siteId, tracker);
-    }
-
-    if (entityType === 'role') {
-      return this.fetchRoles(connector, siteId, tracker);
-    }
-
-    if (entityType === 'policy') {
-      return this.fetchPolicies(connector, siteId, tracker);
-    }
-
-    if (entityType === 'exchange-config') {
-      return this.fetchExchangeConfig(certPem, customerTenantId, siteId, tracker);
-    }
-
-    throw new Error(`Microsoft365Adapter: unknown entityType "${entityType}"`);
-  }
-
-  private async fetchIdentities(
-    connector: Microsoft365Connector,
-    siteId: string | undefined,
-    tracker: PipelineTracker
-  ): Promise<RawEntity[]> {
-    // Probe capabilities to determine if signInActivity is available for this direct tenant
-    const { data: caps } = await new TenantCapabilityService(connector).probe();
-    const includeSignInActivity = caps?.signInActivity ?? false;
-
-    const select: (keyof MSGraphIdentity)[] = [
-      'id',
-      'displayName',
-      'userPrincipalName',
-      'accountEnabled',
-      'assignedLicenses',
-      'userType',
-      'proxyAddresses',
-    ];
-    if (includeSignInActivity) {
-      select.push('signInActivity');
-    }
-
-    const { data, error } = await tracker.trackSpan('adapter:api:getIdentities', () =>
-      connector.getIdentities(
-        {
-          select: select as any,
-        },
-        true
-      )
-    );
-
-    if (error || !data) {
-      throw new Error(`Microsoft365 getIdentities failed: ${error?.message}`);
-    }
-
-    Logger.info({
-      module: 'Microsoft365Adapter',
-      context: 'fetchIdentities',
-      message: `Fetched ${data.identities.length} identities`,
-    });
-
-    return data.identities.map((u: any) => {
-      return {
-        externalId: u.id,
-        displayName: u.displayName || u.userPrincipalName,
-        siteId,
-        rawData: u,
-      };
-    });
   }
 
   private async fetchGroups(

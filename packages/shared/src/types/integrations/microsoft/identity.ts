@@ -4,6 +4,8 @@ export type MSGraphIdentity = {
   userType: string;
   displayName: string;
   accountEnabled: boolean;
+  companyName: string;
+  jobTitle: string;
 
   // License & plans
   assignedLicenses?: {

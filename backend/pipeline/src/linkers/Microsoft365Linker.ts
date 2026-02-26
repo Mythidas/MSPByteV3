@@ -34,7 +34,12 @@ export class Microsoft365Linker extends BaseLinker {
       return relationships;
     }
 
-    const baseConnector = new Microsoft365Connector({ tenantId: '', clientId, clientSecret, mode: 'partner' });
+    const baseConnector = new Microsoft365Connector({
+      tenantId: '',
+      clientId,
+      clientSecret,
+      mode: 'partner',
+    });
 
     // Re-group by _gdapTenantId from raw_data (set by adapter) instead of site_id
     const tenantGroupMap = new Map<string, { groups: Entity[]; roles: Entity[] }>();
@@ -81,7 +86,7 @@ export class Microsoft365Linker extends BaseLinker {
 
       // Link role members to identity entities
       for (const role of siteRoles) {
-        const { data, error } = await connector.getRoleMembers(role.external_id, undefined, true);
+        const { data, error } = await connector.getRoleMembers(role.raw_data.id, undefined, true);
 
         if (error) {
           Logger.warn({

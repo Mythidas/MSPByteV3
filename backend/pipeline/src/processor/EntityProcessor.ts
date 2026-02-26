@@ -146,8 +146,14 @@ export class EntityProcessor {
     // Fetch existing entities by external_id (select full rows for upsert + return)
     const externalIds = entities.map((e) => e.externalId);
 
+    // Determine connection_ids present in this chunk for scoped lookup
+    const chunkConnectionIds = [...new Set(
+      entities.map((e) => e.connectionId || connectionId || null)
+    )];
+    const singleConnectionId = chunkConnectionIds.length === 1 ? chunkConnectionIds[0] : undefined;
+
     tracker.trackQuery();
-    const { data: existing } = await supabase
+    let lookupQuery = supabase
       .from('entities')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -155,7 +161,26 @@ export class EntityProcessor {
       .eq('entity_type', entityType)
       .in('external_id', externalIds);
 
-    const existingMap = new Map((existing || []).map((e) => [e.external_id, e]));
+    if (singleConnectionId !== undefined) {
+      // All entities in this chunk belong to the same connection (or all null)
+      if (singleConnectionId === null) {
+        lookupQuery = lookupQuery.is('connection_id', null);
+      } else {
+        lookupQuery = lookupQuery.eq('connection_id', singleConnectionId);
+      }
+    } else {
+      // Mixed connections in chunk — filter to only relevant non-null connection_ids
+      const nonNullIds = chunkConnectionIds.filter((id): id is string => id !== null);
+      if (nonNullIds.length > 0) {
+        lookupQuery = lookupQuery.in('connection_id', nonNullIds);
+      }
+    }
+
+    const { data: existing } = await lookupQuery;
+
+    const existingMap = new Map(
+      (existing || []).map((e) => [`${e.external_id}:${e.connection_id ?? ''}`, e])
+    );
 
     const toCreate: any[] = [];
     const toUpsert: any[] = [];
@@ -168,7 +193,8 @@ export class EntityProcessor {
         displayName: entity.displayName,
         siteId: entity.siteId,
       });
-      const ex = existingMap.get(entity.externalId);
+      const entityConnId = entity.connectionId || connectionId || null;
+      const ex = existingMap.get(`${entity.externalId}:${entityConnId ?? ''}`);
       const displayName = entity.displayName || extractDisplayName(entity.rawData) || null;
 
       if (!ex) {

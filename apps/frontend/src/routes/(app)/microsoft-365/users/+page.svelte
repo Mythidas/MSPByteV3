@@ -69,6 +69,14 @@
       sortable: true,
     },
     {
+      key: 'raw_data.companyName',
+      title: 'Company',
+    },
+    {
+      key: 'raw_data.jobTitle',
+      title: 'Job Title',
+    },
+    {
       key: 'raw_data.userType',
       title: 'User Type',
       cell: userTypeCell,
