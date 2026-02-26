@@ -8,7 +8,6 @@
   import * as Select from '$lib/components/ui/select/index.js';
   import { Check, ChevronsUpDown, MapPin, Network } from '@lucide/svelte';
   import {
-    getParentSites,
     type SiteRef,
     type GroupRef,
     type ScopeType,
@@ -19,7 +18,7 @@
     sites = [],
     groups = [],
     connections = [],
-    pickerTypes = ['site', 'group', 'parent'],
+    pickerTypes = ['site', 'group'],
   }: {
     sites: SiteRef[];
     groups: GroupRef[];
@@ -33,16 +32,12 @@
   let scope = $derived(page.url.searchParams.get('scope') as ScopeType | null);
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
 
-  let parentSites = $derived(getParentSites(sites));
-
   let scopeType = $derived((scope ?? pickerTypes[0]) as ScopeType);
 
   let options = $derived.by((): { id: string; name: string }[] => {
     switch (scopeType) {
       case 'group':
         return groups;
-      case 'parent':
-        return parentSites;
       case 'connection':
         return connections;
       default:
@@ -60,8 +55,6 @@
     switch (scopeType) {
       case 'group':
         return 'All Groups';
-      case 'parent':
-        return 'All Parents';
       case 'connection':
         return 'All Tenants';
       default:
@@ -73,8 +66,6 @@
     switch (scopeType) {
       case 'group':
         return 'Search groups...';
-      case 'parent':
-        return 'Search parents...';
       case 'connection':
         return 'Search tenants...';
       default:
@@ -86,8 +77,6 @@
     switch (scopeType) {
       case 'group':
         return 'Group';
-      case 'parent':
-        return 'Parent';
       case 'connection':
         return 'Tenant';
       default:
@@ -139,21 +128,9 @@
       {#each pickerTypes as pt}
         <Select.Item
           value={pt}
-          label={pt === 'site'
-            ? 'Site'
-            : pt === 'group'
-              ? 'Group'
-              : pt === 'parent'
-                ? 'Parent'
-                : 'Tenant'}
+          label={pt === 'site' ? 'Site' : pt === 'group' ? 'Group' : 'Tenant'}
         >
-          {pt === 'site'
-            ? 'Site'
-            : pt === 'group'
-              ? 'Group'
-              : pt === 'parent'
-                ? 'Parent'
-                : 'Tenant'}
+          {pt === 'site' ? 'Site' : pt === 'group' ? 'Group' : 'Tenant'}
         </Select.Item>
       {/each}
     </Select.Content>

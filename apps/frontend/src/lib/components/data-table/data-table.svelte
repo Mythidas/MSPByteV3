@@ -9,6 +9,7 @@
     Tables,
     PaginationOptions,
     Filters,
+    FilterValue,
   } from '@workspace/shared/types/database';
   import type { DataTableProps, TableFilter, TableView, DataTableColumn, RowAction } from './types';
   import { cn } from '$lib/utils';
@@ -500,7 +501,7 @@
                 <Table.Cell>
                   {#if column.cellComponent}
                     {@const CellComp = column.cellComponent}
-                    <CellComp {value} {row} {...(column.cellProps ?? {})} />
+                    <CellComp {value} {row} {...column.cellProps ?? {}} />
                   {:else if column.cell}
                     {@render column.cell({ row, value })}
                   {:else}

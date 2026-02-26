@@ -11,7 +11,6 @@ export type SiteToGroupRef = { site_id: string; group_id: string };
 export function getSiteIdsForScope(
   scope: string | null,
   scopeId: string | null,
-  sites: SiteRef[],
   siteToGroup: SiteToGroupRef[]
 ): string[] | null {
   if (!scope || !scopeId) return null;

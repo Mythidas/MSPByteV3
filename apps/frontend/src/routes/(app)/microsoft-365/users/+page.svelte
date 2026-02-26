@@ -19,10 +19,10 @@
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
-  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.sites, data.siteToGroup));
+  let filterSiteIds = $derived(getSiteIdsForScope(scope, scopeId, data.siteToGroup));
   let filterConnectionId = $derived(getConnectionIdForScope(scope, scopeId));
 
-  const columns: DataTableColumn<Entity>[] = [
+  const columns = $derived<DataTableColumn<Entity>[]>([
     stateColumn<Entity>(),
     boolBadgeColumn<Entity>(
       'raw_data.accountEnabled',
@@ -73,10 +73,23 @@
       key: 'raw_data.assignedLicenses',
       title: 'Licenses',
       cell: licensesCell,
+      filter: {
+        label: 'License',
+        type: 'select',
+        operators: ['cs'],
+        defaultOperator: 'cs',
+        options: data.licenseOptions,
+      },
+      exportValue: ({ value }) => {
+        if (!Array.isArray(value) || value.length === 0) return '';
+        return (value as { skuId: string }[])
+          .map((l) => data.licenseMap[l.skuId] ?? l.skuId)
+          .join(', ');
+      },
     },
     relativeDateColumn<Entity>('raw_data.signInActivity.lastSignInDateTime', 'Last Sign-In'),
     tagsColumn<Entity>(),
-  ];
+  ]);
 
   function modifyQuery(q: any) {
     q.eq('integration_id', 'microsoft-365').eq('entity_type', 'identity');
@@ -120,6 +133,7 @@
       table="d_entities_view"
       {columns}
       {modifyQuery}
+      filterMap={{ 'raw_data.assignedLicenses': 'raw_data->assignedLicenses' }}
       enableGlobalSearch={true}
       enableFilters={true}
       enablePagination={true}

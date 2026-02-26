@@ -1,19 +1,19 @@
 <script lang="ts">
-  import { Button } from "$lib/components/ui/button";
-  import * as Dialog from "$lib/components/ui/dialog";
-  import { Label } from "$lib/components/ui/label";
-  import * as Select from "$lib/components/ui/select";
-  import PlusIcon from "@lucide/svelte/icons/plus";
-  import type { DataTableColumn, FilterOperator, TableFilter } from "./types";
-  import { generateFilterId } from "./utils/filters";
-  import { getDefaultOperator } from "./utils/operators";
+  import { Button } from '$lib/components/ui/button';
+  import * as Dialog from '$lib/components/ui/dialog';
+  import { Label } from '$lib/components/ui/label';
+  import PlusIcon from '@lucide/svelte/icons/plus';
+  import type { DataTableColumn, FilterOperator, TableFilter } from './types';
+  import { generateFilterId } from './utils/filters';
+  import { getDefaultOperator } from './utils/operators';
   import {
     TextFilterInput,
     SelectFilterInput,
     NumberFilterInput,
     BooleanFilterInput,
     DateFilterInput,
-  } from "./filter-inputs";
+  } from './filter-inputs';
+  import SingleSelect from '$lib/components/single-select.svelte';
 
   interface Props {
     columns: DataTableColumn<any>[];
@@ -23,32 +23,28 @@
   let { columns, onaddfilter }: Props = $props();
 
   let open = $state(false);
-  let selectedField = $state<string>("");
-  let operator = $state<FilterOperator>("eq");
-  let value = $state<any>("");
+  let selectedField = $state<string>('');
+  let operator = $state<FilterOperator>('eq');
+  let value = $state<any>('');
 
   const filterableColumns = $derived(columns.filter((col) => col.filter));
 
-  const selectedColumn = $derived(
-    filterableColumns.find((col) => col.key === selectedField)
-  );
+  const selectedColumn = $derived(filterableColumns.find((col) => col.key === selectedField));
   const filterConfig = $derived(selectedColumn?.filter);
 
-  const selectedFieldLabel = $derived(
-    selectedColumn ? selectedColumn.title : "Select a field..."
-  );
+  const selectedFieldLabel = $derived(selectedColumn ? selectedColumn.title : 'Select a field...');
 
   function handleAddFilter() {
     if (!selectedField || !filterConfig) return;
 
     // Validate value
-    if (value === "" || value === null || value === undefined) {
+    if (value === '' || value === null || value === undefined) {
       return;
     }
 
     // For multi-select, ensure array has items
     if (
-      (operator === "in" || operator === "not.in") &&
+      (operator === 'in' || operator === 'not.in') &&
       (!Array.isArray(value) || value.length === 0)
     ) {
       return;
@@ -69,9 +65,9 @@
   }
 
   function resetForm() {
-    selectedField = "";
-    operator = "eq";
-    value = "";
+    selectedField = '';
+    operator = 'eq';
+    value = '';
   }
 
   function handleFieldChange(field: string) {
@@ -81,15 +77,12 @@
       // Set default operator
       operator = column.filter.defaultOperator || getDefaultOperator(column.filter.type);
       // Reset value
-      if (column.filter.type === "boolean") {
+      if (column.filter.type === 'boolean') {
         value = false;
-      } else if (
-        column.filter.type === "select" &&
-        (operator === "in" || operator === "not.in")
-      ) {
+      } else if (column.filter.type === 'select' && (operator === 'in' || operator === 'not.in')) {
         value = [];
       } else {
-        value = "";
+        value = '';
       }
     }
   }
@@ -97,11 +90,11 @@
   function handleOperatorChange(newOperator: FilterOperator) {
     operator = newOperator;
     // Reset value when switching between single/multi select
-    if (filterConfig?.type === "select") {
-      if (newOperator === "in" || newOperator === "not.in") {
+    if (filterConfig?.type === 'select') {
+      if (newOperator === 'in' || newOperator === 'not.in') {
         value = [];
       } else {
-        value = "";
+        value = '';
       }
     }
   }
@@ -119,38 +112,23 @@
   <Dialog.Content class="sm:max-w-[425px]">
     <Dialog.Header>
       <Dialog.Title>Add Filter</Dialog.Title>
-      <Dialog.Description>
-        Create a new filter to narrow down your results.
-      </Dialog.Description>
+      <Dialog.Description>Create a new filter to narrow down your results.</Dialog.Description>
     </Dialog.Header>
 
     <div class="space-y-4 py-4">
       <!-- Field Selection -->
       <div class="space-y-2">
         <Label for="field">Field</Label>
-        <Select.Root
-          type="single"
-          value={selectedField}
-          onValueChange={(v) => v && handleFieldChange(v)}
-        >
-          <Select.Trigger id="field" class="w-full">
-            <span data-slot="select-value">
-              {selectedFieldLabel}
-            </span>
-          </Select.Trigger>
-          <Select.Content>
-            {#each filterableColumns as column}
-              <Select.Item value={column.key} label={column.title}>
-                {column.title}
-              </Select.Item>
-            {/each}
-          </Select.Content>
-        </Select.Root>
+        <SingleSelect
+          bind:selected={selectedField}
+          options={filterableColumns.map((fc) => ({ label: fc.title, value: fc.key }))}
+          onchange={(v) => v && handleFieldChange(v)}
+        />
       </div>
 
       <!-- Filter Input based on type -->
       {#if selectedField && filterConfig}
-        {#if filterConfig.type === "text"}
+        {#if filterConfig.type === 'text'}
           <TextFilterInput
             config={filterConfig}
             {operator}
@@ -160,7 +138,7 @@
           />
         {/if}
 
-        {#if filterConfig.type === "select"}
+        {#if filterConfig.type === 'select'}
           <SelectFilterInput
             config={filterConfig}
             {operator}
@@ -170,7 +148,7 @@
           />
         {/if}
 
-        {#if filterConfig.type === "number"}
+        {#if filterConfig.type === 'number'}
           <NumberFilterInput
             config={filterConfig}
             {operator}
@@ -180,11 +158,11 @@
           />
         {/if}
 
-        {#if filterConfig.type === "boolean"}
+        {#if filterConfig.type === 'boolean'}
           <BooleanFilterInput {value} onvaluechange={(v) => (value = v)} />
         {/if}
 
-        {#if filterConfig.type === "date"}
+        {#if filterConfig.type === 'date'}
           <DateFilterInput
             config={filterConfig}
             {operator}
@@ -198,7 +176,7 @@
 
     <Dialog.Footer>
       <Button variant="outline" onclick={() => (open = false)}>Cancel</Button>
-      <Button onclick={handleAddFilter} disabled={!selectedField || value === ""}>
+      <Button onclick={handleAddFilter} disabled={!selectedField || value === ''}>
         Add Filter
       </Button>
     </Dialog.Footer>

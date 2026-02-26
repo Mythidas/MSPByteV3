@@ -225,7 +225,10 @@ export class ORM {
           case 'not.cd':
           case 'not.cs':
             if (!Array.isArray(value)) {
-              value = `{"${value}"}`;
+              // Pass through if already formatted as JSON (for JSONB @> containment)
+              if (typeof value !== 'string' || (!value.startsWith('[') && !value.startsWith('{'))) {
+                value = `{"${value}"}`;
+              }
             } else {
               value = `{${value.join(',')}}`;
             }
