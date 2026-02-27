@@ -344,6 +344,7 @@ export class TaskPipelineEngine {
 
   /**
    * Evaluate alert_rules and insert alerts for any matching conditions.
+   * Collects all payloads first, then flushes in a single batch (3 DB calls total).
    */
   private async evaluateAlertRules(
     alertRules: AlertRule[],
@@ -357,18 +358,36 @@ export class TaskPipelineEngine {
     const supabase = getSupabase();
     const triggered: { alert_definition_id: string; message: string }[] = [];
 
+    // Fetch all needed alert definitions in one query
+    const defIds = [...new Set(alertRules.map((r) => r.alert_definition_id))];
+    const { data: defRows } = await (supabase.from('alert_definitions' as any) as any)
+      .select('*')
+      .in('id', defIds);
+
+    const defMap = new Map<string, AlertDefinitionRow>(
+      (defRows ?? []).map((d: AlertDefinitionRow) => [d.id, d])
+    );
+
+    type AlertPayload = {
+      tenant_id: string;
+      integration_id: string;
+      entity_id: string | null;
+      alert_type: string;
+      severity: string;
+      message: string;
+      fingerprint: string;
+      alert_definition_id: string;
+    };
+
+    const pending: AlertPayload[] = [];
+
     for (const rule of alertRules) {
       const stageOutput = stageOutputsByIndex.get(rule.stage_ref) ?? null;
 
       if (stageOutput === null && rule.condition.operator !== 'not_exists') continue;
 
-      // Load alert definition once per rule
-      const { data: def } = await (supabase.from('alert_definitions' as any) as any)
-        .select('*')
-        .eq('id', rule.alert_definition_id)
-        .single();
-
-      if (!def) {
+      const alertDef = defMap.get(rule.alert_definition_id);
+      if (!alertDef) {
         Logger.warn({
           module: 'TaskPipelineEngine',
           context: 'evaluateAlertRules',
@@ -377,10 +396,7 @@ export class TaskPipelineEngine {
         continue;
       }
 
-      const alertDef = def as AlertDefinitionRow;
-
       if (rule.apply_to_each_entity && Array.isArray(stageOutput) && rule.entity_id_field) {
-        // Per-entity alerting: iterate array, fire one alert per matching entity
         for (const item of stageOutput) {
           if (!this.evaluateCondition(rule.condition, item)) continue;
 
@@ -397,7 +413,7 @@ export class TaskPipelineEngine {
             return v !== undefined ? String(v) : '';
           });
 
-          await this.upsertAlert(supabase, {
+          pending.push({
             tenant_id: task.tenant_id,
             integration_id: integrationId,
             entity_id: entityId,
@@ -411,7 +427,6 @@ export class TaskPipelineEngine {
           triggered.push({ alert_definition_id: rule.alert_definition_id, message });
         }
       } else {
-        // Single-alert path: condition over the whole stage output
         if (!this.evaluateCondition(rule.condition, stageOutput)) continue;
 
         const fingerprint = Encryption.sha256(
@@ -424,7 +439,7 @@ export class TaskPipelineEngine {
           return v !== undefined ? String(v) : '';
         });
 
-        await this.upsertAlert(supabase, {
+        pending.push({
           tenant_id: task.tenant_id,
           integration_id: integrationId,
           entity_id: null,
@@ -439,15 +454,23 @@ export class TaskPipelineEngine {
       }
     }
 
+    if (pending.length > 0) {
+      await this.batchUpsertAlerts(supabase, task.tenant_id, pending);
+    }
+
     return triggered;
   }
 
   /**
-   * Insert or update a single alert row (fingerprint-based dedup).
+   * Batch insert/update alerts: 3 DB calls regardless of how many alerts fire.
+   *  1. SELECT existing fingerprints for this tenant
+   *  2. INSERT rows whose fingerprint is new
+   *  3. UPDATE last_seen_at on rows whose fingerprint already exists
    */
-  private async upsertAlert(
+  private async batchUpsertAlerts(
     supabase: any,
-    alert: {
+    tenantId: string,
+    alerts: {
       tenant_id: string;
       integration_id: string;
       entity_id: string | null;
@@ -456,48 +479,52 @@ export class TaskPipelineEngine {
       message: string;
       fingerprint: string;
       alert_definition_id: string;
-    }
+    }[]
   ): Promise<void> {
     const now = new Date().toISOString();
+    const fingerprints = alerts.map((a) => a.fingerprint);
 
     const { data: existing } = await supabase
       .from('alerts')
-      .select('id')
-      .eq('fingerprint', alert.fingerprint)
-      .eq('tenant_id', alert.tenant_id)
-      .maybeSingle();
+      .select('id, fingerprint')
+      .eq('tenant_id', tenantId)
+      .in('fingerprint', fingerprints);
 
-    if (!existing) {
-      const { error: insertErr } = await supabase.from('alerts').insert({
-        tenant_id: alert.tenant_id,
-        entity_id: alert.entity_id,
-        integration_id: alert.integration_id,
-        alert_type: alert.alert_type,
-        severity: alert.severity,
-        message: alert.message,
-        fingerprint: alert.fingerprint,
-        status: 'active',
-        last_seen_at: now,
-        alert_definition_id: alert.alert_definition_id,
-      } as any);
+    const existingFingerprints = new Set<string>((existing ?? []).map((r: any) => r.fingerprint));
+    const existingIds: string[] = (existing ?? []).map((r: any) => r.id);
+
+    const toInsert = alerts.filter((a) => !existingFingerprints.has(a.fingerprint));
+
+    if (toInsert.length > 0) {
+      const { error: insertErr } = await supabase.from('alerts').upsert(
+        toInsert.map((a) => ({
+          ...a,
+          status: 'active',
+          last_seen_at: now,
+        })) as any,
+        { onConflict: 'fingerprint', ignoreDuplicates: true }
+      );
 
       if (insertErr) {
         Logger.error({
           module: 'TaskPipelineEngine',
-          context: 'upsertAlert',
-          message: `Failed to insert alert: ${insertErr.message}`,
+          context: 'batchUpsertAlerts',
+          message: `Failed to batch upsert alerts: ${insertErr.message}`,
         });
       }
-    } else {
+    }
+
+    if (existingIds.length > 0) {
       await supabase
         .from('alerts')
         .update({ last_seen_at: now, updated_at: now } as any)
-        .eq('id', existing.id);
+        .in('id', existingIds);
     }
   }
 
   /**
    * Evaluate tag_rules and apply tags for any matching conditions.
+   * Collects all tag rows first, then flushes in a single upsert.
    */
   private async evaluateTagRules(
     tagRules: TagRule[],
@@ -510,19 +537,26 @@ export class TaskPipelineEngine {
     const supabase = getSupabase();
     const applied: { tag_definition_id: string }[] = [];
 
+    // Fetch all needed tag definitions in one query
+    const defIds = [...new Set(tagRules.map((r) => r.tag_definition_id))];
+    const { data: defRows } = await (supabase.from('tag_definitions' as any) as any)
+      .select('*')
+      .in('id', defIds);
+
+    const defMap = new Map<string, TagDefinitionRow>(
+      (defRows ?? []).map((d: TagDefinitionRow) => [d.id, d])
+    );
+
+    const pending: any[] = [];
+
     for (const rule of tagRules) {
       const stageOutput = stageOutputsByIndex.get(rule.stage_ref) ?? null;
 
       if (stageOutput === null && rule.condition.operator !== 'not_exists') continue;
       if (!this.evaluateCondition(rule.condition, stageOutput)) continue;
 
-      // Load tag definition
-      const { data: def } = await (supabase.from('tag_definitions' as any) as any)
-        .select('*')
-        .eq('id', rule.tag_definition_id)
-        .single();
-
-      if (!def) {
+      const tagDef = defMap.get(rule.tag_definition_id);
+      if (!tagDef) {
         Logger.warn({
           module: 'TaskPipelineEngine',
           context: 'evaluateTagRules',
@@ -531,42 +565,46 @@ export class TaskPipelineEngine {
         continue;
       }
 
-      const tagDef = def as TagDefinitionRow;
-
       if (rule.apply_to_entity_field && Array.isArray(stageOutput)) {
-        // Apply tag to each entity identified by the field
         for (const item of stageOutput) {
           const entityId = this.getValueByPath(item, rule.apply_to_entity_field);
           if (entityId) {
-            const tagInsert: any = {
+            pending.push({
               tenant_id: task.tenant_id,
               entity_id: entityId,
               tag: tagDef.name,
               category: tagDef.category ?? null,
               source: 'task-automation',
               tag_definition_id: rule.tag_definition_id,
-            };
-            await supabase
-              .from('tags')
-              .upsert(tagInsert, { onConflict: 'entity_id,tag', ignoreDuplicates: true });
+            });
           }
         }
       } else if (task.scope.entity_id) {
-        // Apply tag to the task's target entity
-        const tagInsert: any = {
+        pending.push({
           tenant_id: task.tenant_id,
           entity_id: task.scope.entity_id,
           tag: tagDef.name,
           category: tagDef.category ?? null,
           source: 'task-automation',
           tag_definition_id: rule.tag_definition_id,
-        };
-        await supabase
-          .from('tags')
-          .upsert(tagInsert, { onConflict: 'entity_id,tag', ignoreDuplicates: true });
+        });
       }
 
       applied.push({ tag_definition_id: rule.tag_definition_id });
+    }
+
+    if (pending.length > 0) {
+      const { error } = await supabase
+        .from('tags')
+        .upsert(pending, { onConflict: 'entity_id,tag', ignoreDuplicates: true });
+
+      if (error) {
+        Logger.error({
+          module: 'TaskPipelineEngine',
+          context: 'evaluateTagRules',
+          message: `Failed to batch upsert tags: ${error.message}`,
+        });
+      }
     }
 
     return applied;

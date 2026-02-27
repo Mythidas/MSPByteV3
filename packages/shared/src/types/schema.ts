@@ -383,13 +383,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entity_alerts_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "entity_alerts_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -558,13 +551,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entities_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "entities_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -632,13 +618,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entity_relationships_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "entity_relationships_parent_entity_id_fkey"
             columns: ["parent_entity_id"]
             isOneToOne: false
@@ -703,13 +682,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "integration_connections_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "integration_connections_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -941,13 +913,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "query_jobs_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "query_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
@@ -1108,13 +1073,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "site_to_integration_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "site_to_integration_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -1229,13 +1187,6 @@ export type Database = {
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "integration_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sync_jobs_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
             referencedColumns: ["id"]
           },
           {
@@ -1600,13 +1551,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "workflows_integration_id_fkey"
-            columns: ["integration_id"]
-            isOneToOne: false
-            referencedRelation: "integrations"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "workflows_tenant_id_fkey"
             columns: ["tenant_id"]
