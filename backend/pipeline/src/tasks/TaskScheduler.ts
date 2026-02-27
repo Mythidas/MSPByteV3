@@ -3,36 +3,51 @@ import { queueManager } from '../lib/queue.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { TaskRow, TaskJobData, RetryConfig } from './types.js';
 
-const POLL_INTERVAL_MS = 60 * 1000; // 1 minute
+const SCHEDULED_POLL_INTERVAL_MS = 60 * 1000; // 1 minute for recurring/one-shot scheduled tasks
+const ADHOC_POLL_INTERVAL_MS = 5 * 1000;      // 5 seconds for user-triggered quick-run tasks
 const QUEUE_NAME = 'tasks';
 
 /**
  * TaskScheduler
  *
  * Polls the `tasks` table for due, enabled tasks and enqueues BullMQ jobs.
- * Mirrors the QueryJobScheduler pattern.
  *
- * For recurring tasks: advances next_run_at using the cron expression.
- * For one_shot tasks: disables the task after enqueueing.
+ * Two poll loops run independently:
+ *   - Scheduled (60s): picks up recurring + one-shot tasks seeded by TaskReconciler
+ *   - Ad-hoc (5s):     picks up quick-run tasks created by the frontend quick-run API
+ *
+ * Ad-hoc tasks are enqueued with higher BullMQ priority so they are processed
+ * before already-queued scheduled jobs.
  */
 export class TaskScheduler {
-  private timer: ReturnType<typeof setInterval> | null = null;
-  private isPolling = false;
+  private scheduledTimer: ReturnType<typeof setInterval> | null = null;
+  private adhocTimer: ReturnType<typeof setInterval> | null = null;
+  private isPollingScheduled = false;
+  private isPollingAdhoc = false;
 
   start(): void {
-    this.poll();
-    this.timer = setInterval(() => this.poll(), POLL_INTERVAL_MS);
+    // Immediate first run for both loops
+    this.pollScheduled();
+    this.pollAdhoc();
+
+    this.scheduledTimer = setInterval(() => this.pollScheduled(), SCHEDULED_POLL_INTERVAL_MS);
+    this.adhocTimer = setInterval(() => this.pollAdhoc(), ADHOC_POLL_INTERVAL_MS);
+
     Logger.info({
       module: 'TaskScheduler',
       context: 'start',
-      message: `Scheduler started (polling every ${POLL_INTERVAL_MS / 1000}s)`,
+      message: `Scheduler started (scheduled: ${SCHEDULED_POLL_INTERVAL_MS / 1000}s, adhoc: ${ADHOC_POLL_INTERVAL_MS / 1000}s)`,
     });
   }
 
   stop(): void {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    if (this.scheduledTimer) {
+      clearInterval(this.scheduledTimer);
+      this.scheduledTimer = null;
+    }
+    if (this.adhocTimer) {
+      clearInterval(this.adhocTimer);
+      this.adhocTimer = null;
     }
     Logger.info({
       module: 'TaskScheduler',
@@ -41,10 +56,27 @@ export class TaskScheduler {
     });
   }
 
-  private async poll(): Promise<void> {
-    if (this.isPolling) return;
-    this.isPolling = true;
+  private async pollScheduled(): Promise<void> {
+    if (this.isPollingScheduled) return;
+    this.isPollingScheduled = true;
+    try {
+      await this.poll(false);
+    } finally {
+      this.isPollingScheduled = false;
+    }
+  }
 
+  private async pollAdhoc(): Promise<void> {
+    if (this.isPollingAdhoc) return;
+    this.isPollingAdhoc = true;
+    try {
+      await this.poll(true);
+    } finally {
+      this.isPollingAdhoc = false;
+    }
+  }
+
+  private async poll(isAdhoc: boolean): Promise<void> {
     try {
       const supabase = getSupabase();
       const now = new Date().toISOString();
@@ -52,13 +84,14 @@ export class TaskScheduler {
       const { data: dueTasks, error } = await (supabase.from('tasks' as any) as any)
         .select('*')
         .eq('enabled', true)
+        .eq('is_adhoc', isAdhoc)
         .lte('next_run_at', now);
 
       if (error) {
         Logger.error({
           module: 'TaskScheduler',
           context: 'poll',
-          message: `Error polling tasks: ${error.message}`,
+          message: `Error polling ${isAdhoc ? 'adhoc' : 'scheduled'} tasks: ${error.message}`,
         });
         return;
       }
@@ -68,7 +101,7 @@ export class TaskScheduler {
       Logger.trace({
         module: 'TaskScheduler',
         context: 'poll',
-        message: `Found ${dueTasks.length} due tasks`,
+        message: `Found ${dueTasks.length} due ${isAdhoc ? 'adhoc' : 'scheduled'} task(s)`,
       });
 
       for (const task of dueTasks as TaskRow[]) {
@@ -80,8 +113,6 @@ export class TaskScheduler {
         context: 'poll',
         message: `Poll error: ${err}`,
       });
-    } finally {
-      this.isPolling = false;
     }
   }
 
@@ -124,6 +155,7 @@ export class TaskScheduler {
       };
 
       await queueManager.addJob(QUEUE_NAME, payload, {
+        priority: task.priority ?? 0,
         attempts: retryConfig.max_attempts,
         backoff: {
           type: retryConfig.backoff_type === 'exponential' ? 'exponential' : 'fixed',
@@ -131,15 +163,15 @@ export class TaskScheduler {
         },
       });
 
-      // Compute next run time or disable one_shot tasks
+      // Compute next run time or disable one_shot/adhoc tasks
       const updates: any = {
         last_run_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      if (task.schedule.type === 'one_shot') {
+      if (task.schedule.type === 'one_shot' || task.is_adhoc) {
         updates.enabled = false;
-        updates.next_run_at = new Date().toISOString(); // keep current value
+        updates.next_run_at = new Date().toISOString();
       } else if (task.schedule.cron) {
         const nextRunAt = this.computeNextRunAt(task.schedule.cron);
         updates.next_run_at = nextRunAt;
@@ -158,7 +190,7 @@ export class TaskScheduler {
       Logger.info({
         module: 'TaskScheduler',
         context: 'enqueueTask',
-        message: `Enqueued task ${task.id} (history: ${historyRow.id})`,
+        message: `Enqueued task ${task.id} (history: ${historyRow.id}, priority: ${task.priority ?? 0}, adhoc: ${task.is_adhoc})`,
       });
     } catch (err) {
       Logger.error({
@@ -171,11 +203,9 @@ export class TaskScheduler {
 
   /**
    * Compute the next ISO timestamp for a cron expression.
-   * Uses cron-parser (bundled as a transitive dependency of bullmq).
    */
   private computeNextRunAt(cronExpression: string): string {
     try {
-      // Dynamic import to handle cron-parser as transitive dep
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       const cronParser = require('cron-parser');
       const interval = cronParser.parseExpression(cronExpression);
@@ -186,7 +216,6 @@ export class TaskScheduler {
         context: 'computeNextRunAt',
         message: `Failed to parse cron expression "${cronExpression}": ${err}`,
       });
-      // Fall back to 1 hour from now if cron parse fails
       return new Date(Date.now() + 60 * 60 * 1000).toISOString();
     }
   }

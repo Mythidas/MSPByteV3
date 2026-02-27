@@ -103,6 +103,10 @@ export interface TaskRow {
   retry_config: RetryConfig;
   next_run_at: string;
   last_run_at: string | null;
+  // Ad-hoc / quick-run fields
+  is_adhoc: boolean;
+  priority: number;
+  params_override: Record<string, any>;
   created_at: string;
   updated_at: string;
 }

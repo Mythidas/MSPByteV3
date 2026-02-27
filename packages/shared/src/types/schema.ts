@@ -1386,9 +1386,12 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
+          is_adhoc: boolean
           last_run_at: string | null
           name: string
           next_run_at: string
+          params_override: Json
+          priority: number
           retry_config: Json
           schedule: Json
           scope: Json
@@ -1400,9 +1403,12 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          is_adhoc?: boolean
           last_run_at?: string | null
           name: string
           next_run_at: string
+          params_override?: Json
+          priority?: number
           retry_config?: Json
           schedule?: Json
           scope?: Json
@@ -1414,9 +1420,12 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
+          is_adhoc?: boolean
           last_run_at?: string | null
           name?: string
           next_run_at?: string
+          params_override?: Json
+          priority?: number
           retry_config?: Json
           schedule?: Json
           scope?: Json

@@ -1,5 +1,5 @@
-import { getSupabase } from '../../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
+import { getSupabase } from '../supabase';
 
 // Severity → entity state mapping
 const SEVERITY_TO_STATE: Record<string, string> = {
@@ -85,7 +85,10 @@ export class EntityStateReconciler {
     }
 
     const updates = [...byState.entries()].map(([state, ids]) =>
-      supabase.from('entities').update({ state } as any).in('id', ids)
+      supabase
+        .from('entities')
+        .update({ state } as any)
+        .in('id', ids)
     );
 
     const results = await Promise.all(updates);

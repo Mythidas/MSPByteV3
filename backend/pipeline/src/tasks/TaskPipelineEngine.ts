@@ -2,7 +2,7 @@ import { getSupabase } from '../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
 import { StageDispatcher } from './StageDispatcher.js';
-import { EntityStateReconciler } from './services/EntityStateReconciler.js';
+import { EntityStateReconciler } from './EntityStateReconciler.js';
 import type {
   TaskRow,
   WorkflowRow,
@@ -209,10 +209,13 @@ export class TaskPipelineEngine {
           throw new Error(`Query definition not found: ${stage.operation}`);
         }
 
+        // Merge task-level param overrides (from ad-hoc quick-runs) over query defaults
+        const mergedParams = { ...queryDef.params ?? {}, ...task.params_override ?? {} };
+
         output = await this.dispatcher.dispatchQuery(
           queryDef,
           task.scope,
-          queryDef.params ?? {},
+          mergedParams,
           task.tenant_id
         );
       } else {
@@ -225,8 +228,10 @@ export class TaskPipelineEngine {
           throw new Error(`Action definition not found: ${stage.operation}`);
         }
 
-        // Resolve $stage[n].output tokens in action params using prior stage outputs
-        const resolvedArgs = this.resolveTokens(actionDef.params ?? {}, stageOutputsByIndex);
+        // Resolve $stage[n].output tokens in action params using prior stage outputs,
+        // then merge task-level param overrides (from ad-hoc quick-runs) on top
+        const baseArgs = { ...actionDef.params ?? {}, ...task.params_override ?? {} };
+        const resolvedArgs = this.resolveTokens(baseArgs, stageOutputsByIndex);
 
         output = await this.dispatcher.dispatchAction(
           actionDef,
