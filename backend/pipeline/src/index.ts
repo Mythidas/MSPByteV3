@@ -19,22 +19,6 @@ import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integratio
 import { TaskPipelineEngine } from './tasks/TaskPipelineEngine.js';
 import { TaskWorker } from './tasks/TaskWorker.js';
 import { TaskScheduler } from './tasks/TaskScheduler.js';
-
-// Query Jobs system
-import { QueryJobRunner } from './jobs/QueryJobRunner.js';
-import { QueryJobWorker } from './jobs/QueryJobWorker.js';
-import { QueryJobReconciler } from './jobs/QueryJobReconciler.js';
-import { QueryJobScheduler } from './jobs/QueryJobScheduler.js';
-import type { BaseJob } from './jobs/BaseJob.js';
-import { MFACoverageJob } from './jobs/microsoft-365/MFACoverageJob.js';
-import { StaleUsersJob } from './jobs/microsoft-365/StaleUsersJob.js';
-import { LicenseWasteJob } from './jobs/microsoft-365/LicenseWasteJob.js';
-import { DirectSendJob } from './jobs/microsoft-365/DirectSendJob.js';
-import { TamperProtectionJob } from './jobs/sophos-partner/TamperProtectionJob.js';
-import { SophosOfflineDevicesJob } from './jobs/sophos-partner/OfflineDevicesJob.js';
-import { SophosEmptySitesJob } from './jobs/sophos-partner/EmptySitesJob.js';
-import { DattoRMMOfflineDevicesJob } from './jobs/dattormm/OfflineDevicesJob.js';
-import { DattoRMMEmptySitesJob } from './jobs/dattormm/EmptySitesJob.js';
 import { CoveAdapter } from './adapters/CoveAdapter.js';
 import { CoveLinker } from './linkers/CoveLinker.js';
 
@@ -47,8 +31,8 @@ import { CoveLinker } from './linkers/CoveLinker.js';
  *     2. processor.process()
  *     3. linker.linkAndReconcile()  (optional)
  *
- *   query_jobs table → QueryJobScheduler → BullMQ → QueryJobWorker:
- *     Fans out per site/connection, checks sync deps, runs business logic jobs.
+ *   workflows table → TaskReconciler → tasks table → TaskScheduler → BullMQ → TaskWorker:
+ *     Executes workflow stages via StageDispatcher → service/entity queries → alert/tag evaluation
  */
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || 'info';
@@ -116,50 +100,14 @@ async function main() {
     message: `Started ${workers.length} sync workers`,
   });
 
-  // Built-in query jobs (one instance per job type)
-  const builtInJobs: BaseJob[] = [
-    new MFACoverageJob(),
-    new StaleUsersJob(),
-    new LicenseWasteJob(),
-    new DirectSendJob(),
-    new TamperProtectionJob(),
-    new SophosOfflineDevicesJob(),
-    new SophosEmptySitesJob(),
-    new DattoRMMOfflineDevicesJob(),
-    new DattoRMMEmptySitesJob(),
-  ];
-
-  // Query job runner (shared across all workers)
-  const queryJobRunner = new QueryJobRunner(builtInJobs);
-
-  // One QueryJobWorker per integration
-  for (const [, config] of Object.entries(INTEGRATIONS)) {
-    const worker = new QueryJobWorker(config.id, queryJobRunner);
-    worker.start();
-  }
-
-  Logger.info({
-    module: 'Pipeline',
-    context: 'main',
-    message: `Started ${Object.keys(INTEGRATIONS).length} query job workers`,
-  });
-
   // Start job reconciler — ensures missing sync_jobs are created
   const reconciler = new JobReconciler();
   await reconciler.reconcile();
   reconciler.start();
 
-  // Start query job reconciler — seeds query_jobs definitions per tenant
-  const queryJobReconciler = new QueryJobReconciler(builtInJobs);
-  await queryJobReconciler.reconcile();
-  queryJobReconciler.start();
-
-  // Start schedulers
+  // Start scheduler for sync jobs
   const scheduler = new JobScheduler();
   scheduler.start();
-
-  const queryJobScheduler = new QueryJobScheduler(builtInJobs);
-  queryJobScheduler.start();
 
   // Task Automation system
   const taskEngine = new TaskPipelineEngine();
@@ -168,6 +116,11 @@ async function main() {
 
   const taskScheduler = new TaskScheduler();
   taskScheduler.start();
+
+  // Task reconciler — seeds per-tenant tasks for all built-in workflows
+  // const taskReconciler = new TaskReconciler();
+  // await taskReconciler.reconcile();
+  // taskReconciler.start();
 
   Logger.info({
     module: 'Pipeline',
@@ -186,9 +139,8 @@ async function main() {
     try {
       reconciler.stop();
       scheduler.stop();
-      queryJobReconciler.stop();
-      queryJobScheduler.stop();
       taskScheduler.stop();
+      // taskReconciler.stop();
       await queueManager.closeAll();
       await disconnectRedis();
 

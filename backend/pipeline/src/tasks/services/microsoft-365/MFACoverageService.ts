@@ -1,8 +1,8 @@
-import { getSupabase } from '../supabase.js';
+import { getSupabase } from '../../../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@workspace/shared/types/schema';
-import type { ScopeDefinition } from './types.js';
+import type { ScopeDefinition } from '../../types.js';
 
 // ============================================================================
 // TYPES
@@ -109,16 +109,10 @@ export class MFACoverageService {
 
     for (const p of mfaPolicies) {
       const users = (p.raw_data as any)?.conditions?.users ?? {};
-      for (const id of [
-        ...(users.includeGroups ?? []),
-        ...(users.excludeGroups ?? []),
-      ]) {
+      for (const id of [...(users.includeGroups ?? []), ...(users.excludeGroups ?? [])]) {
         allGroupAzureIds.add(id);
       }
-      for (const id of [
-        ...(users.includeRoles ?? []),
-        ...(users.excludeRoles ?? []),
-      ]) {
+      for (const id of [...(users.includeRoles ?? []), ...(users.excludeRoles ?? [])]) {
         allRoleAzureIds.add(id);
       }
     }
@@ -150,7 +144,6 @@ export class MFACoverageService {
       identities.map((id) => [id.id, id.external_id])
     );
 
-    // group entity UUID → set of identity external_ids
     const groupToIdentityExternalIds = new Map<string, Set<string>>();
     for (const rel of groupRelationships) {
       const externalId = identityEntityIdToExternalId.get(rel.child_entity_id);
@@ -162,7 +155,6 @@ export class MFACoverageService {
       }
     }
 
-    // role entity UUID → set of identity external_ids
     const roleToIdentityExternalIds = new Map<string, Set<string>>();
     for (const rel of roleRelationships) {
       const externalId = identityEntityIdToExternalId.get(rel.child_entity_id);
@@ -174,12 +166,9 @@ export class MFACoverageService {
       }
     }
 
-    // azure group ID → group entity UUID
     const groupAzureToEntityId = new Map<string, string>(
       groupEntities.map((g) => [g.external_id, g.id])
     );
-
-    // azure role ID → role entity UUID
     const roleAzureToEntityId = new Map<string, string>(
       roleEntities.map((r) => [r.external_id, r.id])
     );
@@ -229,14 +218,12 @@ export class MFACoverageService {
       ]);
 
       if (includeUsers.includes('All')) {
-        // Policy covers all identities except explicitly excluded ones
         for (const externalId of allIdentityExternalIds) {
           if (!policyExcluded.has(externalId)) {
             globalCovered.add(externalId);
           }
         }
       } else {
-        // Policy covers explicitly listed users + group/role members minus exclusions
         const policyIncluded = new Set<string>([
           ...includeUsers,
           ...expandGroups(includeGroups),
@@ -325,4 +312,8 @@ export class MFACoverageService {
     }
     return data ?? [];
   }
+}
+
+export function getMFACoverageService() {
+  return new MFACoverageService(getSupabase());
 }

@@ -5,7 +5,8 @@ import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConn
 import { HaloPSAConnector } from '@workspace/shared/lib/connectors/HaloPSAConnector.js';
 import { AutoTaskConnector } from '@workspace/shared/lib/connectors/AutoTaskConnector.js';
 import type { QueryRow, ActionRow, ScopeDefinition } from './types.js';
-import { MFACoverageService } from './MFACoverageService.js';
+import { LIVE_QUERY_REGISTRY } from './registry/queries/index.js';
+import { ACTION_REGISTRY } from './registry/actions/index.js';
 
 // ============================================================================
 // ENTITY TYPE MODULE MAP
@@ -29,31 +30,6 @@ const ENTITY_TYPE_MAP: Record<string, string> = {
 };
 
 // ============================================================================
-// LIVE QUERY REGISTRY
-// Handlers for modules not in ENTITY_TYPE_MAP (complex multi-entity analysis).
-// Connector is provided but may be null for pure DB-based handlers.
-// ============================================================================
-type LiveQueryHandler = (
-  connector: any,
-  params: Record<string, any>,
-  tenantId: string,
-  scope: ScopeDefinition
-) => Promise<any>;
-
-type LiveQueryRegistry = Record<string, Record<string, Record<string, LiveQueryHandler>>>;
-
-const LIVE_QUERY_REGISTRY: LiveQueryRegistry = {
-  'microsoft-365': {
-    mfa: {
-      // Returns uncovered identity rows augmented with mfa_state: 'none' | 'partial'.
-      // Empty array means all users are covered → no alerts fired.
-      coverage: async (_connector, _params, tenantId, scope) =>
-        new MFACoverageService(getSupabase()).analyze(tenantId, scope),
-    },
-  },
-};
-
-// ============================================================================
 // DECRYPT KEYS PER INTEGRATION
 // Fields in integration.config that must be decrypted before use.
 // ============================================================================
@@ -65,51 +41,12 @@ const DECRYPT_KEYS: Record<string, string[]> = {
   'sophos-partner': ['clientSecret'],
 };
 
-// ============================================================================
-// ACTION REGISTRY
-// Maps integration_id → module → function → handler(connector, params)
-//
-// NOTE: Actions should ideally use dedicated Service classes (not connectors
-// directly) since services encapsulate write/mutation logic and can compose
-// multiple connector calls. Use connectors here only when no service exists.
-// Add service-based handlers as integrations mature.
-// ============================================================================
-type ActionHandler = (connector: any, params: Record<string, any>) => Promise<any>;
-type ActionRegistry = Record<string, Record<string, Record<string, ActionHandler>>>;
-
-const ACTION_REGISTRY: ActionRegistry = {
-  dattormm: {
-    variables: {
-      set: async (connector: DattoRMMConnector, params) =>
-        connector.setSiteVariable(params.siteUid, params.varName, params.value),
-    },
-  },
-  halopsa: {
-    tickets: {
-      // NOTE: HaloPSA write operations ideally belong in a dedicated HaloPSAService.
-      // Using connector directly here until a service layer is added.
-      create: async (connector: HaloPSAConnector, params) => connector.createTicket(params as any),
-    },
-  },
-  autotask: {
-    tickets: {
-      // NOTE: AutoTask write operations ideally belong in a dedicated AutoTaskService.
-      // Placeholder — implement AutoTaskService.createTicket() to enable this.
-      create: async (_connector: AutoTaskConnector, _params) => {
-        throw new Error(
-          'autotask/tickets/create is not yet implemented. Add an AutoTaskService with createTicket().'
-        );
-      },
-    },
-  },
-};
-
 /**
  * StageDispatcher
  *
  * Dispatches individual workflow stages to either:
  *   - DB entity queries (module maps to a known entity_type)
- *   - Live API queries (module not in entity type map)
+ *   - Live API queries via LIVE_QUERY_REGISTRY (module not in entity type map)
  *   - Actions via ACTION_REGISTRY (always live API)
  */
 export class StageDispatcher {
@@ -191,10 +128,10 @@ export class StageDispatcher {
     params: Record<string, any>,
     tenantId: string
   ): Promise<any> {
-    const handler =
+    const entry =
       LIVE_QUERY_REGISTRY[queryDef.integration_id]?.[queryDef.module]?.[queryDef.function];
 
-    if (!handler) {
+    if (!entry) {
       throw new Error(
         `Live API query not implemented: integration=${queryDef.integration_id} module=${queryDef.module} function=${queryDef.function}`
       );
@@ -215,7 +152,7 @@ export class StageDispatcher {
       // Handler does not require a connector (e.g. pure DB query)
     }
 
-    return handler(connector, params, tenantId, scope);
+    return entry.handler(connector, params, tenantId, scope);
   }
 
   // --------------------------------------------------------------------------
@@ -238,8 +175,8 @@ export class StageDispatcher {
       throw new Error(`No handlers for ${actionDef.integration_id}/${actionDef.module}`);
     }
 
-    const handler = moduleHandlers[actionDef.function];
-    if (!handler) {
+    const entry = moduleHandlers[actionDef.function];
+    if (!entry) {
       throw new Error(
         `No handler for ${actionDef.integration_id}/${actionDef.module}/${actionDef.function}`
       );
@@ -257,7 +194,7 @@ export class StageDispatcher {
       message: `Dispatching ${actionDef.integration_id}/${actionDef.module}/${actionDef.function}`,
     });
 
-    return handler(connector, mergedParams);
+    return entry.handler(connector, mergedParams);
   }
 
   // --------------------------------------------------------------------------

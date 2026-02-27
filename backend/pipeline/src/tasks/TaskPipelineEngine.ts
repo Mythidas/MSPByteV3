@@ -2,6 +2,7 @@ import { getSupabase } from '../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import Encryption from '@workspace/shared/lib/utils/encryption.js';
 import { StageDispatcher } from './StageDispatcher.js';
+import { EntityStateReconciler } from './services/EntityStateReconciler.js';
 import type {
   TaskRow,
   WorkflowRow,
@@ -21,13 +22,17 @@ import type {
  *   1. Topological sort of stages
  *   2. Execute each stage (query or action) in dependency order
  *   3. Evaluate alert_rules and tag_rules against stage outputs
- *   4. Write final history record
+ *   4. Resolve stale alerts/tags that no longer match
+ *   5. Reconcile entity states from worst active alert severity
+ *   6. Write final history record
  */
 export class TaskPipelineEngine {
   private dispatcher: StageDispatcher;
+  private stateReconciler: EntityStateReconciler;
 
   constructor() {
     this.dispatcher = new StageDispatcher();
+    this.stateReconciler = new EntityStateReconciler();
   }
 
   async execute(task: TaskRow, workflow: WorkflowRow, historyId: string): Promise<void> {
@@ -70,7 +75,7 @@ export class TaskPipelineEngine {
         }
       }
 
-      const alertsTriggered = await this.evaluateAlertRules(
+      const alertResult = await this.evaluateAlertRules(
         workflow.alert_rules,
         workflow.stages,
         stageOutputsByIndex,
@@ -78,12 +83,31 @@ export class TaskPipelineEngine {
         workflow.integration_id
       );
 
-      const tagsApplied = await this.evaluateTagRules(
+      const tagResult = await this.evaluateTagRules(
         workflow.tag_rules,
         workflow.stages,
         stageOutputsByIndex,
         task
       );
+
+      // Resolve stale alerts/tags that no longer fire this run
+      await this.resolveStaleAlerts(
+        task.tenant_id,
+        alertResult.ruleDefIds,
+        alertResult.firedFingerprints
+      );
+      await this.removeStaleTagsByRule(
+        task.tenant_id,
+        workflow.tag_rules,
+        tagResult.taggedEntityIdsByDef
+      );
+
+      // Reconcile entity states from current active alerts
+      const allAffectedEntityIds = [
+        ...alertResult.affectedEntityIds,
+        ...tagResult.affectedEntityIds,
+      ];
+      await this.stateReconciler.reconcile(task.tenant_id, allAffectedEntityIds);
 
       const durationMs = Date.now() - startTime;
 
@@ -91,8 +115,8 @@ export class TaskPipelineEngine {
         .update({
           status: 'completed',
           stage_results: stageResults,
-          alerts_triggered: alertsTriggered,
-          tags_applied: tagsApplied,
+          alerts_triggered: alertResult.triggered,
+          tags_applied: tagResult.applied,
           completed_at: new Date().toISOString(),
           duration_ms: durationMs,
         })
@@ -101,7 +125,7 @@ export class TaskPipelineEngine {
       Logger.info({
         module: 'TaskPipelineEngine',
         context: 'execute',
-        message: `Task ${task.id} completed in ${durationMs}ms — ${alertsTriggered.length} alerts, ${tagsApplied.length} tags`,
+        message: `Task ${task.id} completed in ${durationMs}ms — ${alertResult.triggered.length} alerts, ${tagResult.applied.length} tags`,
       });
     } catch (error) {
       const durationMs = Date.now() - startTime;
@@ -344,7 +368,8 @@ export class TaskPipelineEngine {
 
   /**
    * Evaluate alert_rules and insert alerts for any matching conditions.
-   * Collects all payloads first, then flushes in a single batch (3 DB calls total).
+   * Returns triggered alert summaries, fired fingerprints, all rule def IDs,
+   * and affected entity IDs for downstream state reconciliation.
    */
   private async evaluateAlertRules(
     alertRules: AlertRule[],
@@ -352,11 +377,25 @@ export class TaskPipelineEngine {
     stageOutputsByIndex: Map<number, any>,
     task: TaskRow,
     integrationId: string
-  ): Promise<{ alert_definition_id: string; message: string }[]> {
-    if (!alertRules.length) return [];
+  ): Promise<{
+    triggered: { alert_definition_id: string; message: string }[];
+    firedFingerprints: Set<string>;
+    ruleDefIds: string[];
+    affectedEntityIds: string[];
+  }> {
+    if (!alertRules.length) {
+      return {
+        triggered: [],
+        firedFingerprints: new Set(),
+        ruleDefIds: [],
+        affectedEntityIds: [],
+      };
+    }
 
     const supabase = getSupabase();
     const triggered: { alert_definition_id: string; message: string }[] = [];
+    const firedFingerprints = new Set<string>();
+    const affectedEntityIds: string[] = [];
 
     // Fetch all needed alert definitions in one query
     const defIds = [...new Set(alertRules.map((r) => r.alert_definition_id))];
@@ -424,6 +463,8 @@ export class TaskPipelineEngine {
             alert_definition_id: rule.alert_definition_id,
           });
 
+          firedFingerprints.add(fingerprint);
+          affectedEntityIds.push(entityId);
           triggered.push({ alert_definition_id: rule.alert_definition_id, message });
         }
       } else {
@@ -450,6 +491,7 @@ export class TaskPipelineEngine {
           alert_definition_id: rule.alert_definition_id,
         });
 
+        firedFingerprints.add(fingerprint);
         triggered.push({ alert_definition_id: rule.alert_definition_id, message });
       }
     }
@@ -458,7 +500,7 @@ export class TaskPipelineEngine {
       await this.batchUpsertAlerts(supabase, task.tenant_id, pending);
     }
 
-    return triggered;
+    return { triggered, firedFingerprints, ruleDefIds: defIds, affectedEntityIds };
   }
 
   /**
@@ -523,19 +565,62 @@ export class TaskPipelineEngine {
   }
 
   /**
+   * Resolve alerts that fired in previous runs but did not fire this run.
+   * One UPDATE: status='resolved' WHERE tenant_id=X AND alert_definition_id IN (all rule defs)
+   *   AND fingerprint NOT IN (fired this run) AND status='active'
+   */
+  private async resolveStaleAlerts(
+    tenantId: string,
+    ruleDefIds: string[],
+    firedFingerprints: Set<string>
+  ): Promise<void> {
+    if (ruleDefIds.length === 0) return;
+
+    const supabase = getSupabase();
+    const now = new Date().toISOString();
+
+    let query = (supabase.from('alerts' as any) as any)
+      .update({ status: 'resolved', updated_at: now })
+      .eq('tenant_id', tenantId)
+      .in('alert_definition_id', ruleDefIds)
+      .eq('status', 'active');
+
+    if (firedFingerprints.size > 0) {
+      query = query.not('fingerprint', 'in', `(${[...firedFingerprints].join(',')})`);
+    }
+
+    const { error } = await query;
+    if (error) {
+      Logger.error({
+        module: 'TaskPipelineEngine',
+        context: 'resolveStaleAlerts',
+        message: `Failed to resolve stale alerts: ${error.message}`,
+      });
+    }
+  }
+
+  /**
    * Evaluate tag_rules and apply tags for any matching conditions.
-   * Collects all tag rows first, then flushes in a single upsert.
+   * Returns applied tag summaries, per-rule tagged entity IDs, and all affected entity IDs.
    */
   private async evaluateTagRules(
     tagRules: TagRule[],
     _originalStages: StageDefinition[],
     stageOutputsByIndex: Map<number, any>,
     task: TaskRow
-  ): Promise<{ tag_definition_id: string }[]> {
-    if (!tagRules.length) return [];
+  ): Promise<{
+    applied: { tag_definition_id: string }[];
+    taggedEntityIdsByDef: Map<string, string[]>;
+    affectedEntityIds: string[];
+  }> {
+    if (!tagRules.length) {
+      return { applied: [], taggedEntityIdsByDef: new Map(), affectedEntityIds: [] };
+    }
 
     const supabase = getSupabase();
     const applied: { tag_definition_id: string }[] = [];
+    const taggedEntityIdsByDef = new Map<string, string[]>();
+    const affectedEntityIds: string[] = [];
 
     // Fetch all needed tag definitions in one query
     const defIds = [...new Set(tagRules.map((r) => r.tag_definition_id))];
@@ -565,6 +650,8 @@ export class TaskPipelineEngine {
         continue;
       }
 
+      const taggedIds: string[] = [];
+
       if (rule.apply_to_entity_field && Array.isArray(stageOutput)) {
         for (const item of stageOutput) {
           const entityId = this.getValueByPath(item, rule.apply_to_entity_field);
@@ -577,6 +664,8 @@ export class TaskPipelineEngine {
               source: 'task-automation',
               tag_definition_id: rule.tag_definition_id,
             });
+            taggedIds.push(entityId);
+            affectedEntityIds.push(entityId);
           }
         }
       } else if (task.scope.entity_id) {
@@ -588,8 +677,11 @@ export class TaskPipelineEngine {
           source: 'task-automation',
           tag_definition_id: rule.tag_definition_id,
         });
+        taggedIds.push(task.scope.entity_id);
+        affectedEntityIds.push(task.scope.entity_id);
       }
 
+      taggedEntityIdsByDef.set(rule.tag_definition_id, taggedIds);
       applied.push({ tag_definition_id: rule.tag_definition_id });
     }
 
@@ -607,6 +699,44 @@ export class TaskPipelineEngine {
       }
     }
 
-    return applied;
+    return { applied, taggedEntityIdsByDef, affectedEntityIds };
+  }
+
+  /**
+   * Remove tags applied by task-automation that are no longer triggered this run.
+   * One DELETE per tag rule: source='task-automation' AND tag_definition_id=X
+   *   AND entity_id NOT IN (tagged entity ids for this rule this run)
+   */
+  private async removeStaleTagsByRule(
+    tenantId: string,
+    tagRules: TagRule[],
+    taggedEntityIdsByDef: Map<string, string[]>
+  ): Promise<void> {
+    if (tagRules.length === 0) return;
+
+    const supabase = getSupabase();
+
+    for (const rule of tagRules) {
+      const taggedIds = taggedEntityIdsByDef.get(rule.tag_definition_id) ?? [];
+
+      let query = (supabase.from('tags' as any) as any)
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('source', 'task-automation')
+        .eq('tag_definition_id', rule.tag_definition_id);
+
+      if (taggedIds.length > 0) {
+        query = query.not('entity_id', 'in', `(${taggedIds.join(',')})`);
+      }
+
+      const { error } = await query;
+      if (error) {
+        Logger.error({
+          module: 'TaskPipelineEngine',
+          context: 'removeStaleTagsByRule',
+          message: `Failed to remove stale tags for rule ${rule.tag_definition_id}: ${error.message}`,
+        });
+      }
+    }
   }
 }
