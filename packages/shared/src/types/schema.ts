@@ -14,6 +14,56 @@ export type Database = {
   }
   public: {
     Tables: {
+      actions: {
+        Row: {
+          created_at: string
+          description: string | null
+          function: string
+          id: string
+          integration_id: string
+          module: string
+          name: string
+          params: Json
+          scope: Json
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          function: string
+          id?: string
+          integration_id: string
+          module: string
+          name: string
+          params?: Json
+          scope?: Json
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          function?: string
+          id?: string
+          integration_id?: string
+          module?: string
+          name?: string
+          params?: Json
+          scope?: Json
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "actions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_logs: {
         Row: {
           agent_id: string
@@ -196,8 +246,53 @@ export type Database = {
           },
         ]
       }
+      alert_definitions: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json
+          name: string
+          severity: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name: string
+          severity?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json
+          name?: string
+          severity?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alert_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alerts: {
         Row: {
+          alert_definition_id: string | null
           alert_type: string
           connection_id: string | null
           created_at: string
@@ -220,6 +315,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          alert_definition_id?: string | null
           alert_type: string
           connection_id?: string | null
           created_at?: string
@@ -242,6 +338,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          alert_definition_id?: string | null
           alert_type?: string
           connection_id?: string | null
           created_at?: string
@@ -264,6 +361,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "alerts_alert_definition_id_fkey"
+            columns: ["alert_definition_id"]
+            isOneToOne: false
+            referencedRelation: "alert_definitions"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "entity_alerts_connection_id_fkey"
             columns: ["connection_id"]
@@ -640,6 +744,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "integrations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      queries: {
+        Row: {
+          created_at: string
+          description: string | null
+          function: string
+          id: string
+          integration_id: string
+          module: string
+          name: string
+          output_format: string
+          params: Json
+          scope: Json
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          function: string
+          id?: string
+          integration_id: string
+          module: string
+          name: string
+          output_format?: string
+          params?: Json
+          scope?: Json
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          function?: string
+          id?: string
+          integration_id?: string
+          module?: string
+          name?: string
+          output_format?: string
+          params?: Json
+          scope?: Json
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "queries_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1097,6 +1254,47 @@ export type Database = {
           },
         ]
       }
+      tag_definitions: {
+        Row: {
+          category: string | null
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tag_definitions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tags: {
         Row: {
           category: string | null
@@ -1107,6 +1305,7 @@ export type Database = {
           site_id: string | null
           source: string | null
           tag: string
+          tag_definition_id: string | null
           tenant_id: string
         }
         Insert: {
@@ -1118,6 +1317,7 @@ export type Database = {
           site_id?: string | null
           source?: string | null
           tag: string
+          tag_definition_id?: string | null
           tenant_id: string
         }
         Update: {
@@ -1129,6 +1329,7 @@ export type Database = {
           site_id?: string | null
           source?: string | null
           tag?: string
+          tag_definition_id?: string | null
           tenant_id?: string
         }
         Relationships: [
@@ -1158,6 +1359,133 @@ export type Database = {
             columns: ["connection_id"]
             isOneToOne: false
             referencedRelation: "integration_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tags_tag_definition_id_fkey"
+            columns: ["tag_definition_id"]
+            isOneToOne: false
+            referencedRelation: "tag_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_history: {
+        Row: {
+          alerts_triggered: Json
+          completed_at: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          scope: Json
+          stage_results: Json
+          started_at: string | null
+          status: string
+          tags_applied: Json
+          task_id: string
+          tenant_id: string
+        }
+        Insert: {
+          alerts_triggered?: Json
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          scope?: Json
+          stage_results?: Json
+          started_at?: string | null
+          status?: string
+          tags_applied?: Json
+          task_id: string
+          tenant_id: string
+        }
+        Update: {
+          alerts_triggered?: Json
+          completed_at?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          scope?: Json
+          stage_results?: Json
+          started_at?: string | null
+          status?: string
+          tags_applied?: Json
+          task_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_history_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_history_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tasks: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_run_at: string | null
+          name: string
+          next_run_at: string
+          retry_config: Json
+          schedule: Json
+          scope: Json
+          tenant_id: string
+          updated_at: string
+          workflow_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name: string
+          next_run_at: string
+          retry_config?: Json
+          schedule?: Json
+          scope?: Json
+          tenant_id: string
+          updated_at?: string
+          workflow_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string
+          retry_config?: Json
+          schedule?: Json
+          scope?: Json
+          tenant_id?: string
+          updated_at?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
             referencedColumns: ["id"]
           },
         ]
@@ -1227,6 +1555,60 @@ export type Database = {
           },
           {
             foreignKeyName: "users_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workflows: {
+        Row: {
+          alert_rules: Json
+          created_at: string
+          description: string | null
+          id: string
+          integration_id: string | null
+          name: string
+          stages: Json
+          tag_rules: Json
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          alert_rules?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          integration_id?: string | null
+          name: string
+          stages?: Json
+          tag_rules?: Json
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          alert_rules?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          integration_id?: string | null
+          name?: string
+          stages?: Json
+          tag_rules?: Json
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workflows_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "integrations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workflows_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

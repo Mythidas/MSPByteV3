@@ -15,6 +15,11 @@ import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
 import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
 import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
 
+// Task Automation system
+import { TaskPipelineEngine } from './tasks/TaskPipelineEngine.js';
+import { TaskWorker } from './tasks/TaskWorker.js';
+import { TaskScheduler } from './tasks/TaskScheduler.js';
+
 // Query Jobs system
 import { QueryJobRunner } from './jobs/QueryJobRunner.js';
 import { QueryJobWorker } from './jobs/QueryJobWorker.js';
@@ -156,6 +161,14 @@ async function main() {
   const queryJobScheduler = new QueryJobScheduler(builtInJobs);
   queryJobScheduler.start();
 
+  // Task Automation system
+  const taskEngine = new TaskPipelineEngine();
+  const taskWorker = new TaskWorker(taskEngine);
+  taskWorker.start();
+
+  const taskScheduler = new TaskScheduler();
+  taskScheduler.start();
+
   Logger.info({
     module: 'Pipeline',
     context: 'main',
@@ -175,6 +188,7 @@ async function main() {
       scheduler.stop();
       queryJobReconciler.stop();
       queryJobScheduler.stop();
+      taskScheduler.stop();
       await queueManager.closeAll();
       await disconnectRedis();
 

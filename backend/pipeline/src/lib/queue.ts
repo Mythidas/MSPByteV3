@@ -5,6 +5,7 @@ import { Logger } from '@workspace/shared/lib/utils/logger.js';
 export const QueueNames = {
   sync: (integrationId: string, entityType: string) => `sync.${integrationId}.${entityType}`,
   query: (integrationId: string) => `query.${integrationId}`,
+  tasks: 'tasks',
 };
 
 class QueueManager {
@@ -49,7 +50,13 @@ class QueueManager {
   async addJob<T>(
     queueName: string,
     jobData: T,
-    options?: { priority?: number; delay?: number; jobId?: string }
+    options?: {
+      priority?: number;
+      delay?: number;
+      jobId?: string;
+      attempts?: number;
+      backoff?: { type: string; delay: number };
+    }
   ): Promise<Job<T>> {
     const queue = this.getOrCreateQueue(queueName);
     return queue.add(queueName, jobData, options);
