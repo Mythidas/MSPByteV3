@@ -1,9 +1,23 @@
 export type ScopeType = 'all_sites' | 'site_ids' | 'entity_ids' | 'filter';
-export type StageType = 'query' | 'action' | 'alert' | 'tag' | 'filter' | 'ticket';
+export type StageType = 'query' | 'action' | 'alert' | 'tag' | 'filter' | 'ticket' | 'display';
 export type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial';
 export type StageStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
 export type OnError = 'fail' | 'skip' | 'continue';
 export type TriggeredBy = 'schedule' | 'manual' | 'api';
+
+export type DisplaySectionType = 'entity_list' | 'stat' | 'summary_text';
+
+export interface DisplaySection {
+  type: DisplaySectionType;
+  label?: string;
+  source?: string;
+  aggregate?: 'count';
+  template?: string;
+}
+
+export interface DisplayNodeConfig {
+  sections: DisplaySection[];
+}
 
 export interface WorkflowStageNode {
   id: string;
@@ -18,6 +32,7 @@ export interface WorkflowStageNode {
   alert_config?: AlertNodeConfig;
   tag_config?: TagNodeConfig;
   filter_config?: FilterNodeConfig;
+  display_config?: DisplayNodeConfig;
 }
 
 export interface RunContext {

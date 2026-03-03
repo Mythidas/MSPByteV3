@@ -1524,6 +1524,7 @@ export type Database = {
           tags: string[]
           tenant_id: string | null
           updated_at: string
+          visibility: string
         }
         Insert: {
           created_at?: string
@@ -1535,6 +1536,7 @@ export type Database = {
           tags?: string[]
           tenant_id?: string | null
           updated_at?: string
+          visibility?: string
         }
         Update: {
           created_at?: string
@@ -1546,6 +1548,7 @@ export type Database = {
           tags?: string[]
           tenant_id?: string | null
           updated_at?: string
+          visibility?: string
         }
         Relationships: [
           {

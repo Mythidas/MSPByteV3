@@ -239,7 +239,27 @@ export async function runStage(
       return { stageId: stage.id, status: 'completed', output: result, durationMs, affectedEntityIds: allAffected };
     }
 
-    // 6. Lookup registry for query/action/ticket
+    // 6. Display stage — pure, no registry lookup
+    if (stage.type === 'display') {
+      if (!stage.display_config) return await fail('display stage missing display_config');
+      const displayOutput = { sections: stage.display_config.sections };
+      ctx.stage_outputs[stage.id] = displayOutput;
+      const durationMs = Date.now() - startMs;
+      await (supabase.from('task_run_stages' as any) as any)
+        .update({
+          status: 'completed',
+          output: displayOutput,
+          resolved_input: resolvedInputs,
+          affected_entity_ids: [],
+          duration_ms: durationMs,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('run_id', runId)
+        .eq('stage_node_id', stage.id);
+      return { stageId: stage.id, status: 'completed', output: displayOutput, durationMs, affectedEntityIds: [] };
+    }
+
+    // 7. Lookup registry for query/action/ticket
     const queryDef = QUERY_REGISTRY.get(stage.ref);
     const actionDef = ACTION_REGISTRY.get(stage.ref);
 

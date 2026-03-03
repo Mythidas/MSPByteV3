@@ -108,6 +108,7 @@ export const MODULES: ModuleConfig[] = [
 
 export const GLOBAL_NAV_ITEMS: GlobalNavItem[] = [
   { kind: 'link', href: '/sites', label: 'Sites', permission: 'Sites.Read' },
+  { kind: 'link', href: '/task-list', label: 'Task Runs', permission: null },
   {
     kind: 'group',
     label: 'Admin',

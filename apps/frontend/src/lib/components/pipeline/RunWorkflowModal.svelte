@@ -21,9 +21,10 @@
     selectedEntityIds: string[];
     selectedDisplayNames: string[];
     tenantId: string;
+    onSuccess?: (runId: string) => void;
   }
 
-  let { open, onOpenChange, entityType, integration, selectedEntityIds, selectedDisplayNames, tenantId }: Props = $props();
+  let { open, onOpenChange, entityType, integration, selectedEntityIds, selectedDisplayNames, tenantId, onSuccess }: Props = $props();
 
   let workflows = $state<Workflow[]>([]);
   let selectedWorkflowId = $state<string | null>(null);
@@ -102,8 +103,12 @@
     });
 
     if (result) {
-      toast.success('Workflow started');
       onOpenChange(false);
+      if (onSuccess) {
+        onSuccess(result);
+      } else {
+        toast.success('Workflow started');
+      }
     } else if (runner.error) {
       toast.error(runner.error);
     }

@@ -13,6 +13,8 @@
   import { getSiteIdsForScope, getConnectionIdForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import UserDetailSheet from './_user-detail-sheet.svelte';
+  import RunWorkflowTrigger from '$lib/components/pipeline/RunWorkflowTrigger.svelte';
+  import { goto } from '$app/navigation';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
@@ -20,6 +22,7 @@
 
   let selectedUser = $state<Entity | null>(null);
   let sheetOpen = $state(false);
+  let selectedRows = $state<{ id: string; displayName: string }[]>([]);
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
@@ -137,7 +140,16 @@
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
-  <h1 class="h-fit text-2xl font-bold">Users</h1>
+  <div class="flex items-center justify-between">
+    <h1 class="h-fit text-2xl font-bold">Users</h1>
+    <RunWorkflowTrigger
+      {selectedRows}
+      entityType="identity"
+      integration="microsoft-365"
+      tenantId={data.user.tenant_id}
+      onSuccess={(runId) => goto('/task-list/' + runId)}
+    />
+  </div>
 
   {#key `${scope}-${scopeId}`}
     <DataTable
@@ -152,9 +164,16 @@
       enableColumnToggle={true}
       enableExport={true}
       enableURLState={true}
+      enableRowSelection={true}
       onrowclick={(row) => {
         selectedUser = row;
         sheetOpen = true;
+      }}
+      onselectionchange={(rows) => {
+        selectedRows = rows.map((r) => ({
+          id: r.entity_id,
+          displayName: r.display_name ?? r.entity_id,
+        }));
       }}
     />
   {/key}

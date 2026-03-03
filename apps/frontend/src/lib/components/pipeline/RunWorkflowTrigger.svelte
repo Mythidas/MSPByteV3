@@ -14,9 +14,10 @@
     entityType: string;
     integration: string;
     tenantId: string;
+    onSuccess?: (runId: string) => void;
   }
 
-  let { selectedRows, entityType, integration, tenantId }: Props = $props();
+  let { selectedRows, entityType, integration, tenantId, onSuccess }: Props = $props();
 
   let modalOpen = $state(false);
 
@@ -53,4 +54,5 @@
   {selectedEntityIds}
   {selectedDisplayNames}
   {tenantId}
+  {onSuccess}
 />

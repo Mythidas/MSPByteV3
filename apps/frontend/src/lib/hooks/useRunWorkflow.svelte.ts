@@ -39,6 +39,7 @@ export function createRunWorkflow() {
       const { data: run, error: insertError } = await (supabase.from('task_runs' as any) as any)
         .insert({
           task_id: null,
+          workflow_id: options.workflowId,
           tenant_id: options.tenantId,
           triggered_by: 'manual',
           triggered_by_user: userId,
