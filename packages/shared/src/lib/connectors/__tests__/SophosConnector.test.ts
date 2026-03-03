@@ -309,7 +309,7 @@ describe('SophosPartnerConnector', () => {
         },
       ]);
       vi.stubGlobal('fetch', fetch);
-      const { data } = await new SophosPartnerConnector(CONFIG).getFirewallLicenses();
+      const { data } = await new SophosPartnerConnector(CONFIG).getPartnerFirewallLicenses();
       expect(data).toHaveLength(1);
       // Verify X-Partner-ID header was used (not X-Tenant-ID)
       const licensesCall = fetch.mock.calls[2];
@@ -327,7 +327,7 @@ describe('SophosPartnerConnector', () => {
         },
       ]);
       vi.stubGlobal('fetch', fetch);
-      const { data } = await new SophosPartnerConnector(CONFIG).getFirewallLicenses(TENANT_CONFIG);
+      const { data } = await new SophosPartnerConnector(CONFIG).getTenantFirewallLicenses(TENANT_CONFIG);
       expect(data).toHaveLength(1);
       // Verify X-Tenant-ID header was used
       const licensesCall = fetch.mock.calls[2];
@@ -340,7 +340,7 @@ describe('SophosPartnerConnector', () => {
         'fetch',
         mockFetch([TOKEN_RESPONSE, WHOAMI_RESPONSE, { ok: false, status: 500, body: {} }])
       );
-      const { error } = await new SophosPartnerConnector(CONFIG).getFirewallLicenses();
+      const { error } = await new SophosPartnerConnector(CONFIG).getPartnerFirewallLicenses();
       expect(error).toBeDefined();
     });
   });

@@ -1,4 +1,5 @@
 import { HaloPSAConnector } from '@workspace/shared/lib/connectors/HaloPSAConnector.js';
+import { HaloPSATicketHandler } from '@workspace/shared/lib/services/halopsa/HaloPSATicketHandler.js';
 import { HaloPSAConfig } from '@workspace/shared/types/integrations/halopsa/index.js';
 import { FastifyInstance } from 'fastify';
 import { PerformanceTracker } from '@workspace/shared/lib/utils/performance.js';
@@ -123,7 +124,8 @@ export default async function (fastify: FastifyInstance) {
       const config = psaConfig.config as HaloPSAConfig;
       config.clientSecret =
         (await Encryption.decrypt(config.clientSecret, process.env.ENCRYPTION_KEY!)) || '';
-      const connector = new HaloPSAConnector(psaConfig.config as HaloPSAConfig);
+      const connector = new HaloPSAConnector(config);
+      const handler = new HaloPSATicketHandler(connector);
 
       // Parse and validate request body (multipart/form-data or JSON)
       const body = await perf.trackSpan('parse_request_body', async () => {
@@ -324,7 +326,7 @@ export default async function (fastify: FastifyInstance) {
 
       // Create ticket in PSA
       const { data: createdTicketID } = await perf.trackSpan('psa_create_ticket', async () => {
-        return await connector.createTicket(ticketInfo);
+        return await handler.createTicket(ticketInfo);
       });
 
       if (!createdTicketID) {

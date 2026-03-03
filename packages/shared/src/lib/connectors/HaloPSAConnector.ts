@@ -1,15 +1,22 @@
 import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
-import Encryption from '@workspace/shared/lib/utils/encryption';
-import { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/assets.js';
-import {
+import { fetchWithRetry } from '@workspace/shared/lib/utils/fetchWithRetry';
+import type { HaloPSAAsset } from '@workspace/shared/types/integrations/halopsa/assets.js';
+import type {
   HaloPSAConfig,
   HaloPSAPagination,
 } from '@workspace/shared/types/integrations/halopsa/index.js';
-import { HaloPSASite } from '@workspace/shared/types/integrations/halopsa/sites.js';
-import { HaloPSANewTicket } from '@workspace/shared/types/integrations/halopsa/tickets.js';
-import { HaloPSAUser } from '@workspace/shared/types/integrations/halopsa/users';
+import type { HaloPSASite } from '@workspace/shared/types/integrations/halopsa/sites.js';
+import type { HaloPSATicketBody } from '@workspace/shared/types/integrations/halopsa/tickets.js';
+import type { HaloPSAUser } from '@workspace/shared/types/integrations/halopsa/users';
+import { type LocalFilters, applyFilters } from '@workspace/shared/types/connector';
+
+const MODULE = 'HaloPSAConnector';
+const TOKEN_TTL_MS = 55 * 60 * 1000; // 55 minutes (conservative default)
 
 export class HaloPSAConnector {
+  private token: string | null = null;
+  private tokenExpiry: Date = new Date();
+
   constructor(private config: HaloPSAConfig) {}
 
   async checkHealth(): Promise<APIResponse<boolean>> {
@@ -18,318 +25,270 @@ export class HaloPSAConnector {
     return { data: !!token };
   }
 
-  async getSites(): Promise<APIResponse<HaloPSASite[]>> {
-    const { data: token, error: tokenError } = await this.getToken();
-    if (tokenError) return { error: tokenError };
+  async getSites(filters?: LocalFilters<HaloPSASite>): Promise<APIResponse<HaloPSASite[]>> {
+    try {
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
 
-    const params = new URLSearchParams();
-    params.set('exclude_internal', 'false');
-    params.set('includeserviceaccount', 'true');
-    params.set('includenonserviceaccount', 'true');
-    params.set('includeinactive', 'false');
-    params.set('includecolumns', 'false');
-    params.set('showcounts', 'true');
-    params.set('paginate', 'true');
-    params.set('page_size', '50');
-    params.set('page_no', '1');
+      const params = new URLSearchParams();
+      params.set('exclude_internal', 'false');
+      params.set('includeserviceaccount', 'true');
+      params.set('includenonserviceaccount', 'true');
+      params.set('includeinactive', 'false');
+      params.set('includecolumns', 'false');
+      params.set('showcounts', 'true');
+      params.set('paginate', 'true');
+      params.set('page_size', '50');
+      params.set('page_no', '1');
 
-    const sites: HaloPSASite[] = [];
-
-    const response = await fetch(`${this.config.url}/api/site?${params}`, {
-      method: 'GET',
-      headers: {
+      const sites: HaloPSASite[] = [];
+      const headers = {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-      },
-    });
+      };
 
-    if (!response.ok) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'getSites',
-        message: `HTTP ${response.status}: ${response.statusText}`,
-      });
-    }
+      const response = await fetchWithRetry(
+        `${this.config.url}/api/site?${params}`,
+        { method: 'GET', headers },
+        MODULE,
+        'getSites'
+      );
 
-    const data: HaloPSAPagination & { sites: HaloPSASite[] } = await response.json();
-    sites.push(...data.sites);
-    params.set('page_no', `${data.page_no + 1}`);
+      if (!response.ok) {
+        return Logger.error({
+          module: MODULE,
+          context: 'getSites',
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
 
-    while (sites.length < data.record_count) {
-      const refetchResponse = await fetch(`${this.config.url}/api/site?${params}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const data: HaloPSAPagination & { sites: HaloPSASite[] } = await response.json();
+      sites.push(...data.sites);
+      params.set('page_no', `${data.page_no + 1}`);
 
-      if (refetchResponse.ok) {
+      while (sites.length < data.record_count) {
+        const refetchResponse = await fetchWithRetry(
+          `${this.config.url}/api/site?${params}`,
+          { method: 'GET', headers },
+          MODULE,
+          'getSites'
+        );
+
+        if (!refetchResponse.ok) break;
         const refetchData: HaloPSAPagination & { sites: HaloPSASite[] } =
           await refetchResponse.json();
         sites.push(...refetchData.sites);
         params.set('page_no', `${refetchData.page_no + 1}`);
-      } else break;
-    }
+      }
 
-    return {
-      data: sites,
-    };
+      return { data: this.postFilter(sites, filters) };
+    } catch (err) {
+      return Logger.error({ module: MODULE, context: 'getSites', message: String(err) });
+    }
   }
 
-  async getAssets(siteID: string): Promise<APIResponse<HaloPSAAsset[]>> {
-    type APISchema = HaloPSAPagination & { assets: HaloPSAAsset[] };
+  async getAssets(
+    siteID: string,
+    filters?: LocalFilters<HaloPSAAsset>
+  ): Promise<APIResponse<HaloPSAAsset[]>> {
+    try {
+      type APISchema = HaloPSAPagination & { assets: HaloPSAAsset[] };
 
-    const { data: token, error: tokenError } = await this.getToken();
-    if (tokenError) return { error: tokenError };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
 
-    const params = new URLSearchParams();
-    params.set('cf_display_values_only', 'true');
-    params.set('includeinactive', 'false');
-    params.set('site_id', siteID);
-    params.set('includecolumns', 'false');
-    params.set('showcounts', 'true');
-    params.set('paginate', 'true');
-    params.set('page_size', '50');
-    params.set('page_no', '1');
+      const params = new URLSearchParams();
+      params.set('cf_display_values_only', 'true');
+      params.set('includeinactive', 'false');
+      params.set('site_id', siteID);
+      params.set('includecolumns', 'false');
+      params.set('showcounts', 'true');
+      params.set('paginate', 'true');
+      params.set('page_size', '50');
+      params.set('page_no', '1');
 
-    const assets: HaloPSAAsset[] = [];
-
-    const response = await fetch(`${this.config.url}/api/asset?${params}`, {
-      method: 'GET',
-      headers: {
+      const assets: HaloPSAAsset[] = [];
+      const headers = {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
-      },
-    });
+      };
 
-    if (!response.ok) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'getAssets',
-        message: `HTTP ${response.status}: ${response.statusText}`,
-      });
-    }
+      const response = await fetchWithRetry(
+        `${this.config.url}/api/asset?${params}`,
+        { method: 'GET', headers },
+        MODULE,
+        'getAssets'
+      );
 
-    const data: APISchema = await response.json();
-    assets.push(...data.assets);
-    params.set('page_no', `${data.page_no + 1}`);
+      if (!response.ok) {
+        return Logger.error({
+          module: MODULE,
+          context: 'getAssets',
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
 
-    while (assets.length < data.record_count) {
-      const refetchResponse = await fetch(`${this.config.url}/api/asset?${params}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
+      const data: APISchema = await response.json();
+      assets.push(...data.assets);
+      params.set('page_no', `${data.page_no + 1}`);
 
-      if (refetchResponse.ok) {
+      while (assets.length < data.record_count) {
+        const refetchResponse = await fetchWithRetry(
+          `${this.config.url}/api/asset?${params}`,
+          { method: 'GET', headers },
+          MODULE,
+          'getAssets'
+        );
+
+        if (!refetchResponse.ok) break;
         const refetchData: APISchema = await refetchResponse.json();
         assets.push(...refetchData.assets);
         params.set('page_no', `${refetchData.page_no + 1}`);
-      } else break;
-    }
+      }
 
-    return {
-      data: assets,
-    };
+      return { data: this.postFilter(assets, filters) };
+    } catch (err) {
+      return Logger.error({ module: MODULE, context: 'getAssets', message: String(err) });
+    }
   }
 
   async getUser(email?: string): Promise<APIResponse<HaloPSAUser>> {
-    type APISchema = HaloPSAPagination & { users: HaloPSAUser[] };
+    try {
+      type APISchema = HaloPSAPagination & { users: HaloPSAUser[] };
 
-    const { data: token, error: tokenError } = await this.getToken();
-    if (tokenError) return { error: tokenError };
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
 
-    const params = new URLSearchParams();
-    if (email) params.set('search', email);
-    params.set('cf_display_values_only', 'true');
-    params.set('includeinactive', 'false');
-    params.set('includecolumns', 'false');
-    params.set('showcounts', 'true');
-    params.set('paginate', 'true');
-    params.set('page_size', '50');
-    params.set('page_no', '1');
+      const params = new URLSearchParams();
+      if (email) params.set('search', email);
+      params.set('cf_display_values_only', 'true');
+      params.set('includeinactive', 'false');
+      params.set('includecolumns', 'false');
+      params.set('showcounts', 'true');
+      params.set('paginate', 'true');
+      params.set('page_size', '50');
+      params.set('page_no', '1');
 
-    const users: HaloPSAUser[] = [];
+      const response = await fetchWithRetry(
+        `${this.config.url}/api/users?${params}`,
+        {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        },
+        MODULE,
+        'getUser'
+      );
 
-    const response = await fetch(`${this.config.url}/api/users?${params}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
+      if (!response.ok) {
+        return Logger.error({
+          module: MODULE,
+          context: 'getUser',
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
 
-    if (!response.ok) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'getUser',
-        message: `HTTP ${response.status}: ${response.statusText}`,
-      });
+      const data: APISchema = await response.json();
+
+      if (data.users.length === 0 || !data.users[0]) {
+        return Logger.error({ module: MODULE, context: 'getUser', message: 'No user found' });
+      }
+
+      return { data: data.users[0] };
+    } catch (err) {
+      return Logger.error({ module: MODULE, context: 'getUser', message: String(err) });
     }
-
-    const data: APISchema = await response.json();
-    users.push(...data.users);
-
-    if (users.length === 0 || !users[0]) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'getUser',
-        message: `No user found`,
-      });
-    }
-
-    return {
-      data: users[0]!,
-    };
   }
 
-  async createTicket(ticket: HaloPSANewTicket): Promise<APIResponse<string>> {
-    const { data: token, error: tokenError } = await this.getToken();
-    if (tokenError) return { error: tokenError };
+  async postTicket(body: HaloPSATicketBody): Promise<APIResponse<string>> {
+    try {
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
 
-    const isSiteValid = ticket.siteId
-      ? (await this.validateSiteId(ticket.siteId)).data || false
-      : false;
+      const params = new URLSearchParams();
+      params.set('includedetails', 'false');
+      params.set('includetickettype', 'false');
+      params.set('includeuser', 'false');
+      params.set('includepriority', 'false');
+      params.set('idonly', 'true');
 
-    const images = ticket.images
-      .map((image) => {
-        return `<img src=\"${image}\" class=\"fr-fil fr-dib\" width=\"720\" height=\"374\">`;
-      })
-      .join('<br>');
-    const details: string[] = [];
-    details.push('[User Submitted Request]');
-    details.push(`Summary: ${ticket.summary}`);
-    details.push('');
-    details.push(`Name: ${ticket.user.name}`);
-    details.push(`Email: ${ticket.user.email}`);
-    details.push(`Phone: ${ticket.user.phone}`);
-    details.push(`Details: ${ticket.details}`);
-    details.push('');
-    if (ticket.assets.length === 0) details.push(`Device: ${ticket.deviceName}`);
-    const details_html = `<p>${details.join('<br>')}<br>${images}</p>`;
-
-    const params = new URLSearchParams();
-    params.set('includedetails', 'false');
-    params.set('includetickettype', 'false');
-    params.set('includeuser', 'false');
-    params.set('includepriority', 'false');
-    params.set('idonly', 'true');
-
-    const response = await fetch(`${this.config.url}/api/tickets?${params}`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json-patch+json',
-      },
-      body: JSON.stringify([
+      const response = await fetchWithRetry(
+        `${this.config.url}/api/tickets?${params}`,
         {
-          site_id: isSiteValid ? ticket.siteId : undefined,
-          priority_id: 4,
-          files: null,
-          usertype: 1,
-          user_id: ticket.user.id,
-          reportedby: ticket.user.email,
-          tickettype_id: 3,
-          timerinuse: false,
-          itil_tickettype_id: '-1',
-          tickettype_group_id: '-1',
-          summary: ticket.summary,
-          details_html,
-          category_1: '',
-          impact: String(ticket.impact),
-          urgency: String(ticket.urgency),
-          donotapplytemplateintheapi: true,
-          utcoffset: 360,
-          form_id: 'newticket-1',
-          dont_do_rules: true,
-          return_this: false,
-          phonenumber: ticket.user.phone,
-          assets: ticket.assets.map((a) => ({ id: a })),
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json-patch+json',
+          },
+          body: JSON.stringify([body]),
         },
-      ]),
-    });
+        MODULE,
+        'postTicket'
+      );
 
-    if (!response.ok) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'createTicket',
-        message: `HTTP ${response.status}: ${response.statusText}`,
-      });
+      if (!response.ok) {
+        return Logger.error({
+          module: MODULE,
+          context: 'postTicket',
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
+
+      const data: { id: string } = await response.json();
+      return { data: String(data.id) };
+    } catch (err) {
+      return Logger.error({ module: MODULE, context: 'postTicket', message: String(err) });
     }
-
-    const data: { id: string } = await response.json();
-    return {
-      data: String(data.id),
-    };
   }
 
   async uploadImage(file: Blob): Promise<APIResponse<string>> {
-    const { data: token, error: tokenError } = await this.getToken();
-    if (tokenError) return { error: tokenError };
+    try {
+      const { data: token, error: tokenError } = await this.getToken();
+      if (tokenError) return { error: tokenError };
 
-    const formData = new FormData();
-    formData.append('ticket_id', '');
-    formData.append('image_upload_id', '0');
-    formData.append('image_upload_key', '');
-    formData.append('file', file, 'upload.png');
+      const formData = new FormData();
+      formData.append('ticket_id', '');
+      formData.append('image_upload_id', '0');
+      formData.append('image_upload_key', '');
+      formData.append('file', file, 'upload.png');
 
-    const response = await fetch(`${this.config.url}/api/attachment/image`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+      const response = await fetchWithRetry(
+        `${this.config.url}/api/attachment/image`,
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: formData },
+        MODULE,
+        'uploadImage'
+      );
 
-    if (!response.ok) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'uploadImage',
-        message: `HTTP ${response.status}: ${response.statusText}`,
-      });
+      if (!response.ok) {
+        return Logger.error({
+          module: MODULE,
+          context: 'uploadImage',
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
+      }
+
+      const data: { link: string } = await response.json();
+      return { data: data.link };
+    } catch (err) {
+      return Logger.error({ module: MODULE, context: 'uploadImage', message: String(err) });
     }
-
-    const data: { link: string } = await response.json();
-    return { data: data.link };
   }
 
-  private async validateSiteId(siteId: Number): Promise<APIResponse<boolean>> {
-    const { data: token, error: tokenError } = await this.getToken();
-    if (tokenError) return { error: tokenError };
-
-    const response = await fetch(`${this.config.url}/api/site/${siteId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      return Logger.error({
-        module: 'HaloPSAConnector',
-        context: 'validateSiteId',
-        message: `HTTP ${response.status}: ${response.statusText}`,
-      });
-    }
-
-    const data = await response.json();
-
-    return {
-      data: !!data,
-    };
+  private postFilter<T>(items: T[], filters?: LocalFilters<T>): T[] {
+    return applyFilters(
+      items as unknown as Record<string, unknown>[],
+      filters as unknown as LocalFilters<Record<string, unknown>>
+    ) as T[];
   }
 
   private async getToken(): Promise<APIResponse<string>> {
     try {
+      if (this.token && new Date().getTime() < this.tokenExpiry.getTime()) {
+        return { data: this.token };
+      }
+
       const response = await fetch(`${this.config.url}/auth/token`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           grant_type: 'client_credentials',
           client_id: this.config.clientId,
@@ -340,17 +299,20 @@ export class HaloPSAConnector {
 
       if (!response.ok) {
         return Logger.error({
-          module: 'HaloPSAConnector',
+          module: MODULE,
           context: 'getToken',
           message: `HTTP ${response.status}: ${response.statusText}`,
         });
       }
 
-      const data: { access_token: string } = await response.json();
+      const data: { access_token: string; expires_in?: number } = await response.json();
+      this.token = data.access_token;
+      this.tokenExpiry = new Date(new Date().getTime() + (data.expires_in ? data.expires_in * 1000 : TOKEN_TTL_MS));
+
       return { data: data.access_token };
     } catch (err) {
       return Logger.error({
-        module: 'HaloPSAConnector',
+        module: MODULE,
         context: 'getToken',
         message: `Failed to get token: ${err}`,
       });

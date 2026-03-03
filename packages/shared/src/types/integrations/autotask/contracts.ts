@@ -1,4 +1,4 @@
-import { AutoTaskUserDefinedField } from '@workspace/shared/types/integrations/autotask/index';
+import type { AutoTaskUserDefinedField } from '@workspace/shared/types/integrations/autotask/index';
 
 export type AutoTaskContract = {
   id: number;

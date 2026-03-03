@@ -45,6 +45,7 @@ await fastify.register(fastifyStatic, {
 const port = process.env.PORT || 3001;
 await fastify.listen({ port: port as number, host: '0.0.0.0' });
 
+Logger.level = (process.env.LOG_LEVEL as any) ?? 'info';
 Logger.info({
   module: 'app',
   context: 'startup',

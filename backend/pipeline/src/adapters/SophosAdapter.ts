@@ -68,8 +68,8 @@ export class SophosAdapter extends BaseAdapter {
     });
 
     const entities = sites.map((site) => ({
-      externalId: site.id!,
-      displayName: site.name!,
+      externalId: site.id,
+      displayName: site.name,
       rawData: site,
     }));
 
@@ -130,8 +130,8 @@ export class SophosAdapter extends BaseAdapter {
     });
 
     const entities = devices.map((device) => ({
-      externalId: device.id!,
-      displayName: device.hostname!,
+      externalId: device.id,
+      displayName: device.hostname,
       siteId: jobData.siteId!,
       rawData: device,
     }));

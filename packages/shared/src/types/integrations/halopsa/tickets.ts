@@ -1,3 +1,4 @@
+/** High-level input consumed by HaloPSATicketHandler before it builds the raw body. */
 export type HaloPSANewTicket = {
   siteId?: number;
   clientId?: number;
@@ -14,6 +15,32 @@ export type HaloPSANewTicket = {
   deviceName: string;
   assets: number[];
   images: string[];
+};
+
+/** Raw body sent directly to the HaloPSA POST /api/tickets endpoint. */
+export type HaloPSATicketBody = {
+  site_id?: number;
+  priority_id: number;
+  files: null;
+  usertype: number;
+  user_id?: number;
+  reportedby: string;
+  tickettype_id: number;
+  timerinuse: boolean;
+  itil_tickettype_id: string;
+  tickettype_group_id: string;
+  summary: string;
+  details_html: string;
+  category_1: string;
+  impact: string;
+  urgency: string;
+  donotapplytemplateintheapi: boolean;
+  utcoffset: number;
+  form_id: string;
+  dont_do_rules: boolean;
+  return_this: boolean;
+  phonenumber: string;
+  assets: { id: number }[];
 };
 
 export interface HaloPriority {

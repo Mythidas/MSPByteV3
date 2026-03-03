@@ -6,6 +6,10 @@
  * parameters. Connectors translate these into their API's native format where
  * supported (e.g. OData $filter for Graph, query params for HaloPSA), and
  * post-filter in-memory for ops the API doesn't support server-side.
+ *
+ * Use `LocalFilters<T>` for connectors that always fetch all data and apply
+ * filtering/sorting/limiting in-memory. This omits `select` (would change the
+ * return type to Partial<T>[]) and `cursor` (internal pagination is not exposed).
  */
 
 export type FilterOp =
@@ -39,6 +43,12 @@ export interface ConnectorFilters<T> {
   /** Opaque pagination token (nextLink URL, page number, cursor string, etc.) */
   cursor?: string;
 }
+
+/**
+ * Filters for connectors that always fetch all data in-memory.
+ * Omits `select` (keeps return type as T[]) and `cursor` (internal pagination).
+ */
+export type LocalFilters<T> = Omit<ConnectorFilters<T>, 'select' | 'cursor'>;
 
 /**
  * Applies a single FilterClause to a record in-memory.
@@ -94,12 +104,28 @@ export function matchesFilter<T extends Record<string, unknown>>(
 }
 
 /**
- * Post-filters an array of items against all where clauses in-memory.
+ * Post-processes an array of items: filters by where clauses, sorts, and limits.
+ * Used by connectors that fetch all data then apply filtering in-memory.
  */
 export function applyFilters<T extends Record<string, unknown>>(
   items: T[],
-  filters?: ConnectorFilters<T>
+  filters?: LocalFilters<T>
 ): T[] {
-  if (!filters?.where?.length) return items;
-  return items.filter((item) => filters.where!.every((clause) => matchesFilter(item, clause)));
+  let result = filters?.where?.length
+    ? items.filter((item) => filters.where!.every((clause) => matchesFilter(item, clause)))
+    : items;
+
+  if (filters?.sort) {
+    const { field, direction } = filters.sort;
+    result = [...result].sort((a, b) => {
+      const cmp = String(a[field as string]).localeCompare(String(b[field as string]));
+      return direction === 'desc' ? -cmp : cmp;
+    });
+  }
+
+  if (filters?.limit) {
+    result = result.slice(0, filters.limit);
+  }
+
+  return result;
 }

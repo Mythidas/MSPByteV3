@@ -1,14 +1,17 @@
 import { APIResponse, Logger } from '@workspace/shared/lib/utils/logger';
-import { CoveConnectorConfig } from '@workspace/shared/types/integrations/cove/index';
-import {
+import type { CoveConnectorConfig } from '@workspace/shared/types/integrations/cove/index';
+import type {
   CoveChildPartner,
   CoveEnumerateChildPartnersResponse,
 } from '@workspace/shared/types/integrations/cove/partners';
 import { CODE_TO_NAME } from '@workspace/shared/types/integrations/cove/short_codes';
-import {
+import type {
   CoveAccountStatistics,
   CoveEnumerateAccountStatisticsResponse,
 } from '@workspace/shared/types/integrations/cove/statistics';
+import { type LocalFilters, applyFilters } from '@workspace/shared/types/connector';
+
+const MODULE = 'CoveConnector';
 
 export class CoveConnector {
   private token: string | null = null;
@@ -17,21 +20,24 @@ export class CoveConnector {
 
   async checkHealth() {
     try {
-      const visa = await this.getVisa();
+      const { data: visa, error } = await this.getVisa();
+      if (error) return { data: false };
       return { data: !!visa };
-    } catch (err) {
+    } catch {
       return { data: false };
     }
   }
 
-  async getCustomers(): Promise<APIResponse<CoveChildPartner[]>> {
+  async getCustomers(
+    filters?: LocalFilters<CoveChildPartner>
+  ): Promise<APIResponse<CoveChildPartner[]>> {
     try {
-      const token = await this.getVisa();
+      const { data: token, error: tokenError } = await this.getVisa();
+      if (tokenError) return { error: tokenError };
+
       const response = await fetch(this.config.server, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 'jsonrpc',
@@ -62,9 +68,7 @@ export class CoveConnector {
           try {
             const childResponse = await fetch(this.config.server, {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 jsonrpc: '2.0',
                 id: 'jsonrpc',
@@ -88,39 +92,33 @@ export class CoveConnector {
             }
 
             const childData = (await childResponse.json()) as CoveEnumerateChildPartnersResponse;
-
             if (childData.result?.result.Children) {
               finalResult.push(...childData.result.result.Children);
             }
           } catch (err) {
-            Logger.error({
-              module: 'CoveConnector',
-              context: 'getCustomers',
-              message: String(err),
-            });
+            Logger.error({ module: MODULE, context: 'getCustomers', message: String(err) });
           }
         }
       }
 
-      return {
-        data: finalResult.sort((a, b) => a.Info.Name.localeCompare(b.Info.Name)),
-      };
+      const sorted = finalResult.sort((a, b) => a.Info.Name.localeCompare(b.Info.Name));
+      return { data: this.postFilter(sorted, filters) };
     } catch (err) {
-      return Logger.error({
-        module: 'CoveConnector',
-        context: 'getCustomers',
-        message: String(err),
-      });
+      return Logger.error({ module: MODULE, context: 'getCustomers', message: String(err) });
     }
   }
 
-  async getAccountStatistics(): Promise<
+  async getAccountStatistics(
+    filters?: LocalFilters<{ AccountId: number; Flags: string[]; PartnerId: number; Settings: Record<string, string> }>
+  ): Promise<
     APIResponse<
       { AccountId: number; Flags: string[]; PartnerId: number; Settings: Record<string, string> }[]
     >
   > {
     try {
-      const token = await this.getVisa();
+      const { data: token, error: tokenError } = await this.getVisa();
+      if (tokenError) return { error: tokenError };
+
       const statistics: {
         AccountId: number;
         Flags: string[];
@@ -131,9 +129,7 @@ export class CoveConnector {
       while (true) {
         const response = await fetch(this.config.server, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             id: 'jsonrpc',
             jsonrpc: '2.0',
@@ -149,7 +145,7 @@ export class CoveConnector {
                 SelectionMode: 'Merged',
                 StartRecordNumber: statistics.length,
                 Totals: [],
-                Columns: ['AN', 'AR', 'MN', 'OP', 'PN', 'T3', 'US', 'TB', 'YV', 'YS', 'T7'], // DeviceCode, Customer, Machine Name, Policy, Retention, Selected Size, Used Storage, Last 28 days, LSV Status, Storage Status, Error Count
+                Columns: ['AN', 'AR', 'MN', 'OP', 'PN', 'T3', 'US', 'TB', 'YV', 'YS', 'T7'],
               },
             },
           }),
@@ -160,8 +156,8 @@ export class CoveConnector {
         }
 
         const data = (await response.json()) as CoveEnumerateAccountStatisticsResponse;
-
         if (!data.result || !data.result.result || data.result.result.length === 0) break;
+
         const results: {
           AccountId: number;
           Flags: string[];
@@ -175,32 +171,32 @@ export class CoveConnector {
             const [key, string] = Object.entries(s)[0];
             parsedSettings[CODE_TO_NAME[key]] = string;
           }
-
           results.push({ ...r, Settings: parsedSettings });
         }
 
         statistics.push(...results);
       }
 
-      return { data: statistics };
+      return { data: this.postFilter(statistics, filters) };
     } catch (err) {
-      return Logger.error({
-        module: 'CoveConnector',
-        context: 'getDevices',
-        message: String(err),
-      });
+      return Logger.error({ module: MODULE, context: 'getAccountStatistics', message: String(err) });
     }
   }
 
-  private async getVisa() {
-    if (this.token) return this.token;
+  private postFilter<T>(items: T[], filters?: LocalFilters<T>): T[] {
+    return applyFilters(
+      items as unknown as Record<string, unknown>[],
+      filters as unknown as LocalFilters<Record<string, unknown>>
+    ) as T[];
+  }
+
+  private async getVisa(): Promise<APIResponse<string>> {
+    if (this.token) return { data: this.token };
 
     try {
-      const response = await fetch(`${this.config.server}`, {
+      const response = await fetch(this.config.server, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           jsonrpc: '2.0',
           id: 'login',
@@ -213,34 +209,39 @@ export class CoveConnector {
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        return Logger.error({
+          module: MODULE,
+          context: 'getVisa',
+          message: `HTTP ${response.status}: ${response.statusText}`,
+        });
       }
 
       const data = (await response.json()) as {
-        error?: any;
-        result?: any;
+        error?: unknown;
+        result?: unknown;
         visa?: string;
       };
 
-      // Better: check for errors in JSON-RPC style
       if (data.error) {
-        throw new Error(`JSON-RPC error: ${JSON.stringify(data.error)}`);
+        return Logger.error({
+          module: MODULE,
+          context: 'getVisa',
+          message: `JSON-RPC error: ${JSON.stringify(data.error)}`,
+        });
       }
 
       if (!data.result || !data.visa) {
-        console.error('Unexpected Login response:', data);
-        throw new Error('No visa found in Login response');
+        return Logger.error({
+          module: MODULE,
+          context: 'getVisa',
+          message: 'Unexpected Login response: no visa found',
+        });
       }
 
-      this.token = data.visa as string;
-      return this.token;
+      this.token = data.visa;
+      return { data: data.visa };
     } catch (err) {
-      Logger.error({
-        module: 'CoveConnector',
-        context: 'getVisa',
-        message: String(err),
-      });
-      throw err;
+      return Logger.error({ module: MODULE, context: 'getVisa', message: String(err) });
     }
   }
 }
