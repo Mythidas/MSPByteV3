@@ -9,6 +9,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
+    supportedScopes: ['tenant', 'connection'],
   },
   dattormm: {
     id: 'dattormm',
@@ -18,6 +19,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
+    supportedScopes: ['tenant', 'site', 'group', 'entity'],
   },
   cove: {
     id: 'cove',
@@ -27,6 +29,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
+    supportedScopes: ['tenant'],
   },
   'microsoft-365': {
     id: 'microsoft-365',
@@ -40,18 +43,21 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'policy', rateMinutes: DAILY, priority: 5 },
       { type: 'exchange-config', rateMinutes: DAILY, priority: 9 },
     ],
+    supportedScopes: ['tenant', 'connection', 'entity'],
   },
   halopsa: {
     id: 'halopsa',
     name: 'HaloPSA',
     type: 'psa',
     supportedTypes: [],
+    supportedScopes: ['tenant'],
   },
   mspagent: {
     id: 'mspagent',
     name: 'MSPAgent',
     type: 'other',
     supportedTypes: [],
+    supportedScopes: ['tenant'],
   },
 };
 
@@ -85,9 +91,12 @@ export interface EntityTypeConfig {
   concurrency?: number; // max parallel BullMQ workers for this entity type (default: 5)
 }
 
+export type ScopeLevel = 'tenant' | 'site' | 'connection' | 'entity' | 'group';
+
 export interface Integration {
   id: IntegrationId;
   name: string;
   type: 'psa' | 'rmm' | 'recovery' | 'security' | 'identity' | 'other';
   supportedTypes: EntityTypeConfig[];
+  supportedScopes: ScopeLevel[];
 }

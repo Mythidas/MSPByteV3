@@ -78,15 +78,16 @@ export class ORM {
     schema: S,
     table: T,
     modifyQuery?: (query: QueryBuilder<S, T>) => void,
-    pagination?: PaginationOptions
+    pagination?: PaginationOptions,
+    select?: (keyof Tables<S, T>)[]
   ): Promise<APIResponse<DataResponse<Tables<S, T>>>> {
-    if (pagination) return this.selectPaginated(schema, table, pagination, modifyQuery);
+    if (pagination) return this.selectPaginated(schema, table, pagination, modifyQuery, select);
 
     try {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .select('*');
+        .select(select?.join(',') ?? '*');
 
       if (modifyQuery) {
         modifyQuery(query as any);
@@ -122,7 +123,8 @@ export class ORM {
     schema: S,
     table: T,
     pagination: PaginationOptions,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void
+    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    select?: (keyof Tables<S, T>)[]
   ): Promise<APIResponse<DataResponse<Tables<S, T>>>> {
     try {
       const from = pagination.page * pagination.size;
@@ -131,7 +133,7 @@ export class ORM {
       let query = this.supabase
         .schema(schema)
         .from(table as any)
-        .select('*', { count: 'exact' }) // includes count in response
+        .select(select?.join(',') ?? '*', { count: 'exact' }) // includes count in response
         .range(from, to);
 
       if (pagination.filters) {

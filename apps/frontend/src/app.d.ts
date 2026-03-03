@@ -3,6 +3,7 @@
 import type { Session, SupabaseClient, User } from '@supabase/supabase-js';
 import type { ORM } from '@workspace/shared/lib/utils/orm';
 import type { Tables } from '@workspace/shared/types/database';
+import type { Database } from '@workspace/shared/types/schema';
 
 // for information about these interfaces
 declare global {
@@ -10,7 +11,7 @@ declare global {
     // interface Error {}
     interface Locals {
       orm: ORM;
-      supabase: SupabaseClient;
+      supabase: SupabaseClient<Database>;
       user: Tables<'public', 'users'> | null;
       role: Tables<'public', 'roles'> | null;
       getSession: () => Promise<User | null>;

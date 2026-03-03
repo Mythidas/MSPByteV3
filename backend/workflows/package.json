@@ -1,0 +1,23 @@
+{
+  "name": "@workspace/workflows",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts",
+    "build": "tsc --noEmit"
+  },
+  "exports": {
+    "./enqueue": "./src/enqueue.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.0",
+    "@workspace/shared": "workspace:*",
+    "bullmq": "^5.0.0",
+    "ioredis": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

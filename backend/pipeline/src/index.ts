@@ -15,10 +15,6 @@ import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
 import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
 import { IntegrationId, INTEGRATIONS } from '@workspace/shared/config/integrations.js';
 
-// Task Automation system
-import { TaskPipelineEngine } from './tasks/TaskPipelineEngine.js';
-import { TaskWorker } from './tasks/TaskWorker.js';
-import { TaskScheduler } from './tasks/TaskScheduler.js';
 import { CoveAdapter } from './adapters/CoveAdapter.js';
 import { CoveLinker } from './linkers/CoveLinker.js';
 
@@ -30,9 +26,6 @@ import { CoveLinker } from './linkers/CoveLinker.js';
  *     1. adapter.fetchAll()
  *     2. processor.process()
  *     3. linker.linkAndReconcile()  (optional)
- *
- *   workflows table → TaskReconciler → tasks table → TaskScheduler → BullMQ → TaskWorker:
- *     Executes workflow stages via StageDispatcher → service/entity queries → alert/tag evaluation
  */
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || 'info';
@@ -109,19 +102,6 @@ async function main() {
   const scheduler = new JobScheduler();
   scheduler.start();
 
-  // Task Automation system
-  const taskEngine = new TaskPipelineEngine();
-  const taskWorker = new TaskWorker(taskEngine);
-  taskWorker.start();
-
-  const taskScheduler = new TaskScheduler();
-  taskScheduler.start();
-
-  // Task reconciler — seeds per-tenant tasks for all built-in workflows
-  // const taskReconciler = new TaskReconciler();
-  // await taskReconciler.reconcile();
-  // taskReconciler.start();
-
   Logger.info({
     module: 'Pipeline',
     context: 'main',
@@ -139,8 +119,6 @@ async function main() {
     try {
       reconciler.stop();
       scheduler.stop();
-      taskScheduler.stop();
-      // taskReconciler.stop();
       await queueManager.closeAll();
       await disconnectRedis();
 

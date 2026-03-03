@@ -274,7 +274,7 @@ export class Microsoft365Adapter extends BaseAdapter {
       const { assignedPlans: _ap, ...userRest } = u as any;
       entities.push({
         externalId: u.id,
-        displayName: u.displayName || u.userPrincipalName,
+        displayName: u.userPrincipalName || u.displayName,
         siteId,
         connectionId,
         rawData: { ...userRest, _gdapTenantId: gdapTenantId },

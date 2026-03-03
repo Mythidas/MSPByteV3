@@ -14,56 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      actions: {
-        Row: {
-          created_at: string
-          description: string | null
-          function: string
-          id: string
-          integration_id: string
-          module: string
-          name: string
-          params: Json
-          scope: Json
-          tenant_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          function: string
-          id?: string
-          integration_id: string
-          module: string
-          name: string
-          params?: Json
-          scope?: Json
-          tenant_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          function?: string
-          id?: string
-          integration_id?: string
-          module?: string
-          name?: string
-          params?: Json
-          scope?: Json
-          tenant_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "actions_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       agent_logs: {
         Row: {
           agent_id: string
@@ -723,59 +673,6 @@ export type Database = {
           },
         ]
       }
-      queries: {
-        Row: {
-          created_at: string
-          description: string | null
-          function: string
-          id: string
-          integration_id: string
-          module: string
-          name: string
-          output_format: string
-          params: Json
-          scope: Json
-          tenant_id: string | null
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          function: string
-          id?: string
-          integration_id: string
-          module: string
-          name: string
-          output_format?: string
-          params?: Json
-          scope?: Json
-          tenant_id?: string | null
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          function?: string
-          id?: string
-          integration_id?: string
-          module?: string
-          name?: string
-          output_format?: string
-          params?: Json
-          scope?: Json
-          tenant_id?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "queries_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       query_job_history: {
         Row: {
           alerts_created: number
@@ -1321,62 +1218,156 @@ export type Database = {
           },
         ]
       }
-      task_history: {
+      task_run_stages: {
         Row: {
-          alerts_triggered: Json
+          affected_entity_ids: Json
           completed_at: string | null
           duration_ms: number | null
           error: string | null
           id: string
-          scope: Json
-          stage_results: Json
+          integration: string | null
+          label: string
+          output: Json
+          ref: string
+          resolved_input: Json
+          run_id: string
+          stage_index: number
+          stage_node_id: string
+          stage_type: string
           started_at: string | null
           status: string
-          tags_applied: Json
-          task_id: string
           tenant_id: string
         }
         Insert: {
-          alerts_triggered?: Json
+          affected_entity_ids?: Json
           completed_at?: string | null
           duration_ms?: number | null
           error?: string | null
           id?: string
-          scope?: Json
-          stage_results?: Json
+          integration?: string | null
+          label: string
+          output?: Json
+          ref: string
+          resolved_input?: Json
+          run_id: string
+          stage_index: number
+          stage_node_id: string
+          stage_type: string
           started_at?: string | null
           status?: string
-          tags_applied?: Json
-          task_id: string
           tenant_id: string
         }
         Update: {
-          alerts_triggered?: Json
+          affected_entity_ids?: Json
           completed_at?: string | null
           duration_ms?: number | null
           error?: string | null
           id?: string
-          scope?: Json
-          stage_results?: Json
+          integration?: string | null
+          label?: string
+          output?: Json
+          ref?: string
+          resolved_input?: Json
+          run_id?: string
+          stage_index?: number
+          stage_node_id?: string
+          stage_type?: string
           started_at?: string | null
           status?: string
-          tags_applied?: Json
-          task_id?: string
           tenant_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "task_history_task_id_fkey"
+            foreignKeyName: "task_run_stages_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "task_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_run_stages_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_runs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          duration_ms: number | null
+          entity_log: Json
+          error: string | null
+          id: string
+          resolved_scope: Json
+          seed_params: Json
+          started_at: string | null
+          status: string
+          task_id: string | null
+          tenant_id: string
+          triggered_by: string
+          triggered_by_user: string | null
+          workflow_id: string
+          workflow_snapshot: Json
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          entity_log?: Json
+          error?: string | null
+          id?: string
+          resolved_scope?: Json
+          seed_params?: Json
+          started_at?: string | null
+          status?: string
+          task_id?: string | null
+          tenant_id: string
+          triggered_by: string
+          triggered_by_user?: string | null
+          workflow_id: string
+          workflow_snapshot?: Json
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          entity_log?: Json
+          error?: string | null
+          id?: string
+          resolved_scope?: Json
+          seed_params?: Json
+          started_at?: string | null
+          status?: string
+          task_id?: string | null
+          tenant_id?: string
+          triggered_by?: string
+          triggered_by_user?: string | null
+          workflow_id?: string
+          workflow_snapshot?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_runs_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "task_history_tenant_id_fkey"
+            foreignKeyName: "task_runs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_runs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
             referencedColumns: ["id"]
           },
         ]
@@ -1386,15 +1377,15 @@ export type Database = {
           created_at: string
           enabled: boolean
           id: string
-          is_adhoc: boolean
           last_run_at: string | null
           name: string
-          next_run_at: string
-          params_override: Json
+          next_run_at: string | null
           priority: number
           retry_config: Json
-          schedule: Json
-          scope: Json
+          schedule: Json | null
+          scope_data: Json
+          scope_type: string
+          stage_param_overrides: Json
           tenant_id: string
           updated_at: string
           workflow_id: string
@@ -1403,15 +1394,15 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
-          is_adhoc?: boolean
           last_run_at?: string | null
           name: string
-          next_run_at: string
-          params_override?: Json
+          next_run_at?: string | null
           priority?: number
           retry_config?: Json
-          schedule?: Json
-          scope?: Json
+          schedule?: Json | null
+          scope_data?: Json
+          scope_type: string
+          stage_param_overrides?: Json
           tenant_id: string
           updated_at?: string
           workflow_id: string
@@ -1420,15 +1411,15 @@ export type Database = {
           created_at?: string
           enabled?: boolean
           id?: string
-          is_adhoc?: boolean
           last_run_at?: string | null
           name?: string
-          next_run_at?: string
-          params_override?: Json
+          next_run_at?: string | null
           priority?: number
           retry_config?: Json
-          schedule?: Json
-          scope?: Json
+          schedule?: Json | null
+          scope_data?: Json
+          scope_type?: string
+          stage_param_overrides?: Json
           tenant_id?: string
           updated_at?: string
           workflow_id?: string
@@ -1524,38 +1515,35 @@ export type Database = {
       }
       workflows: {
         Row: {
-          alert_rules: Json
           created_at: string
           description: string | null
           id: string
-          integration_id: string | null
+          is_system: boolean
           name: string
           stages: Json
-          tag_rules: Json
+          tags: string[]
           tenant_id: string | null
           updated_at: string
         }
         Insert: {
-          alert_rules?: Json
           created_at?: string
           description?: string | null
           id?: string
-          integration_id?: string | null
+          is_system?: boolean
           name: string
           stages?: Json
-          tag_rules?: Json
+          tags?: string[]
           tenant_id?: string | null
           updated_at?: string
         }
         Update: {
-          alert_rules?: Json
           created_at?: string
           description?: string | null
           id?: string
-          integration_id?: string | null
+          is_system?: boolean
           name?: string
           stages?: Json
-          tag_rules?: Json
+          tags?: string[]
           tenant_id?: string | null
           updated_at?: string
         }

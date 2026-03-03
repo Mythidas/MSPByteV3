@@ -74,7 +74,7 @@ export class JobReconciler {
       for (const row of integrationRows) {
         const integrationId = row.id as IntegrationId;
         const config = INTEGRATIONS[integrationId];
-        if (!config) continue;
+        if (!config || integrationId !== 'microsoft-365') continue;
 
         const nonFanOutTypes = config.supportedTypes.filter((t) => !t.fanOut);
         if (nonFanOutTypes.length === 0) continue;
@@ -87,6 +87,7 @@ export class JobReconciler {
         if (tenantConnections.length > 0) {
           // Connection-scoped mode: one job per (connection × entityType)
           for (const conn of tenantConnections) {
+            if (conn.id !== 'de8c9ef9-b722-4b53-a12f-b4be027cba9e') continue;
             for (const typeConfig of nonFanOutTypes) {
               await this.ensureJobExists(row.tenant_id, integrationId, typeConfig, conn.id);
             }

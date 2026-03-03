@@ -101,27 +101,27 @@ export interface AnalyzerResult {
 // ADAPTER TYPES
 // ============================================================================
 
-export interface RawEntity {
+export type RawEntity = {
   externalId: string;
   displayName?: string;
   siteId?: string;
   connectionId?: string;
   rawData: any;
-}
+};
 
-export interface AdapterFetchResult {
+export type AdapterFetchResult = {
   entities: RawEntity[];
   pagination?: {
     hasMore: boolean;
     cursor?: string;
   };
-}
+};
 
 // ============================================================================
 // PIPELINE JOB TYPES (BullMQ queue data — single queue design)
 // ============================================================================
 
-export interface SyncJobData {
+export type SyncJobData = {
   tenantId: string;
   integrationId: IntegrationId;
   integrationDbId: string;
@@ -131,7 +131,7 @@ export interface SyncJobData {
 
   siteId: string | null;
   connectionId: string | null;
-}
+};
 
 // ============================================================================
 // LINKER TYPES
@@ -162,4 +162,3 @@ export interface SyncContext {
   relationships: Relationship[] | null;
   connectionId?: string;
 }
-

@@ -68,8 +68,8 @@ export class SophosAdapter extends BaseAdapter {
     });
 
     const entities = sites.map((site) => ({
-      externalId: site.id,
-      displayName: site.name,
+      externalId: site.id!,
+      displayName: site.name!,
       rawData: site,
     }));
 
@@ -108,13 +108,16 @@ export class SophosAdapter extends BaseAdapter {
     }
 
     tracker.trackApiCall();
-    const { data: devices, error } = await tracker.trackSpan('adapter:api:getEndpoints', async () => {
-      return connector.getEndpoints({
-        tenantId: sophosSiteId!,
-        tenantName: '',
-        apiHost: (site.raw_data as any)?.apiHost || '',
-      });
-    });
+    const { data: devices, error } = await tracker.trackSpan(
+      'adapter:api:getEndpoints',
+      async () => {
+        return connector.getEndpoints({
+          tenantId: sophosSiteId!,
+          tenantName: '',
+          apiHost: (site.raw_data as any)?.apiHost || '',
+        });
+      }
+    );
 
     if (error || !devices) {
       throw new Error(`Sophos getEndpoints failed: ${error.message}`);
@@ -127,8 +130,8 @@ export class SophosAdapter extends BaseAdapter {
     });
 
     const entities = devices.map((device) => ({
-      externalId: device.id,
-      displayName: device.hostname,
+      externalId: device.id!,
+      displayName: device.hostname!,
       siteId: jobData.siteId!,
       rawData: device,
     }));
