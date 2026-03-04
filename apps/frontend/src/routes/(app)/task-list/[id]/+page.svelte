@@ -159,7 +159,7 @@
   }
 </script>
 
-<div class="flex flex-col gap-6 p-4 size-full overflow-auto mx-auto">
+<div class="flex flex-col gap-4 p-4 size-full overflow-auto mx-auto">
   <!-- Back nav -->
   <a
     href="/task-list"
