@@ -597,6 +597,91 @@ export type Database = {
           },
         ]
       }
+      ingest_jobs: {
+        Row: {
+          bullmq_job_id: string | null
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          ingest_id: string
+          ingest_type: string | null
+          integration_id: string
+          link_id: string | null
+          metrics: Json | null
+          priority: number
+          scheduled_for: string | null
+          site_id: string | null
+          started_at: string | null
+          status: string
+          tenant_id: string
+          trigger: string
+          updated_at: string
+        }
+        Insert: {
+          bullmq_job_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          ingest_id?: string
+          ingest_type?: string | null
+          integration_id: string
+          link_id?: string | null
+          metrics?: Json | null
+          priority?: number
+          scheduled_for?: string | null
+          site_id?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id: string
+          trigger?: string
+          updated_at?: string
+        }
+        Update: {
+          bullmq_job_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          ingest_id?: string
+          ingest_type?: string | null
+          integration_id?: string
+          link_id?: string | null
+          metrics?: Json | null
+          priority?: number
+          scheduled_for?: string | null
+          site_id?: string | null
+          started_at?: string | null
+          status?: string
+          tenant_id?: string
+          trigger?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingest_jobs_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "integration_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_jobs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       integration_connections: {
         Row: {
           created_at: string
@@ -634,6 +719,60 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "integration_connections_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_links: {
+        Row: {
+          created_at: string
+          external_id: string
+          id: string
+          integration_id: string
+          meta: Json | null
+          name: string | null
+          site_id: string | null
+          status: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_id: string
+          id?: string
+          integration_id: string
+          meta?: Json | null
+          name?: string | null
+          site_id?: string | null
+          status?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string
+          id?: string
+          integration_id?: string
+          meta?: Json | null
+          name?: string | null
+          site_id?: string | null
+          status?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_links_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "integration_links_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1577,6 +1716,412 @@ export type Database = {
       [_ in never]: never
     }
   }
+  vendors: {
+    Tables: {
+      m365_exchange_configs: {
+        Row: {
+          created_at: string
+          data_hash: string
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string | null
+          reject_direct_send: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          reject_direct_send: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          reject_direct_send?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      m365_groups: {
+        Row: {
+          created_at: string
+          data_hash: string
+          description: string | null
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string | null
+          mail_enabled: boolean
+          name: string
+          security_enabled: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          description?: string | null
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          mail_enabled: boolean
+          name: string
+          security_enabled: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          description?: string | null
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          mail_enabled?: boolean
+          name?: string
+          security_enabled?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      m365_identities: {
+        Row: {
+          assigned_licenses: string[] | null
+          created_at: string
+          data_hash: string
+          email: string
+          enabled: boolean
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_non_interactive_sign_in_at: string | null
+          last_seen_at: string
+          last_sign_in_at: string | null
+          link_id: string | null
+          name: string
+          site_id: string | null
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_licenses?: string[] | null
+          created_at?: string
+          data_hash: string
+          email: string
+          enabled: boolean
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_non_interactive_sign_in_at?: string | null
+          last_seen_at?: string
+          last_sign_in_at?: string | null
+          link_id?: string | null
+          name: string
+          site_id?: string | null
+          tenant_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_licenses?: string[] | null
+          created_at?: string
+          data_hash?: string
+          email?: string
+          enabled?: boolean
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_non_interactive_sign_in_at?: string | null
+          last_seen_at?: string
+          last_sign_in_at?: string | null
+          link_id?: string | null
+          name?: string
+          site_id?: string | null
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      m365_identity_groups: {
+        Row: {
+          created_at: string
+          group_id: string
+          identity_id: string
+          last_seen_at: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          identity_id: string
+          last_seen_at?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          identity_id?: string
+          last_seen_at?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_identity_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "m365_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_identity_groups_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "m365_identities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_identity_roles: {
+        Row: {
+          created_at: string
+          identity_id: string
+          last_seen_at: string
+          role_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          identity_id: string
+          last_seen_at?: string
+          role_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          identity_id?: string
+          last_seen_at?: string
+          role_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_identity_roles_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "m365_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_identity_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "m365_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_licenses: {
+        Row: {
+          consumed_units: number
+          created_at: string
+          data_hash: string
+          enabled: boolean
+          external_id: string
+          friendly_name: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string | null
+          locked_out_units: number
+          service_plans_names: string[] | null
+          sku_id: string
+          sku_part_number: string
+          suspended_units: number
+          tenant_id: string
+          total_units: number
+          updated_at: string
+          warning_units: number
+        }
+        Insert: {
+          consumed_units: number
+          created_at?: string
+          data_hash: string
+          enabled: boolean
+          external_id: string
+          friendly_name: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          locked_out_units: number
+          service_plans_names?: string[] | null
+          sku_id: string
+          sku_part_number: string
+          suspended_units: number
+          tenant_id: string
+          total_units: number
+          updated_at?: string
+          warning_units: number
+        }
+        Update: {
+          consumed_units?: number
+          created_at?: string
+          data_hash?: string
+          enabled?: boolean
+          external_id?: string
+          friendly_name?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          locked_out_units?: number
+          service_plans_names?: string[] | null
+          sku_id?: string
+          sku_part_number?: string
+          suspended_units?: number
+          tenant_id?: string
+          total_units?: number
+          updated_at?: string
+          warning_units?: number
+        }
+        Relationships: []
+      }
+      m365_policies: {
+        Row: {
+          conditions: Json | null
+          created_at: string
+          data_hash: string
+          description: string | null
+          external_id: string
+          grant_controls: Json | null
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string | null
+          name: string
+          policy_state: string
+          requires_mfa: boolean
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          conditions?: Json | null
+          created_at?: string
+          data_hash: string
+          description?: string | null
+          external_id: string
+          grant_controls?: Json | null
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          name: string
+          policy_state: string
+          requires_mfa: boolean
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          conditions?: Json | null
+          created_at?: string
+          data_hash?: string
+          description?: string | null
+          external_id?: string
+          grant_controls?: Json | null
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          name?: string
+          policy_state?: string
+          requires_mfa?: boolean
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      m365_roles: {
+        Row: {
+          created_at: string
+          data_hash: string
+          description: string | null
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string | null
+          name: string
+          role_template_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          description?: string | null
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          name: string
+          role_template_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          description?: string | null
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string | null
+          name?: string
+          role_template_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   views: {
     Tables: {
       [_ in never]: never
@@ -1902,6 +2447,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
+    Enums: {},
+  },
+  vendors: {
     Enums: {},
   },
   views: {

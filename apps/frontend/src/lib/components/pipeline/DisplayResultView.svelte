@@ -16,7 +16,6 @@
     display_name: string | null;
     site_id: string | null;
     connection_id: string | null;
-    raw_data: Record<string, unknown>;
     actions_applied: string[];
     stage_node_ids: string[];
   }

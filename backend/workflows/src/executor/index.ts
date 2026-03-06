@@ -91,7 +91,7 @@ export async function executeRun(runId: string): Promise<void> {
   await (supabase.from('task_runs' as any) as any)
     .update({
       status: overallStatus,
-      entity_log: Object.values(ctx.entity_log),
+      entity_log: Object.values(ctx.entity_log).map(({ raw_data: _raw, ...rest }) => rest),
       completed_at: new Date().toISOString(),
       duration_ms: durationMs,
     })

@@ -87,6 +87,19 @@ function appendToEntityLog(ctx: RunContext, stageId: string, entityId: string, a
   if (!entry.actions_applied.includes(action)) entry.actions_applied.push(action);
 }
 
+function summariseValue(v: unknown): unknown {
+  if (Array.isArray(v)) return { count: v.length };
+  if (v !== null && typeof v === 'object') return '(object)';
+  return v;
+}
+
+function toSummary(obj: unknown): Record<string, unknown> {
+  if (!obj || typeof obj !== 'object') return {};
+  return Object.fromEntries(
+    Object.entries(obj as Record<string, unknown>).map(([k, v]) => [k, summariseValue(v)])
+  );
+}
+
 export async function runStage(
   stage: WorkflowStageNode,
   ctx: RunContext,
@@ -119,7 +132,7 @@ export async function runStage(
       .update({
         status: 'failed',
         error: errorMsg,
-        resolved_input: resolvedInputs,
+        resolved_input: toSummary(resolvedInputs),
         duration_ms: durationMs,
         completed_at: new Date().toISOString(),
       })
@@ -160,8 +173,8 @@ export async function runStage(
       await (supabase.from('task_run_stages' as any) as any)
         .update({
           status: 'completed',
-          output: result,
-          resolved_input: resolvedInputs,
+          output: toSummary(result),
+          resolved_input: toSummary(resolvedInputs),
           affected_entity_ids: allIds,
           duration_ms: durationMs,
           completed_at: new Date().toISOString(),
@@ -180,10 +193,12 @@ export async function runStage(
         resolve_target_ids: resolvedInputs['resolve_target_ids'] as string[] | undefined,
       };
       const result = await executeAlertNode(stage.alert_config, inputs, ctx, supabase as any);
-      const allAffected = [...result.created, ...result.resolved];
-
-      for (const id of result.created) appendToEntityLog(ctx, stage.id, id, `Alert Created: ${stage.label}`);
-      for (const id of result.resolved) appendToEntityLog(ctx, stage.id, id, `Alert Resolved: ${stage.label}`);
+      const isEntityAlert = stage.alert_config.target_type === 'entity';
+      const allAffected = isEntityAlert ? [...result.created, ...result.resolved] : [];
+      if (isEntityAlert) {
+        for (const id of result.created) appendToEntityLog(ctx, stage.id, id, `Alert Created: ${stage.label}`);
+        for (const id of result.resolved) appendToEntityLog(ctx, stage.id, id, `Alert Resolved: ${stage.label}`);
+      }
 
       const alertOutput = {
         created_alert_ids: result.created_alert_ids,
@@ -197,8 +212,8 @@ export async function runStage(
       await (supabase.from('task_run_stages' as any) as any)
         .update({
           status: 'completed',
-          output: alertOutput,
-          resolved_input: resolvedInputs,
+          output: toSummary(alertOutput),
+          resolved_input: toSummary(resolvedInputs),
           affected_entity_ids: allAffected,
           duration_ms: durationMs,
           completed_at: new Date().toISOString(),
@@ -227,8 +242,8 @@ export async function runStage(
       await (supabase.from('task_run_stages' as any) as any)
         .update({
           status: 'completed',
-          output: result,
-          resolved_input: resolvedInputs,
+          output: toSummary(result),
+          resolved_input: toSummary(resolvedInputs),
           affected_entity_ids: allAffected,
           duration_ms: durationMs,
           completed_at: new Date().toISOString(),
@@ -248,8 +263,8 @@ export async function runStage(
       await (supabase.from('task_run_stages' as any) as any)
         .update({
           status: 'completed',
-          output: displayOutput,
-          resolved_input: resolvedInputs,
+          output: toSummary(displayOutput),
+          resolved_input: toSummary(resolvedInputs),
           affected_entity_ids: [],
           duration_ms: durationMs,
           completed_at: new Date().toISOString(),
@@ -310,8 +325,8 @@ export async function runStage(
     await (supabase.from('task_run_stages' as any) as any)
       .update({
         status: 'completed',
-        output,
-        resolved_input: resolvedInputs,
+        output: toSummary(output),
+        resolved_input: toSummary(resolvedInputs),
         affected_entity_ids: affectedEntityIds,
         duration_ms: finalDurationMs,
         completed_at: new Date().toISOString(),

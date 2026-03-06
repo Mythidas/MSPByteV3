@@ -132,9 +132,13 @@ export async function executeAlertNode(
       );
       const entityEntry = config.target_type === 'entity' ? ctx.entity_log[targetId] : undefined;
       const displayName = entityEntry?.display_name ?? null;
-      const integrationId = entityEntry?.integration ?? 'unknown';
-      const rawData = entityEntry?.raw_data ?? {};
-      const message = renderMessage(config.message_template, targetId, displayName, rawData);
+      const integrationId =
+        entityEntry?.integration ?? (config.metadata?.integration_id as string | undefined) ?? 'unknown';
+      const templateProps =
+        config.target_type === 'entity'
+          ? ((entityEntry?.raw_data ?? {}) as Record<string, unknown>)
+          : ((config.metadata ?? {}) as Record<string, unknown>);
+      const message = renderMessage(config.message_template, targetId, displayName, templateProps);
       rows.push({
         targetId,
         row: {
@@ -144,8 +148,10 @@ export async function executeAlertNode(
           [targetColumn]: targetId,
           tenant_id: ctx.tenant_id,
           integration_id: integrationId,
-          site_id: entityEntry?.site_id ?? null,
-          connection_id: entityEntry?.connection_id ?? null,
+          // Only set secondary FK context fields for entity targets — avoids overwriting the primary target column
+          ...(config.target_type === 'entity'
+            ? { site_id: entityEntry?.site_id ?? null, connection_id: entityEntry?.connection_id ?? null }
+            : {}),
           sync_id: ctx.run_id,
           severity,
           status: 'active',

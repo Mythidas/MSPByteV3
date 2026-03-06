@@ -23,7 +23,7 @@
     completed_at: string | null;
     duration_ms: number | null;
     resolved_input: Record<string, unknown> | null;
-    output: unknown;
+    output: Record<string, unknown> | null;
     affected_entity_ids: string[] | null;
     error: string | null;
   };

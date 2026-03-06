@@ -1,6 +1,7 @@
 export type MSGraphSubscribedSku = {
   skuId: string;
   skuPartNumber: string;
+  capabilityStatus: string;
   servicePlans: Array<{
     servicePlanId: string;
     servicePlanName: string;
@@ -9,6 +10,7 @@ export type MSGraphSubscribedSku = {
     enabled: number;
     suspended: number;
     warning: number;
+    lockedOut: number;
   };
   consumedUnits?: number;
 };
