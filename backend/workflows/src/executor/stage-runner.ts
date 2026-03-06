@@ -13,12 +13,14 @@ import { accumulateEntities, populateEntityLogFromRows } from './entity-accumula
 import type {
   AlertNodeInputs,
   EntityLogEntry,
+  NodeDataType,
   Row,
   RunContext,
   StageStatus,
   TagNodeInputs,
   WorkflowStageNode,
 } from '../types.js';
+import { WorkflowTypeError } from '../types.js';
 
 export interface StageRunResult {
   stageId: string;
@@ -100,11 +102,22 @@ function toSummary(obj: unknown): Record<string, unknown> {
   );
 }
 
+function validateTypeMatch(upstream: NodeDataType | null, downstream: NodeDataType | null): void {
+  if (downstream === null) return;
+  if (upstream === null) return;
+  if (upstream !== downstream) {
+    throw new WorkflowTypeError(
+      `Type mismatch: upstream produces '${upstream}', this stage expects '${downstream}'`
+    );
+  }
+}
+
 export async function runStage(
   stage: WorkflowStageNode,
   ctx: RunContext,
   stageIndex: number,
   runId: string,
+  allStages: WorkflowStageNode[],
 ): Promise<StageRunResult> {
   const supabase = getSupabase();
   const startedAt = new Date().toISOString();
@@ -124,7 +137,34 @@ export async function runStage(
     started_at: startedAt,
   });
 
-  let resolvedInputs: Record<string, unknown> = { ...stage.params };
+  // Resolve upstream outputType from input_map dot-paths
+  const upstageIds = Object.values(stage.input_map)
+    .map(({ from }) => from.match(/^stage_outputs\.([^.]+)/)?.[1])
+    .filter(Boolean) as string[];
+  const upstreamOutputType = upstageIds.length > 0
+    ? (allStages.find(s => s.id === upstageIds[0])?.outputType ?? null)
+    : null;
+  try {
+    validateTypeMatch(upstreamOutputType, stage.inputType ?? null);
+  } catch (e) {
+    if (e instanceof WorkflowTypeError) {
+      const durationMs = Date.now() - startMs;
+      await (supabase.from('task_run_stages' as any) as any)
+        .update({
+          status: 'failed',
+          error: e.message,
+          resolved_input: {},
+          duration_ms: durationMs,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('run_id', runId)
+        .eq('stage_node_id', stage.id);
+      return { stageId: stage.id, status: 'failed', output: null, error: e.message, durationMs, affectedEntityIds: [] };
+    }
+    throw e;
+  }
+
+  let resolvedInputs: Record<string, unknown> = { ...(stage.params ?? {}) };
 
   const fail = async (errorMsg: string): Promise<StageRunResult> => {
     const durationMs = Date.now() - startMs;
@@ -144,7 +184,7 @@ export async function runStage(
 
   try {
     // 2. Resolve input_map against context, merge with static params
-    resolvedInputs = { ...stage.params };
+    resolvedInputs = { ...(stage.params ?? {}) };
     for (const [inputKey, { from: dotPath }] of Object.entries(stage.input_map)) {
       try {
         resolvedInputs[inputKey] = resolvePath(ctx, dotPath);
@@ -192,13 +232,10 @@ export async function runStage(
         target_ids: (resolvedInputs['target_ids'] as string[]) ?? [],
         resolve_target_ids: resolvedInputs['resolve_target_ids'] as string[] | undefined,
       };
-      const result = await executeAlertNode(stage.alert_config, inputs, ctx, supabase as any);
-      const isEntityAlert = stage.alert_config.target_type === 'entity';
-      const allAffected = isEntityAlert ? [...result.created, ...result.resolved] : [];
-      if (isEntityAlert) {
-        for (const id of result.created) appendToEntityLog(ctx, stage.id, id, `Alert Created: ${stage.label}`);
-        for (const id of result.resolved) appendToEntityLog(ctx, stage.id, id, `Alert Resolved: ${stage.label}`);
-      }
+      const result = await executeAlertNode(stage.alert_config, inputs, ctx, supabase as any, stage.inputType ?? 'void' as NodeDataType);
+      const allAffected = [...result.created, ...result.resolved];
+      for (const id of result.created) appendToEntityLog(ctx, stage.id, id, `Alert Created: ${stage.label}`);
+      for (const id of result.resolved) appendToEntityLog(ctx, stage.id, id, `Alert Resolved: ${stage.label}`);
 
       const alertOutput = {
         created_alert_ids: result.created_alert_ids,

@@ -4,6 +4,7 @@ import { queueManager } from './lib/queue.js';
 import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
 import { M365Processor } from './processors/M365Processor.js';
 import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
+import { Microsoft365Enricher } from './enrichers/Microsoft365Enricher.js';
 import { JobScheduler } from './scheduler/JobScheduler.js';
 import { JobReconciler } from './scheduler/JobReconciler.js';
 import { SyncWorker } from './workers/SyncWorker.js';
@@ -36,15 +37,17 @@ async function main() {
   const adapter = new Microsoft365Adapter();
   const processor = new M365Processor();
   const linker = new Microsoft365Linker();
+  const enricher = new Microsoft365Enricher();
 
-  // Start one worker per entity type; linker only runs for identity
+  // Start one worker per entity type; linker + enricher only run for identity
   const workers: SyncWorker[] = [];
   for (const ingestType of M365_TYPES) {
     const worker = new SyncWorker(
       ingestType,
       adapter,
       processor,
-      ingestType === 'identity' ? linker : null
+      ingestType === 'identity' ? linker : null,
+      ingestType === 'identity' ? enricher : null
     );
     worker.start();
     workers.push(worker);

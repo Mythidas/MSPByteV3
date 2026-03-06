@@ -242,112 +242,101 @@ export type Database = {
       }
       alerts: {
         Row: {
-          alert_definition_id: string | null
-          alert_type: string
-          connection_id: string | null
-          created_at: string
-          entity_id: string | null
+          created_at: string | null
+          definition_id: string
           fingerprint: string
           id: string
-          integration_id: string
-          last_seen_at: string
+          last_seen_at: string | null
+          link_id: string | null
+          m365_exchange_config_id: string | null
+          m365_group_id: string | null
+          m365_identity_id: string | null
+          m365_license_id: string | null
+          m365_policy_id: string | null
           message: string
           metadata: Json | null
           resolved_at: string | null
-          resolved_by_sync_id: string | null
           severity: string
           site_id: string | null
           status: string
           suppressed_at: string | null
           suppressed_by: string | null
-          sync_id: string | null
+          suppressed_until: string | null
           tenant_id: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
-          alert_definition_id?: string | null
-          alert_type: string
-          connection_id?: string | null
-          created_at?: string
-          entity_id?: string | null
+          created_at?: string | null
+          definition_id: string
           fingerprint: string
           id?: string
-          integration_id: string
-          last_seen_at?: string
+          last_seen_at?: string | null
+          link_id?: string | null
+          m365_exchange_config_id?: string | null
+          m365_group_id?: string | null
+          m365_identity_id?: string | null
+          m365_license_id?: string | null
+          m365_policy_id?: string | null
           message: string
           metadata?: Json | null
           resolved_at?: string | null
-          resolved_by_sync_id?: string | null
           severity: string
           site_id?: string | null
           status?: string
           suppressed_at?: string | null
           suppressed_by?: string | null
-          sync_id?: string | null
+          suppressed_until?: string | null
           tenant_id: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          alert_definition_id?: string | null
-          alert_type?: string
-          connection_id?: string | null
-          created_at?: string
-          entity_id?: string | null
+          created_at?: string | null
+          definition_id?: string
           fingerprint?: string
           id?: string
-          integration_id?: string
-          last_seen_at?: string
+          last_seen_at?: string | null
+          link_id?: string | null
+          m365_exchange_config_id?: string | null
+          m365_group_id?: string | null
+          m365_identity_id?: string | null
+          m365_license_id?: string | null
+          m365_policy_id?: string | null
           message?: string
           metadata?: Json | null
           resolved_at?: string | null
-          resolved_by_sync_id?: string | null
           severity?: string
           site_id?: string | null
           status?: string
           suppressed_at?: string | null
           suppressed_by?: string | null
-          sync_id?: string | null
+          suppressed_until?: string | null
           tenant_id?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "alerts_alert_definition_id_fkey"
-            columns: ["alert_definition_id"]
+            foreignKeyName: "alerts_definition_id_fkey"
+            columns: ["definition_id"]
             isOneToOne: false
             referencedRelation: "alert_definitions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entity_alerts_connection_id_fkey"
-            columns: ["connection_id"]
+            foreignKeyName: "alerts_link_id_fkey"
+            columns: ["link_id"]
             isOneToOne: false
-            referencedRelation: "integration_connections"
+            referencedRelation: "integration_links"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entity_alerts_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_site_id_fkey"
+            foreignKeyName: "alerts_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "sites"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entity_alerts_suppressed_by_fkey"
-            columns: ["suppressed_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_tenant_id_fkey"
+            foreignKeyName: "alerts_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1284,75 +1273,45 @@ export type Database = {
       }
       tags: {
         Row: {
-          category: string | null
-          connection_id: string | null
           created_at: string
-          entity_id: string | null
+          definition_id: string
+          entity_id: string
+          entity_type: string
           id: string
-          site_id: string | null
-          source: string | null
-          tag: string
-          tag_definition_id: string | null
+          name: string
           tenant_id: string
         }
         Insert: {
-          category?: string | null
-          connection_id?: string | null
           created_at?: string
-          entity_id?: string | null
+          definition_id: string
+          entity_id: string
+          entity_type: string
           id?: string
-          site_id?: string | null
-          source?: string | null
-          tag: string
-          tag_definition_id?: string | null
+          name: string
           tenant_id: string
         }
         Update: {
-          category?: string | null
-          connection_id?: string | null
           created_at?: string
-          entity_id?: string | null
+          definition_id?: string
+          entity_id?: string
+          entity_type?: string
           id?: string
-          site_id?: string | null
-          source?: string | null
-          tag?: string
-          tag_definition_id?: string | null
+          name?: string
           tenant_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "entity_tags_entity_id_fkey"
-            columns: ["entity_id"]
+            foreignKeyName: "tags_definition_id_fkey"
+            columns: ["definition_id"]
             isOneToOne: false
-            referencedRelation: "entities"
+            referencedRelation: "tag_definitions"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "entity_tags_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_tags_tenant_id_fkey"
+            foreignKeyName: "tags_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tags_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "integration_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tags_tag_definition_id_fkey"
-            columns: ["tag_definition_id"]
-            isOneToOne: false
-            referencedRelation: "tag_definitions"
             referencedColumns: ["id"]
           },
         ]
@@ -1360,6 +1319,7 @@ export type Database = {
       task_run_stages: {
         Row: {
           affected_entity_ids: Json
+          affected_entity_type: string
           completed_at: string | null
           duration_ms: number | null
           error: string | null
@@ -1379,6 +1339,7 @@ export type Database = {
         }
         Insert: {
           affected_entity_ids?: Json
+          affected_entity_type: string
           completed_at?: string | null
           duration_ms?: number | null
           error?: string | null
@@ -1398,6 +1359,7 @@ export type Database = {
         }
         Update: {
           affected_entity_ids?: Json
+          affected_entity_type?: string
           completed_at?: string | null
           duration_ms?: number | null
           error?: string | null
@@ -1726,7 +1688,7 @@ export type Database = {
           id: string
           ingest_id: string | null
           last_seen_at: string
-          link_id: string | null
+          link_id: string
           reject_direct_send: boolean
           tenant_id: string
           updated_at: string
@@ -1738,7 +1700,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id: string
           reject_direct_send: boolean
           tenant_id: string
           updated_at?: string
@@ -1750,7 +1712,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id?: string
           reject_direct_send?: boolean
           tenant_id?: string
           updated_at?: string
@@ -1766,7 +1728,7 @@ export type Database = {
           id: string
           ingest_id: string | null
           last_seen_at: string
-          link_id: string | null
+          link_id: string
           mail_enabled: boolean
           name: string
           security_enabled: boolean
@@ -1781,7 +1743,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id: string
           mail_enabled: boolean
           name: string
           security_enabled: boolean
@@ -1796,7 +1758,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id?: string
           mail_enabled?: boolean
           name?: string
           security_enabled?: boolean
@@ -1818,7 +1780,8 @@ export type Database = {
           last_non_interactive_sign_in_at: string | null
           last_seen_at: string
           last_sign_in_at: string | null
-          link_id: string | null
+          link_id: string
+          mfa_enforced: boolean
           name: string
           site_id: string | null
           tenant_id: string
@@ -1837,7 +1800,8 @@ export type Database = {
           last_non_interactive_sign_in_at?: string | null
           last_seen_at?: string
           last_sign_in_at?: string | null
-          link_id?: string | null
+          link_id: string
+          mfa_enforced: boolean
           name: string
           site_id?: string | null
           tenant_id: string
@@ -1856,7 +1820,8 @@ export type Database = {
           last_non_interactive_sign_in_at?: string | null
           last_seen_at?: string
           last_sign_in_at?: string | null
-          link_id?: string | null
+          link_id?: string
+          mfa_enforced?: boolean
           name?: string
           site_id?: string | null
           tenant_id?: string
@@ -1871,6 +1836,7 @@ export type Database = {
           group_id: string
           identity_id: string
           last_seen_at: string
+          link_id: string
           tenant_id: string
         }
         Insert: {
@@ -1878,6 +1844,7 @@ export type Database = {
           group_id: string
           identity_id: string
           last_seen_at?: string
+          link_id: string
           tenant_id: string
         }
         Update: {
@@ -1885,6 +1852,7 @@ export type Database = {
           group_id?: string
           identity_id?: string
           last_seen_at?: string
+          link_id?: string
           tenant_id?: string
         }
         Relationships: [
@@ -1909,6 +1877,7 @@ export type Database = {
           created_at: string
           identity_id: string
           last_seen_at: string
+          link_id: string
           role_id: string
           tenant_id: string
         }
@@ -1916,6 +1885,7 @@ export type Database = {
           created_at?: string
           identity_id: string
           last_seen_at?: string
+          link_id: string
           role_id: string
           tenant_id: string
         }
@@ -1923,6 +1893,7 @@ export type Database = {
           created_at?: string
           identity_id?: string
           last_seen_at?: string
+          link_id?: string
           role_id?: string
           tenant_id?: string
         }
@@ -1938,7 +1909,7 @@ export type Database = {
             foreignKeyName: "m365_identity_roles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
-            referencedRelation: "m365_groups"
+            referencedRelation: "m365_roles"
             referencedColumns: ["id"]
           },
         ]
@@ -1954,9 +1925,9 @@ export type Database = {
           id: string
           ingest_id: string | null
           last_seen_at: string
-          link_id: string | null
+          link_id: string
           locked_out_units: number
-          service_plans_names: string[] | null
+          service_plan_names: string[] | null
           sku_id: string
           sku_part_number: string
           suspended_units: number
@@ -1975,9 +1946,9 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id: string
           locked_out_units: number
-          service_plans_names?: string[] | null
+          service_plan_names?: string[] | null
           sku_id: string
           sku_part_number: string
           suspended_units: number
@@ -1996,9 +1967,9 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id?: string
           locked_out_units?: number
-          service_plans_names?: string[] | null
+          service_plan_names?: string[] | null
           sku_id?: string
           sku_part_number?: string
           suspended_units?: number
@@ -2020,7 +1991,7 @@ export type Database = {
           id: string
           ingest_id: string | null
           last_seen_at: string
-          link_id: string | null
+          link_id: string
           name: string
           policy_state: string
           requires_mfa: boolean
@@ -2037,7 +2008,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id: string
           name: string
           policy_state: string
           requires_mfa: boolean
@@ -2054,7 +2025,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id?: string
           name?: string
           policy_state?: string
           requires_mfa?: boolean
@@ -2072,7 +2043,7 @@ export type Database = {
           id: string
           ingest_id: string | null
           last_seen_at: string
-          link_id: string | null
+          link_id: string
           name: string
           role_template_id: string | null
           tenant_id: string
@@ -2086,7 +2057,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id: string
           name: string
           role_template_id?: string | null
           tenant_id: string
@@ -2100,7 +2071,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string | null
+          link_id?: string
           name?: string
           role_template_id?: string | null
           tenant_id?: string
@@ -2178,87 +2149,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "agents_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "d_sites_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      d_alerts_view: {
-        Row: {
-          alert_type: string | null
-          connection_id: string | null
-          connection_name: string | null
-          created_at: string | null
-          entity_id: string | null
-          entity_name: string | null
-          fingerprint: string | null
-          id: string | null
-          integration_id: string | null
-          last_seen_at: string | null
-          message: string | null
-          metadata: Json | null
-          resolved_at: string | null
-          severity: string | null
-          site_id: string | null
-          site_name: string | null
-          status: string | null
-          suppressed_at: string | null
-          suppressed_by: string | null
-          sync_id: string | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entity_alerts_entity_id_fkey"
-            columns: ["entity_id"]
-            isOneToOne: false
-            referencedRelation: "d_entities_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "d_sites_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_alerts_suppressed_by_fkey"
-            columns: ["suppressed_by"]
-            isOneToOne: false
-            referencedRelation: "d_users_view"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      d_entities_view: {
-        Row: {
-          connection_id: string | null
-          connection_name: string | null
-          created_at: string | null
-          data_hash: string | null
-          display_name: string | null
-          entity_type: string | null
-          external_id: string | null
-          id: string | null
-          integration_id: string | null
-          last_seen_at: string | null
-          member_count: number | null
-          raw_data: Json | null
-          site_id: string | null
-          site_name: string | null
-          state: string | null
-          sync_id: string | null
-          tags: Json | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entities_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "d_sites_view"

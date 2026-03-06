@@ -1,4 +1,4 @@
-import type { ActionResult, EntityLogEntry, RunContext } from '../types.js';
+import type { ActionResult, EntityLogEntry, NodeDataType, RunContext } from '../types.js';
 
 export function populateEntityLogFromRows(
   ctx: RunContext,
@@ -16,7 +16,7 @@ export function populateEntityLogFromRows(
     if (ctx.entity_log[row.id]) continue; // don't overwrite action-set entries
     ctx.entity_log[row.id] = {
       entity_id: row.id,
-      entity_type: row.entity_type,
+      entity_type: row.entity_type as NodeDataType,
       integration: row.integration_id,
       display_name: row.display_name ?? null,
       site_id: row.site_id ?? null,
@@ -41,26 +41,22 @@ export function accumulateEntities(
   actionLabel: string,
 ): void {
   for (const entityId of result.succeeded) {
-    let entry: EntityLogEntry | undefined = ctx.entity_log[entityId];
-    if (!entry) {
-      entry = {
+    const existing = ctx.entity_log[entityId];
+    if (!existing) {
+      ctx.entity_log[entityId] = {
         entity_id: entityId,
-        entity_type: entityType,
+        entity_type: entityType as NodeDataType,
         integration,
         display_name: null,
         site_id: null,
         connection_id: null,
         raw_data: {},
-        actions_applied: [],
-        stage_node_ids: [],
+        actions_applied: [actionLabel],
+        stage_node_ids: [stageNodeId],
       };
-      ctx.entity_log[entityId] = entry;
-    }
-    if (!entry.stage_node_ids.includes(stageNodeId)) {
-      entry.stage_node_ids.push(stageNodeId);
-    }
-    if (!entry.actions_applied.includes(actionLabel)) {
-      entry.actions_applied.push(actionLabel);
+    } else {
+      if (!existing.stage_node_ids.includes(stageNodeId)) existing.stage_node_ids.push(stageNodeId);
+      if (!existing.actions_applied.includes(actionLabel)) existing.actions_applied.push(actionLabel);
     }
   }
 }

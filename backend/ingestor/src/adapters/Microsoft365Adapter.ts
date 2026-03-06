@@ -11,6 +11,9 @@ import type { MSGraphIdentity } from '@workspace/shared/types/integrations/micro
 
 export class Microsoft365Adapter {
   async fetch(jobData: IngestJobData, tracker: PipelineTracker): Promise<RawM365Entity[]> {
+    if (!jobData.linkId)
+      throw new Error('M365 Adapter requires Job to include link_id to tenant information');
+
     const supabase = getSupabase();
 
     // Load integration config (refresh token, tenantId, mode)
@@ -26,30 +29,31 @@ export class Microsoft365Adapter {
 
     // Load integration_links for this M365 integration + tenant
     tracker.trackQuery();
-    const { data: links, error: linksError } = (await supabase
-      .from('integration_links' as any)
-      .select('id, external_id, site_id, meta')
-      .eq('integration_id', 'microsoft-365')
+    const { data: link, error: linksError } = await supabase
+      .from('integration_links')
+      .select('id, external_id, meta')
+      .eq('id', jobData.linkId)
       .eq('tenant_id', jobData.tenantId)
-      .eq('status', 'active')) as any;
+      .single();
 
     if (linksError) {
       throw new Error(`Failed to load integration_links: ${(linksError as any).message}`);
     }
 
-    const allLinks: Array<{ id: string; external_id: string; site_id: string | null; meta: any }> =
-      links ?? [];
+    // Site-mapping rows (site_id IS NOT NULL) — for domain → site_id resolution
+    tracker.trackQuery();
+    const { data: siteLinks } = await supabase
+      .from('integration_links')
+      .select('site_id, meta')
+      .eq('integration_id', 'microsoft-365')
+      .eq('tenant_id', jobData.tenantId)
+      .not('site_id', 'is', null);
 
     // Build lookup maps from integration_links
-    const linkIdByExternalId = new Map(allLinks.map((l) => [l.external_id, l.id]));
-    const siteIdByExternalId = new Map(allLinks.map((l) => [l.external_id, l.site_id]));
-    const capabilityMap = new Map(
-      allLinks.map((l) => [l.external_id, (l.meta as any)?.capabilities ?? null])
-    );
-    const domainMap = new Map<string, string>(); // domain → site_id
-    for (const l of allLinks) {
+    const domainMap = new Map<string, string | null>(); // domain → site_id
+    for (const l of siteLinks ?? []) {
       for (const domain of (l.meta as any)?.domains ?? []) {
-        domainMap.set((domain as string).toLowerCase(), l.site_id ?? '');
+        domainMap.set((domain as string).toLowerCase(), l.site_id!);
       }
     }
 
@@ -93,70 +97,48 @@ export class Microsoft365Adapter {
         : undefined,
     });
 
-    // Determine which GDAP tenants to process
-    let gdapTenants: string[];
-    if (jobData.linkId) {
-      // Per-link job: find the gdap external_id for this link UUID
-      const link = allLinks.find((l) => l.id === jobData.linkId);
-      if (!link) {
-        throw new Error(`Microsoft365Adapter: no link found for linkId ${jobData.linkId}`);
-      }
-      gdapTenants = [link.external_id];
-    } else {
-      gdapTenants = allLinks.map((l) => l.external_id);
-    }
-
     const allEntities: RawM365Entity[] = [];
     const { ingestType } = jobData;
 
-    for (const gdapTenantId of gdapTenants) {
-      const linkId = linkIdByExternalId.get(gdapTenantId) ?? null;
-      const siteId = siteIdByExternalId.get(gdapTenantId) ?? null;
-      const connector = baseConnector.forTenant(gdapTenantId);
-      tracker.trackApiCall();
+    const connector = baseConnector.forTenant(link.external_id);
+    tracker.trackApiCall();
 
-      const capabilities: MSCapabilities = capabilityMap.get(gdapTenantId) ?? {
-        signInActivity: false,
-        conditionalAccess: false,
-      };
+    const capabilities: MSCapabilities = (link.meta as any).capabilities as MSCapabilities;
 
-      if (ingestType === 'identity') {
-        const entities = await this.fetchIdentities(
-          connector,
-          gdapTenantId,
-          linkId,
-          domainMap,
-          tracker,
-          capabilities
-        );
-        allEntities.push(...entities);
-      } else if (ingestType === 'group') {
-        const entities = await this.fetchGroups(connector, linkId, siteId, tracker);
-        allEntities.push(...entities);
-      } else if (ingestType === 'role') {
-        const entities = await this.fetchRoles(connector, linkId, tracker);
-        allEntities.push(...entities);
-      } else if (ingestType === 'policy') {
-        const entities = await this.fetchPolicies(connector, linkId, siteId, tracker, capabilities);
-        allEntities.push(...entities);
-      } else if (ingestType === 'license') {
-        const entities = await this.fetchLicenses(connector, linkId, tracker);
-        allEntities.push(...entities);
-      } else if (ingestType === 'exchange-config') {
-        const link = allLinks.find((l) => l.id === linkId);
-        const defaultDomain = (link?.meta as any)?.defaultDomain ?? '';
-        const entities = await this.fetchExchangeConfig(
-          certPem,
-          gdapTenantId,
-          defaultDomain,
-          linkId,
-          siteId,
-          tracker
-        );
-        allEntities.push(...entities);
-      } else {
-        throw new Error(`Microsoft365Adapter: unknown ingestType "${ingestType}"`);
-      }
+    if (ingestType === 'identity') {
+      const entities = await this.fetchIdentities(
+        connector,
+        link.external_id,
+        link.id,
+        domainMap,
+        tracker,
+        capabilities
+      );
+      allEntities.push(...entities);
+    } else if (ingestType === 'group') {
+      const entities = await this.fetchGroups(connector, link.id, tracker);
+      allEntities.push(...entities);
+    } else if (ingestType === 'role') {
+      const entities = await this.fetchRoles(connector, link.id, tracker);
+      allEntities.push(...entities);
+    } else if (ingestType === 'policy') {
+      const entities = await this.fetchPolicies(connector, link.id, tracker, capabilities);
+      allEntities.push(...entities);
+    } else if (ingestType === 'license') {
+      const entities = await this.fetchLicenses(connector, link.id, tracker);
+      allEntities.push(...entities);
+    } else if (ingestType === 'exchange-config') {
+      const defaultDomain = (link?.meta as any)?.defaultDomain ?? '';
+      const entities = await this.fetchExchangeConfig(
+        certPem,
+        link.external_id,
+        defaultDomain,
+        link.id,
+        tracker
+      );
+      allEntities.push(...entities);
+    } else {
+      throw new Error(`Microsoft365Adapter: unknown ingestType "${ingestType}"`);
     }
 
     return allEntities;
@@ -166,7 +148,7 @@ export class Microsoft365Adapter {
     connector: Microsoft365Connector,
     gdapTenantId: string,
     linkId: string | null,
-    domainMap: Map<string, string>, // domain → site_id
+    domainMap: Map<string, string | null>, // domain → site_id
     tracker: PipelineTracker,
     capabilities: MSCapabilities
   ): Promise<RawM365Entity[]> {
@@ -230,7 +212,6 @@ export class Microsoft365Adapter {
   private async fetchGroups(
     connector: Microsoft365Connector,
     linkId: string | null,
-    siteId: string | null,
     tracker: PipelineTracker
   ): Promise<RawM365Entity[]> {
     const { data, error } = await tracker.trackSpan('adapter:api:getGroups', () =>
@@ -251,7 +232,6 @@ export class Microsoft365Adapter {
       type: 'group' as const,
       externalId: g.id,
       linkId,
-      siteId,
       data: g,
     }));
   }
@@ -286,7 +266,6 @@ export class Microsoft365Adapter {
   private async fetchPolicies(
     connector: Microsoft365Connector,
     linkId: string | null,
-    siteId: string | null,
     tracker: PipelineTracker,
     capabilities: MSCapabilities
   ): Promise<RawM365Entity[]> {
@@ -318,7 +297,6 @@ export class Microsoft365Adapter {
       type: 'policy' as const,
       externalId: p.id,
       linkId,
-      siteId,
       data: p,
     }));
   }
@@ -360,7 +338,6 @@ export class Microsoft365Adapter {
     gdapTenantId: string,
     defaultDomain: string,
     linkId: string | null,
-    siteId: string | null,
     tracker: PipelineTracker
   ): Promise<RawM365Entity[]> {
     if (!certPem) {
@@ -401,7 +378,6 @@ export class Microsoft365Adapter {
         type: 'exchange-config',
         externalId: `org-config-${linkId ?? gdapTenantId}`,
         linkId,
-        siteId,
         rejectDirectSend,
       },
     ];

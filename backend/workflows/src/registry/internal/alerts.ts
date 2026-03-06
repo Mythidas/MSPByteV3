@@ -5,16 +5,12 @@ import type {
   AlertNodeConfig,
   AlertNodeInputs,
   AlertStageResult,
+  NodeDataType,
   RunContext,
 } from '../../types.js';
+import { ALERT_SUBJECT_COLUMN, WorkflowTypeError } from '../../types.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@workspace/shared/types/schema';
-
-const TARGET_COLUMN = {
-  entity: 'entity_id',
-  site: 'site_id',
-  connection: 'connection_id',
-} as const;
 
 function makeFingerprint(
   tenantId: string,
@@ -47,25 +43,27 @@ function renderMessage(
 
 async function updateEntityStates(
   entityIds: string[],
+  targetColumn: string,
   supabase: SupabaseClient<Database>
 ): Promise<void> {
   if (entityIds.length === 0) return;
 
   // Fetch all active alerts for the affected entity IDs
-  const { data: activeAlerts } = await supabase
-    .from('alerts')
-    .select('entity_id, severity')
-    .in('entity_id', entityIds)
+  const { data: activeAlerts } = await (supabase
+    .from('alerts') as any)
+    .select(`${targetColumn}, severity`)
+    .in(targetColumn, entityIds)
     .eq('status', 'active');
 
   // Build severity map: entity_id -> worst severity
   const severityMap = new Map<string, string>();
   for (const alert of activeAlerts ?? []) {
-    if (!alert.entity_id) continue;
-    const existing = severityMap.get(alert.entity_id);
+    const id = (alert as any)[targetColumn];
+    if (!id) continue;
+    const existing = severityMap.get(id);
     const severityRank: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
-    if (!existing || (severityRank[alert.severity] ?? 0) > (severityRank[existing] ?? 0)) {
-      severityMap.set(alert.entity_id, alert.severity);
+    if (!existing || (severityRank[(alert as any).severity] ?? 0) > (severityRank[existing] ?? 0)) {
+      severityMap.set(id, (alert as any).severity);
     }
   }
 
@@ -95,10 +93,18 @@ export async function executeAlertNode(
   config: AlertNodeConfig,
   inputs: AlertNodeInputs,
   ctx: RunContext,
-  supabase: SupabaseClient<Database>
+  supabase: SupabaseClient<Database>,
+  inputType: NodeDataType,
 ): Promise<AlertStageResult> {
   const result: AlertStageResult = { created: [], resolved: [], created_alert_ids: [], resolved_alert_ids: [], skipped: [] };
-  const targetColumn = TARGET_COLUMN[config.target_type];
+
+  const targetColumn = ALERT_SUBJECT_COLUMN[inputType as keyof typeof ALERT_SUBJECT_COLUMN];
+  if (!targetColumn) {
+    throw new WorkflowTypeError(
+      `Alert node received unsupported inputType '${inputType}' — must be a typed entity array`
+    );
+  }
+
   const now = new Date().toISOString();
 
   // Fetch alert definition
@@ -127,17 +133,14 @@ export async function executeAlertNode(
       const fingerprint = makeFingerprint(
         ctx.tenant_id,
         config.alert_definition_id,
-        config.target_type,
+        inputType,
         targetId
       );
-      const entityEntry = config.target_type === 'entity' ? ctx.entity_log[targetId] : undefined;
+      const entityEntry = ctx.entity_log[targetId];
       const displayName = entityEntry?.display_name ?? null;
       const integrationId =
         entityEntry?.integration ?? (config.metadata?.integration_id as string | undefined) ?? 'unknown';
-      const templateProps =
-        config.target_type === 'entity'
-          ? ((entityEntry?.raw_data ?? {}) as Record<string, unknown>)
-          : ((config.metadata ?? {}) as Record<string, unknown>);
+      const templateProps = (entityEntry?.raw_data ?? {}) as Record<string, unknown>;
       const message = renderMessage(config.message_template, targetId, displayName, templateProps);
       rows.push({
         targetId,
@@ -148,10 +151,6 @@ export async function executeAlertNode(
           [targetColumn]: targetId,
           tenant_id: ctx.tenant_id,
           integration_id: integrationId,
-          // Only set secondary FK context fields for entity targets — avoids overwriting the primary target column
-          ...(config.target_type === 'entity'
-            ? { site_id: entityEntry?.site_id ?? null, connection_id: entityEntry?.connection_id ?? null }
-            : {}),
           sync_id: ctx.run_id,
           severity,
           status: 'active',
@@ -196,7 +195,7 @@ export async function executeAlertNode(
     if (resolveSet.length > 0) {
       const fingerprintToId = new Map(
         resolveSet.map((id) => [
-          makeFingerprint(ctx.tenant_id, config.alert_definition_id, config.target_type, id),
+          makeFingerprint(ctx.tenant_id, config.alert_definition_id, inputType, id),
           id,
         ])
       );
@@ -226,11 +225,8 @@ export async function executeAlertNode(
     }
   }
 
-  // Update entity states when target_type is 'entity'
-  if (config.target_type === 'entity') {
-    const allAffected = [...new Set([...result.created, ...result.resolved])];
-    await updateEntityStates(allAffected, supabase);
-  }
+  const allAffected = [...new Set([...result.created, ...result.resolved])];
+  await updateEntityStates(allAffected, targetColumn, supabase);
 
   return result;
 }

@@ -60,6 +60,7 @@ export class JobReconciler {
 
       for (const link of links ?? []) {
         for (const ingestType of M365_TYPES) {
+          if (link.id !== 'de8c9ef9-b722-4b53-a12f-b4be027cba9e') continue;
           await this.ensureJobExists(link.tenant_id, link.id, link.site_id, ingestType);
         }
       }

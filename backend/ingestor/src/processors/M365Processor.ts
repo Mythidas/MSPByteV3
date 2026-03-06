@@ -276,7 +276,7 @@ function mapToDbRow(
       const u = entity.data;
       return {
         ...base,
-        site_id: entity.siteId?.length ? entity.siteId : null,
+        site_id: entity.siteId,
         enabled: u.accountEnabled ?? false,
         name: u.displayName ?? null,
         email: u.userPrincipalName ?? null,

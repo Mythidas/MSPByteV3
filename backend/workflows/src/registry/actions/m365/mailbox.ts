@@ -12,6 +12,8 @@ export const M365MailboxGetInboxRules: ActionDefinition = {
   outputs: {
     rules_by_user: { type: 'object', description: 'Map of user_id to their inbox rules' },
   },
+  inputType: 'm365_identity[]',
+  outputType: 'void',
   affectsEntities: false,
   async execute(ctx, inputs) {
     const userIds = (inputs.user_ids as string[]) ?? [];

@@ -39,7 +39,6 @@ export type RawM365Identity = {
 export type RawM365Group = {
   externalId: string;
   linkId: string | null;
-  siteId: string | null;
   data: MSGraphGroup;
 };
 
@@ -52,7 +51,6 @@ export type RawM365Role = {
 export type RawM365Policy = {
   externalId: string;
   linkId: string | null;
-  siteId: string | null;
   data: MSGraphConditionalAccessPolicy;
 };
 
@@ -65,7 +63,6 @@ export type RawM365License = {
 export type RawM365ExchangeConfig = {
   externalId: string;
   linkId: string | null;
-  siteId: string | null;
   rejectDirectSend: boolean;
 };
 

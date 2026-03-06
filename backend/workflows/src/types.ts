@@ -5,6 +5,28 @@ export type StageStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skip
 export type OnError = 'fail' | 'skip' | 'continue';
 export type TriggeredBy = 'schedule' | 'manual' | 'api';
 
+export type NodeDataType =
+  | 'm365_identity[]'
+  | 'm365_mailbox[]'
+  | 'sophos_device[]'
+  | 'datto_asset[]'
+  | 'alert[]'
+  | 'void'
+
+export const ALERT_SUBJECT_COLUMN = {
+  'm365_identity[]': 'm365_identity_id',
+  'm365_mailbox[]':  'm365_mailbox_id',
+  'sophos_device[]': 'sophos_device_id',
+  'datto_asset[]':   'datto_asset_id',
+} satisfies Partial<Record<NodeDataType, string>>
+
+export class WorkflowTypeError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'WorkflowTypeError'
+  }
+}
+
 export type DisplaySectionType = 'entity_list' | 'stat' | 'summary_text';
 
 export interface DisplaySection {
@@ -25,7 +47,9 @@ export interface WorkflowStageNode {
   type: StageType;
   integration: string | null;
   ref: string;
-  params: Record<string, unknown>;
+  inputType: NodeDataType | null;
+  outputType: NodeDataType | null;
+  params?: Record<string, unknown>;
   input_map: Record<string, { from: string }>;
   template?: string;
   on_error: OnError;
@@ -53,7 +77,7 @@ export interface RunContext {
 
 export interface EntityLogEntry {
   entity_id: string;
-  entity_type: string;
+  entity_type: NodeDataType;
   integration: string;
   display_name: string | null;
   site_id: string | null;
@@ -145,6 +169,7 @@ export interface QueryDefinition {
   outputs: Record<string, OutputSchema>;
   output_schema?: QueryOutputSchema;
   source: 'db' | 'live';
+  outputType: NodeDataType;
   entityOutputKey?: string;
   execute: (ctx: RunContext, inputs: Record<string, unknown>) => Promise<unknown>;
 }
@@ -156,6 +181,8 @@ export interface ActionDefinition {
   description: string;
   inputs: Record<string, InputSchema>;
   outputs: Record<string, OutputSchema>;
+  inputType: NodeDataType;
+  outputType: NodeDataType;
   affectsEntities: boolean;
   execute: (ctx: RunContext, inputs: Record<string, unknown>) => Promise<ActionResult>;
 }

@@ -13,6 +13,8 @@ export const M365UsersDisable: ActionDefinition = {
     succeeded: { type: 'array', description: 'User IDs successfully disabled' },
     failed: { type: 'array', description: 'User IDs that failed to disable' },
   },
+  inputType: 'm365_identity[]',
+  outputType: 'void',
   affectsEntities: true,
   async execute(ctx, inputs) {
     const userIds = (inputs.user_ids as string[]) ?? [];
@@ -38,6 +40,8 @@ export const M365UsersRevokeSessions: ActionDefinition = {
     succeeded: { type: 'array', description: 'User IDs successfully revoked' },
     failed: { type: 'array', description: 'User IDs that failed' },
   },
+  inputType: 'm365_identity[]',
+  outputType: 'void',
   affectsEntities: true,
   async execute(ctx, inputs) {
     const userIds = (inputs.user_ids as string[]) ?? [];
@@ -63,6 +67,8 @@ export const M365UsersRemoveMFAMethods: ActionDefinition = {
     succeeded: { type: 'array', description: 'User IDs successfully processed' },
     failed: { type: 'array', description: 'User IDs that failed' },
   },
+  inputType: 'm365_identity[]',
+  outputType: 'void',
   affectsEntities: true,
   async execute(ctx, inputs) {
     const userIds = (inputs.user_ids as string[]) ?? [];

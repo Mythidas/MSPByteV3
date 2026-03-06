@@ -35,6 +35,7 @@ export const M365IdentitiesListWithMFAStatus: QueryDefinition = {
     },
   },
   source: 'db',
+  outputType: 'm365_identity[]',
   async execute(ctx, inputs) {
     if (!inputs['identities'] || (inputs['identities'] as any[]).length === 0)
       return { identities: [] };

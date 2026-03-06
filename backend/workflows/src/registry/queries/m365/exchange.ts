@@ -31,6 +31,7 @@ export const M365ExchangeConfig: QueryDefinition = {
     },
   },
   source: 'live',
+  outputType: 'void',
   async execute(ctx, inputs) {
     if (!inputs['connections'] || (inputs['connections'] as any[]).length === 0)
       return { configs: [] };

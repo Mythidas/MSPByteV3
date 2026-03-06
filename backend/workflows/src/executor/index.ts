@@ -58,7 +58,7 @@ export async function executeRun(runId: string): Promise<void> {
       message: `[${runId}] Running stage ${i + 1}/${stages.length}: ${stage.id} (${stage.type})`,
     });
 
-    const result = await runStage(stage, ctx, i, runId);
+    const result = await runStage(stage, ctx, i, runId, stages);
 
     if (result.status === 'failed') {
       if (stage.on_error === 'fail') {

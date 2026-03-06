@@ -4,90 +4,38 @@ import type { TagNodeConfig, TagNodeInputs, TagStageResult, RunContext } from '.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@workspace/shared/types/schema';
 
-const TARGET_COLUMN = {
-  entity: 'entity_id',
-  site: 'site_id',
-  connection: 'connection_id',
-} as const;
-
 async function applyTags(
   config: TagNodeConfig,
   targetIds: string[],
   tagName: string,
-  tagCategory: string | null,
   supabase: SupabaseClient<Database>,
   ctx: RunContext,
 ): Promise<{ applied: string[]; skipped: string[] }> {
   const applied: string[] = [];
   const skipped: string[] = [];
-  const targetColumn = TARGET_COLUMN[config.target_type];
 
-  if (config.target_type === 'entity') {
-    // entity has a unique constraint on (entity_id, tag) — safe to batch upsert
-    const rows = targetIds.map((targetId) => ({
-      [targetColumn]: targetId,
-      tenant_id: ctx.tenant_id,
-      tag: tagName,
-      tag_definition_id: config.tag_definition_id,
-      category: tagCategory,
-      source: config.source ?? 'workflow',
-    }));
+  const rows = targetIds.map((targetId) => ({
+    entity_id: targetId,
+    entity_type: ctx.entity_log[targetId]?.entity_type ?? 'unknown',
+    definition_id: config.tag_definition_id,
+    name: tagName,
+    tenant_id: ctx.tenant_id,
+  }));
 
-    const CHUNK = 500;
-    for (let i = 0; i < rows.length; i += CHUNK) {
-      const chunk = rows.slice(i, i + CHUNK);
-      const chunkIds = targetIds.slice(i, i + CHUNK);
-      const { error } = await supabase.from('tags').upsert(chunk, { ignoreDuplicates: true });
-      if (error) {
-        Logger.warn({
-          module: 'TagNode',
-          context: 'apply',
-          message: `Batch tag upsert failed: ${error.message}`,
-        });
-        skipped.push(...chunkIds);
-      } else {
-        applied.push(...chunkIds);
-      }
-    }
-  } else {
-    // site/connection: one SELECT IN to find existing, then batch INSERT for missing
-    const { data: existing } = await supabase
-      .from('tags')
-      .select(targetColumn)
-      .in(targetColumn, targetIds)
-      .eq('tag', tagName)
-      .eq('tenant_id', ctx.tenant_id);
-
-    const existingSet = new Set((existing ?? []).map((r: any) => r[targetColumn] as string));
-    applied.push(...targetIds.filter((id) => existingSet.has(id)));
-    const toInsert = targetIds.filter((id) => !existingSet.has(id));
-
-    if (toInsert.length > 0) {
-      const rows = toInsert.map((targetId) => ({
-        [targetColumn]: targetId,
-        tenant_id: ctx.tenant_id,
-        tag: tagName,
-        tag_definition_id: config.tag_definition_id,
-        category: tagCategory,
-        source: config.source ?? 'workflow',
-      }));
-
-      const CHUNK = 500;
-      for (let i = 0; i < rows.length; i += CHUNK) {
-        const chunk = rows.slice(i, i + CHUNK);
-        const chunkIds = toInsert.slice(i, i + CHUNK);
-        const { error } = await supabase.from('tags').insert(chunk);
-        if (error) {
-          Logger.warn({
-            module: 'TagNode',
-            context: 'apply',
-            message: `Batch tag insert failed: ${error.message}`,
-          });
-          skipped.push(...chunkIds);
-        } else {
-          applied.push(...chunkIds);
-        }
-      }
+  const CHUNK = 500;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const chunk = rows.slice(i, i + CHUNK);
+    const chunkIds = targetIds.slice(i, i + CHUNK);
+    const { error } = await supabase.from('tags').upsert(chunk, { ignoreDuplicates: true });
+    if (error) {
+      Logger.warn({
+        module: 'TagNode',
+        context: 'apply',
+        message: `Batch tag upsert failed: ${error.message}`,
+      });
+      skipped.push(...chunkIds);
+    } else {
+      applied.push(...chunkIds);
     }
   }
 
@@ -101,15 +49,13 @@ async function removeTags(
   supabase: SupabaseClient<Database>,
   ctx: RunContext,
 ): Promise<string[]> {
-  const targetColumn = TARGET_COLUMN[config.target_type];
-
   const { error } = await supabase
     .from('tags')
     .delete()
-    .in(targetColumn, targetIds)
-    .eq('tag', tagName)
+    .in('entity_id', targetIds)
+    .eq('name', tagName)
     .eq('tenant_id', ctx.tenant_id)
-    .eq('tag_definition_id', config.tag_definition_id);
+    .eq('definition_id', config.tag_definition_id);
 
   if (error) {
     Logger.warn({
@@ -134,7 +80,7 @@ export async function executeTagNode(
   // Fetch tag definition
   const { data: tagDef, error: defError } = await supabase
     .from('tag_definitions')
-    .select('name, category')
+    .select('name')
     .eq('id', config.tag_definition_id)
     .single();
 
@@ -153,7 +99,6 @@ export async function executeTagNode(
       config,
       inputs.target_ids,
       tagDef.name,
-      tagDef.category,
       supabase,
       ctx,
     );

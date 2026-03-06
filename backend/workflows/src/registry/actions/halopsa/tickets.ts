@@ -18,6 +18,8 @@ export const HaloPSATicketsCreateOrUpdate: ActionDefinition = {
   outputs: {
     ticket_id: { type: 'string', description: 'Created or updated ticket ID' },
   },
+  inputType: 'void',
+  outputType: 'void',
   affectsEntities: false,
   async execute(ctx, inputs) {
     const supabase = getSupabase();

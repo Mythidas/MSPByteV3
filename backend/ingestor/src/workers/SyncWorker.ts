@@ -8,27 +8,31 @@ import type { IngestJobData, M365EntityType, IngestContext } from '../types.js';
 import type { Microsoft365Adapter } from '../adapters/Microsoft365Adapter.js';
 import type { M365Processor } from '../processors/M365Processor.js';
 import type { Microsoft365Linker } from '../linkers/Microsoft365Linker.js';
+import type { Microsoft365Enricher } from '../enrichers/Microsoft365Enricher.js';
 
 /**
- * SyncWorker — orchestrates one (ingestType) lane: adapter → processor → prune → linker.
+ * SyncWorker — orchestrates one (ingestType) lane: adapter → processor → prune → linker → enricher.
  */
 export class SyncWorker {
   private ingestType: M365EntityType;
   private adapter: Microsoft365Adapter;
   private processor: M365Processor;
   private linker: Microsoft365Linker | null;
+  private enricher: Microsoft365Enricher | null;
   private started = false;
 
   constructor(
     ingestType: M365EntityType,
     adapter: Microsoft365Adapter,
     processor: M365Processor,
-    linker: Microsoft365Linker | null
+    linker: Microsoft365Linker | null,
+    enricher: Microsoft365Enricher | null = null
   ) {
     this.ingestType = ingestType;
     this.adapter = adapter;
     this.processor = processor;
     this.linker = linker;
+    this.enricher = enricher;
   }
 
   start(): void {
@@ -98,8 +102,8 @@ export class SyncWorker {
         });
       }
 
-      // 4. LINKER: only for identity (after groups + roles are present)
-      if (this.linker) {
+      // 4. LINKER + ENRICHER: only for identity (after groups + roles are present)
+      if (this.linker || this.enricher) {
         const ctx: IngestContext = {
           tenantId,
           ingestType,
@@ -110,9 +114,17 @@ export class SyncWorker {
           processedRows,
         };
 
-        await tracker.trackSpan('stage:linker', async () => {
-          await this.linker!.linkAndReconcile(ctx, tracker);
-        });
+        if (this.linker) {
+          await tracker.trackSpan('stage:linker', async () => {
+            await this.linker!.linkAndReconcile(ctx, tracker);
+          });
+        }
+
+        if (this.enricher) {
+          await tracker.trackSpan('stage:enricher', async () => {
+            await this.enricher!.enrichIdentities(ctx, tracker);
+          });
+        }
       }
 
       // 5. Mark completed + schedule next

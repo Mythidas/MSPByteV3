@@ -37,6 +37,7 @@ export const GetEntities: QueryDefinition = {
     },
   },
   source: 'live',
+  outputType: 'void',
   entityOutputKey: 'entities',
   async execute(ctx, inputs) {
     if (!inputs['integration'] || !inputs['type']) return { entities: [] };

@@ -23,6 +23,7 @@ export const GetConnections: QueryDefinition = {
     },
   },
   source: 'live',
+  outputType: 'void',
   async execute(ctx, inputs) {
     if (!inputs['integration']) return { connections: [] };
 
