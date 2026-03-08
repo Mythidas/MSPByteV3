@@ -198,33 +198,33 @@ export type Database = {
       }
       alert_definitions: {
         Row: {
-          color: string | null
           created_at: string
-          description: string | null
+          description: string
           id: string
-          metadata: Json
+          integration_id: string
+          message_template: string
           name: string
           severity: string
           tenant_id: string | null
           updated_at: string
         }
         Insert: {
-          color?: string | null
           created_at?: string
-          description?: string | null
+          description: string
           id?: string
-          metadata?: Json
+          integration_id: string
+          message_template: string
           name: string
           severity?: string
           tenant_id?: string | null
           updated_at?: string
         }
         Update: {
-          color?: string | null
           created_at?: string
-          description?: string | null
+          description?: string
           id?: string
-          metadata?: Json
+          integration_id?: string
+          message_template?: string
           name?: string
           severity?: string
           tenant_id?: string | null
@@ -1237,6 +1237,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          integration_id: string
           name: string
           tenant_id: string | null
           updated_at: string
@@ -1247,6 +1248,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          integration_id: string
           name: string
           tenant_id?: string | null
           updated_at?: string
@@ -1257,6 +1259,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          integration_id?: string
           name?: string
           tenant_id?: string | null
           updated_at?: string
@@ -1278,7 +1281,6 @@ export type Database = {
           entity_id: string
           entity_type: string
           id: string
-          name: string
           tenant_id: string
         }
         Insert: {
@@ -1287,7 +1289,6 @@ export type Database = {
           entity_id: string
           entity_type: string
           id?: string
-          name: string
           tenant_id: string
         }
         Update: {
@@ -1296,7 +1297,6 @@ export type Database = {
           entity_id?: string
           entity_type?: string
           id?: string
-          name?: string
           tenant_id?: string
         }
         Relationships: [
@@ -1316,77 +1316,80 @@ export type Database = {
           },
         ]
       }
-      task_run_stages: {
+      task_run_nodes: {
         Row: {
+          affected_entity_cardinality: string | null
           affected_entity_ids: Json
-          affected_entity_type: string
+          affected_entity_type: string | null
+          category: string
           completed_at: string | null
           duration_ms: number | null
           error: string | null
           id: string
+          input: Json
           integration: string | null
-          label: string
+          metrics: Json
+          node_id: string
+          node_label: string
+          node_ref: string
           output: Json
-          ref: string
-          resolved_input: Json
           run_id: string
-          stage_index: number
-          stage_node_id: string
-          stage_type: string
           started_at: string | null
           status: string
           tenant_id: string
         }
         Insert: {
+          affected_entity_cardinality?: string | null
           affected_entity_ids?: Json
-          affected_entity_type: string
+          affected_entity_type?: string | null
+          category: string
           completed_at?: string | null
           duration_ms?: number | null
           error?: string | null
           id?: string
+          input?: Json
           integration?: string | null
-          label: string
+          metrics?: Json
+          node_id: string
+          node_label: string
+          node_ref: string
           output?: Json
-          ref: string
-          resolved_input?: Json
           run_id: string
-          stage_index: number
-          stage_node_id: string
-          stage_type: string
           started_at?: string | null
           status?: string
           tenant_id: string
         }
         Update: {
+          affected_entity_cardinality?: string | null
           affected_entity_ids?: Json
-          affected_entity_type?: string
+          affected_entity_type?: string | null
+          category?: string
           completed_at?: string | null
           duration_ms?: number | null
           error?: string | null
           id?: string
+          input?: Json
           integration?: string | null
-          label?: string
+          metrics?: Json
+          node_id?: string
+          node_label?: string
+          node_ref?: string
           output?: Json
-          ref?: string
-          resolved_input?: Json
           run_id?: string
-          stage_index?: number
-          stage_node_id?: string
-          stage_type?: string
           started_at?: string | null
           status?: string
           tenant_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "task_run_stages_run_id_fkey"
+            foreignKeyName: "task_run_nodes_run_id_fkey"
             columns: ["run_id"]
             isOneToOne: false
             referencedRelation: "task_runs"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "task_run_stages_tenant_id_fkey"
+            foreignKeyName: "task_run_nodes_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1399,11 +1402,9 @@ export type Database = {
           completed_at: string | null
           created_at: string
           duration_ms: number | null
-          entity_log: Json
           error: string | null
           id: string
-          resolved_scope: Json
-          seed_params: Json
+          seed: Json
           started_at: string | null
           status: string
           task_id: string | null
@@ -1417,11 +1418,9 @@ export type Database = {
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
-          entity_log?: Json
           error?: string | null
           id?: string
-          resolved_scope?: Json
-          seed_params?: Json
+          seed?: Json
           started_at?: string | null
           status?: string
           task_id?: string | null
@@ -1429,17 +1428,15 @@ export type Database = {
           triggered_by: string
           triggered_by_user?: string | null
           workflow_id: string
-          workflow_snapshot?: Json
+          workflow_snapshot: Json
         }
         Update: {
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
-          entity_log?: Json
           error?: string | null
           id?: string
-          resolved_scope?: Json
-          seed_params?: Json
+          seed?: Json
           started_at?: string | null
           status?: string
           task_id?: string | null
@@ -1465,6 +1462,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "task_runs_triggered_by_user_fkey"
+            columns: ["triggered_by_user"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "task_runs_workflow_id_fkey"
             columns: ["workflow_id"]
             isOneToOne: false
@@ -1481,13 +1485,11 @@ export type Database = {
           last_run_at: string | null
           name: string
           next_run_at: string | null
-          priority: number
-          retry_config: Json
+          param_defaults: Json
           schedule: Json | null
-          scope_data: Json
-          scope_type: string
-          stage_param_overrides: Json
+          scope: Json
           tenant_id: string
+          trigger_type: string
           updated_at: string
           workflow_id: string
         }
@@ -1498,13 +1500,11 @@ export type Database = {
           last_run_at?: string | null
           name: string
           next_run_at?: string | null
-          priority?: number
-          retry_config?: Json
+          param_defaults?: Json
           schedule?: Json | null
-          scope_data?: Json
-          scope_type: string
-          stage_param_overrides?: Json
+          scope?: Json
           tenant_id: string
+          trigger_type?: string
           updated_at?: string
           workflow_id: string
         }
@@ -1515,13 +1515,11 @@ export type Database = {
           last_run_at?: string | null
           name?: string
           next_run_at?: string | null
-          priority?: number
-          retry_config?: Json
+          param_defaults?: Json
           schedule?: Json | null
-          scope_data?: Json
-          scope_type?: string
-          stage_param_overrides?: Json
+          scope?: Json
           tenant_id?: string
+          trigger_type?: string
           updated_at?: string
           workflow_id?: string
         }
@@ -1618,38 +1616,44 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          graph: Json
           id: string
-          is_system: boolean
+          is_managed: boolean
           name: string
-          stages: Json
+          params_schema: Json
           tags: string[]
+          target_entity_type: string
+          target_scope_type: string
           tenant_id: string | null
           updated_at: string
-          visibility: string
         }
         Insert: {
           created_at?: string
           description?: string | null
+          graph?: Json
           id?: string
-          is_system?: boolean
+          is_managed?: boolean
           name: string
-          stages?: Json
+          params_schema?: Json
           tags?: string[]
+          target_entity_type: string
+          target_scope_type: string
           tenant_id?: string | null
           updated_at?: string
-          visibility?: string
         }
         Update: {
           created_at?: string
           description?: string | null
+          graph?: Json
           id?: string
-          is_system?: boolean
+          is_managed?: boolean
           name?: string
-          stages?: Json
+          params_schema?: Json
           tags?: string[]
+          target_entity_type?: string
+          target_scope_type?: string
           tenant_id?: string | null
           updated_at?: string
-          visibility?: string
         }
         Relationships: [
           {
@@ -1801,7 +1805,7 @@ export type Database = {
           last_seen_at?: string
           last_sign_in_at?: string | null
           link_id: string
-          mfa_enforced: boolean
+          mfa_enforced?: boolean
           name: string
           site_id?: string | null
           tenant_id: string

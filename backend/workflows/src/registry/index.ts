@@ -1,9 +1,9 @@
-import type { ActionDefinition, QueryDefinition, TicketTemplate } from '../types.js';
+export { registerNode, getNode, getAllNodes } from './registry.js';
 
-export const QUERY_REGISTRY = new Map<string, QueryDefinition>();
-export const ACTION_REGISTRY = new Map<string, ActionDefinition>();
-export const TEMPLATE_REGISTRY = new Map<string, TicketTemplate>();
-
-export { executeFilterNode } from './internal/filter.js';
-export { executeAlertNode } from './internal/alerts.js';
-export { executeTagNode } from './internal/tags.js';
+import './nodes/core/param.js';
+import './nodes/m365/identities.js';
+import './nodes/generic/filter.js';
+import './nodes/generic/create-alert.js';
+import './nodes/generic/resolve-alert.js';
+import './nodes/generic/apply-tag.js';
+import './nodes/generic/remove-tag.js';

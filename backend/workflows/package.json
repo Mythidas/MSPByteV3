@@ -15,6 +15,7 @@
     "@supabase/supabase-js": "^2.49.0",
     "@workspace/shared": "workspace:*",
     "bullmq": "^5.0.0",
+    "croner": "latest",
     "ioredis": "^5.0.0"
   },
   "devDependencies": {

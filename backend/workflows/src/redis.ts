@@ -6,23 +6,18 @@ let client: Redis | null = null;
 export function getRedisConnection(): Redis {
   if (!client) {
     const redisHost = process.env.REDIS_HOST;
-    const redisPort = process.env.REDIS_PORT;
-    const redisPassword = process.env.REDIS_PASSWORD;
 
-    if (!redisHost || !redisPort) {
-      throw new Error('REDIS_HOST and REDIS_PORT environment variables are required');
+    if (!redisHost) {
+      throw new Error('REDIS_HOST environment variable is required');
     }
 
-    client = new Redis({
-      host: redisHost,
-      port: Number(redisPort),
-      password: redisPassword === '-' ? undefined : redisPassword,
+    client = new Redis(redisHost, {
       maxRetriesPerRequest: null,
       retryStrategy: (times: number) => {
         const delay = Math.min(times * 50, 2000);
         Logger.warn({
-          module: 'Redis',
-          context: 'connection',
+          module: 'workflows',
+          context: 'redis',
           message: `Retry attempt ${times}`,
         });
         return delay;
@@ -31,25 +26,25 @@ export function getRedisConnection(): Redis {
 
     client.on('connect', () => {
       Logger.info({
-        module: 'Redis',
-        context: 'connection',
-        message: 'Connected successfully',
+        module: 'workflows',
+        context: 'redis',
+        message: 'connected',
       });
     });
 
     client.on('error', (err: Error) => {
       Logger.error({
-        module: 'Redis',
-        context: 'connection',
-        message: `Error: ${err.message}`,
+        module: 'workflows',
+        context: 'redis',
+        message: `error: ${err.message}`,
       });
     });
 
     client.on('close', () => {
       Logger.warn({
-        module: 'Redis',
-        context: 'connection',
-        message: 'Connection closed',
+        module: 'workflows',
+        context: 'redis',
+        message: 'connection closed',
       });
     });
   }
@@ -62,9 +57,9 @@ export async function disconnectRedis(): Promise<void> {
     await client.quit();
     client = null;
     Logger.info({
-      module: 'Redis',
-      context: 'disconnect',
-      message: 'Disconnected',
+      module: 'workflows',
+      context: 'redis',
+      message: 'disconnected',
     });
   }
 }

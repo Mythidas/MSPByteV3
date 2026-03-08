@@ -1,6 +1,9 @@
-import { queueManager, QueueNames } from './lib/queue.js';
-import type { TaskRunJobData } from './types.js';
+import workflowRunQueue from './queues/workflow-run.js';
 
-export async function enqueueRun(runId: string, priority = 5): Promise<void> {
-  await queueManager.addJob<TaskRunJobData>(QueueNames.tasks, { runId }, { priority, jobId: runId });
+export async function enqueueRun(runId: string, priority?: number): Promise<void> {
+  await workflowRunQueue.add(
+    'workflow-run',
+    { run_id: runId, priority },
+    { priority }
+  );
 }

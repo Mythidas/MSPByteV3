@@ -483,6 +483,38 @@ export class ORM {
     }
   }
 
+  async batchSelect<S extends Schemas, T extends TableOrView<S>>(
+    schema: S,
+    table: T,
+    ids: string[],
+    idColumn: keyof Tables<S, T>,
+    batchSize = 500,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
+  ): Promise<APIResponse<Tables<S, T>[]>> {
+    try {
+      const allResults: Tables<S, T>[] = [];
+      for (let i = 0; i < ids.length; i += batchSize) {
+        const chunk = ids.slice(i, i + batchSize);
+        let query = this.supabase
+          .schema(schema)
+          .from(table as any)
+          .select('*')
+          .in(idColumn as string, chunk as any[]);
+        if (modifyQuery) modifyQuery(query as any);
+        const { data, error } = await query;
+        if (error) throw new Error(error.message);
+        if (data) allResults.push(...(data as Tables<S, T>[]));
+      }
+      return { data: allResults };
+    } catch (err) {
+      return Logger.error({
+        module: 'supabase',
+        context: `batchSelect_${String(table)}`,
+        message: String(err),
+      });
+    }
+  }
+
   async batchUpdate<S extends Schemas, T extends Table<S>>(
     schema: S,
     table: T,
@@ -511,20 +543,54 @@ export class ORM {
     }
   }
 
+  async batchUpdateWhere<S extends Schemas, T extends Table<S>>(
+    schema: S,
+    table: T,
+    values: string[],
+    whereColumn: keyof Tables<S, T>,
+    row: TablesUpdate<S, T>,
+    batchSize = 500,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
+  ): Promise<APIResponse<null>> {
+    try {
+      for (let i = 0; i < values.length; i += batchSize) {
+        const chunk = values.slice(i, i + batchSize);
+        let query = this.supabase
+          .schema(schema)
+          .from(table as any)
+          .update(row as any)
+          .in(whereColumn as string, chunk as any);
+        if (modifyQuery) modifyQuery(query as any);
+        const { error } = await query;
+        if (error) throw new Error(error.message);
+      }
+      return { data: null };
+    } catch (err) {
+      return Logger.error({
+        module: 'supabase',
+        context: `batchUpdateWhere_${String(table)}`,
+        message: String(err),
+      });
+    }
+  }
+
   async batchDelete<S extends Schemas, T extends Table<S>>(
     schema: S,
     table: T,
     ids: string[],
-    batchSize = 100
+    batchSize = 100,
+    modifyQuery?: (query: QueryBuilder<S, T>) => void
   ): Promise<APIResponse<null>> {
     try {
       for (let i = 0; i < ids.length; i += batchSize) {
         const chunk = ids.slice(i, i + batchSize);
-        const { error } = await this.supabase
+        let query = this.supabase
           .schema(schema)
           .from(table as any)
           .delete()
           .in('id', chunk as any);
+        if (modifyQuery) modifyQuery(query as any);
+        const { error } = await query;
         if (error) throw new Error(error.message);
       }
 

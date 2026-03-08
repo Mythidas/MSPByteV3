@@ -1,88 +1,65 @@
-import { Logger } from '@workspace/shared/lib/utils/logger.js';
-import { queueManager } from './lib/queue.js';
-import { disconnectRedis } from './lib/redis.js';
-import { TaskWorker } from './worker.js';
-import { TaskScheduler } from './scheduler/index.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
+import { disconnectRedis } from './redis.js';
+import { initQueues, workflowRunQueue, workflowSchedulerQueue } from './queues/index.js';
+import { initWorkers } from './workers/index.js';
+import { getAllNodes } from './registry/index.js';
 
-// Register all registry entries on startup
-import './registry/queries/index.js';
-import './registry/actions/index.js';
-import './registry/templates/index.js';
-
-/**
- * Workflows Engine Entry Point
- *
- * Architecture:
- *   tasks table → TaskScheduler → BullMQ (queue: 'tasks') → TaskWorker → executeRun
- *   Manual runs: task_runs row inserted by frontend → BullMQ via /api/pipeline/execute-run → executeRun
- */
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || 'info';
 
-  Logger.info({
-    module: 'Workflows',
-    context: 'main',
-    message: 'Starting workflow engine...',
-  });
+  Logger.info({ module: 'workflows', context: 'engine', message: 'starting workflow engine' });
 
-  const required = ['PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'REDIS_HOST', 'REDIS_PORT'];
+  const required = ['REDIS_HOST', 'PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_KEY'];
   for (const envVar of required) {
     if (!process.env[envVar]) {
       throw new Error(`Missing required environment variable: ${envVar}`);
     }
   }
 
-  const worker = new TaskWorker();
-  worker.start();
+  await initQueues();
+  const { runWorker, schedulerWorker } = initWorkers();
 
-  const scheduler = new TaskScheduler();
-  scheduler.start();
+  const nodeCount = getAllNodes().length;
+  Logger.info({ module: 'workflows', context: 'registry', message: `${nodeCount} nodes registered` });
 
-  Logger.info({
-    module: 'Workflows',
-    context: 'main',
-    message: 'Workflow engine started. Press Ctrl+C to stop.',
-  });
+  Logger.info({ module: 'workflows', context: 'engine', message: 'ready' });
 
   const shutdown = async (signal: string) => {
     Logger.info({
-      module: 'Workflows',
-      context: 'shutdown',
-      message: `Received ${signal}, shutting down gracefully...`,
+      module: 'workflows',
+      context: 'engine',
+      message: `received ${signal}, shutting down`,
     });
 
     try {
-      scheduler.stop();
-      await queueManager.closeAll();
+      Logger.info({ module: 'workflows', context: 'engine', message: 'closing workers' });
+      await runWorker.close();
+      await schedulerWorker.close();
+
+      Logger.info({ module: 'workflows', context: 'engine', message: 'closing queues' });
+      await workflowRunQueue.close();
+      await workflowSchedulerQueue.close();
+
       await disconnectRedis();
 
-      Logger.info({
-        module: 'Workflows',
-        context: 'shutdown',
-        message: 'Graceful shutdown complete',
-      });
-
+      Logger.info({ module: 'workflows', context: 'engine', message: 'shutdown complete' });
       process.exit(0);
     } catch (err) {
       Logger.error({
-        module: 'Workflows',
-        context: 'shutdown',
-        message: `Error during shutdown: ${err}`,
+        module: 'workflows',
+        context: 'engine',
+        message: `error during shutdown: ${err}`,
       });
       process.exit(1);
     }
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 main().catch((err) => {
-  Logger.fatal({
-    module: 'Workflows',
-    context: 'main',
-    message: `Fatal error: ${err}`,
-  });
+  Logger.fatal({ module: 'workflows', context: 'engine', message: `fatal error: ${err}` });
   console.error('Fatal error:', err);
   process.exit(1);
 });
