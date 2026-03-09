@@ -9,7 +9,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
-    supportedScopes: ['tenant', 'connection'],
+    scope: 'site',
+    navigation: [],
   },
   dattormm: {
     id: 'dattormm',
@@ -19,7 +20,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
-    supportedScopes: ['tenant', 'site', 'group', 'entity'],
+    scope: 'site',
+    navigation: [],
   },
   cove: {
     id: 'cove',
@@ -29,7 +31,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'company', rateMinutes: DAILY, priority: 5 },
       { type: 'endpoint', rateMinutes: DAILY, priority: 3, fanOut: true, concurrency: 1 },
     ],
-    supportedScopes: ['tenant'],
+    scope: 'site',
+    navigation: [],
   },
   'microsoft-365': {
     id: 'microsoft-365',
@@ -43,21 +46,55 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { type: 'policy', rateMinutes: DAILY, priority: 5 },
       { type: 'exchange-config', rateMinutes: DAILY, priority: 9 },
     ],
-    supportedScopes: ['tenant', 'connection', 'entity'],
+    scope: 'link',
+    navigation: [
+      {
+        label: 'Identities',
+        route: '/identities',
+        isNullable: true,
+      },
+      {
+        label: 'Roles',
+        route: '/roles',
+        isNullable: true,
+      },
+      {
+        label: 'Groups',
+        route: '/groups',
+        isNullable: true,
+      },
+      {
+        label: 'Licenses',
+        route: '/licenses',
+        isNullable: true,
+      },
+      {
+        label: 'Policies',
+        route: '/policies',
+        isNullable: false,
+      },
+      {
+        label: 'Exchange',
+        route: '/exchange',
+        isNullable: false,
+      },
+    ],
   },
   halopsa: {
     id: 'halopsa',
     name: 'HaloPSA',
     type: 'psa',
     supportedTypes: [],
-    supportedScopes: ['tenant'],
+    scope: 'site',
+    navigation: [],
   },
   mspagent: {
     id: 'mspagent',
     name: 'MSPAgent',
     type: 'other',
     supportedTypes: [],
-    supportedScopes: ['tenant'],
+    scope: 'site',
+    navigation: [],
   },
 };
 
@@ -83,20 +120,25 @@ export type EntityType =
   | 'ticket'
   | 'exchange-config';
 
-export interface EntityTypeConfig {
+export type EntityTypeConfig = {
   type: EntityType;
   rateMinutes: number;
   priority: number;
   fanOut?: boolean; // true = created by linker fan-out; reconciler skips these
   concurrency?: number; // max parallel BullMQ workers for this entity type (default: 5)
-}
+};
 
-export type ScopeLevel = 'tenant' | 'site' | 'connection' | 'entity' | 'group';
+export type IntegrationNavigationConfig = {
+  label: string;
+  route: string;
+  isNullable: boolean;
+};
 
-export interface Integration {
+export type Integration = {
   id: IntegrationId;
   name: string;
   type: 'psa' | 'rmm' | 'recovery' | 'security' | 'identity' | 'other';
   supportedTypes: EntityTypeConfig[];
-  supportedScopes: ScopeLevel[];
-}
+  scope: 'link' | 'site';
+  navigation: IntegrationNavigationConfig[];
+};

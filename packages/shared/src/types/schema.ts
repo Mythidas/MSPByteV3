@@ -244,15 +244,11 @@ export type Database = {
         Row: {
           created_at: string | null
           definition_id: string
-          fingerprint: string
+          entity_id: string | null
+          entity_type: string | null
           id: string
           last_seen_at: string | null
           link_id: string | null
-          m365_exchange_config_id: string | null
-          m365_group_id: string | null
-          m365_identity_id: string | null
-          m365_license_id: string | null
-          m365_policy_id: string | null
           message: string
           metadata: Json | null
           resolved_at: string | null
@@ -268,15 +264,11 @@ export type Database = {
         Insert: {
           created_at?: string | null
           definition_id: string
-          fingerprint: string
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           last_seen_at?: string | null
           link_id?: string | null
-          m365_exchange_config_id?: string | null
-          m365_group_id?: string | null
-          m365_identity_id?: string | null
-          m365_license_id?: string | null
-          m365_policy_id?: string | null
           message: string
           metadata?: Json | null
           resolved_at?: string | null
@@ -292,15 +284,11 @@ export type Database = {
         Update: {
           created_at?: string | null
           definition_id?: string
-          fingerprint?: string
+          entity_id?: string | null
+          entity_type?: string | null
           id?: string
           last_seen_at?: string | null
           link_id?: string | null
-          m365_exchange_config_id?: string | null
-          m365_group_id?: string | null
-          m365_identity_id?: string | null
-          m365_license_id?: string | null
-          m365_policy_id?: string | null
           message?: string
           metadata?: Json | null
           resolved_at?: string | null
@@ -1545,21 +1533,32 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          owner: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          owner?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          owner?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tenants_owner_fkey"
+            columns: ["owner"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

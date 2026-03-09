@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getSupabase, getORM } from '../supabase.js';
+import { getSupabase, getSupabaseHelper } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { RawM365Entity, M365ProcessedRow, M365EntityType } from '../types.js';
@@ -87,7 +87,7 @@ export class M365Processor {
 
     if (staleIds.length === 0) return 0;
 
-    const { error } = await getORM().batchDelete('vendors', tableName as any, staleIds);
+    const { error } = await getSupabaseHelper().batchDelete('vendors', tableName as any, staleIds);
     if (error) throw new Error(`Delete stale ${tableName} failed: ${error}`);
 
     tracker.trackEntityDeleted(staleIds.length);
@@ -211,7 +211,7 @@ export class M365Processor {
     // TOUCH (unchanged — bump last_seen_at)
     if (toTouch.length > 0) {
       tracker.trackUpsert();
-      const { error } = await getORM().batchUpdate('vendors' as any, tableName as any, toTouch, {
+      const { error } = await getSupabaseHelper().batchUpdate('vendors' as any, tableName as any, toTouch, {
         last_seen_at: now,
         ingest_id: ingestId,
         updated_at: now,

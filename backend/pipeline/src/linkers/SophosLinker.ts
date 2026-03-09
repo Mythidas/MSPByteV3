@@ -1,5 +1,5 @@
 import { BaseLinker } from './BaseLinker.js';
-import { getSupabase, getORM } from '../supabase.js';
+import { getSupabase, getSupabaseHelper } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Entity, RelationshipToCreate, SyncContext } from '../types.js';
@@ -61,8 +61,6 @@ export class SophosLinker extends BaseLinker {
   }
 
   private async assignSiteIds(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
-    const orm = getORM();
-
     // Load site_to_integration mappings for this integration
     tracker.trackQuery();
     const { data: mappings } = await getSupabase()
@@ -95,7 +93,7 @@ export class SophosLinker extends BaseLinker {
 
     for (const [siteId, entityIds] of updateGroups) {
       tracker.trackUpsert();
-      const { error } = await orm.batchUpdate('public', 'entities', entityIds, {
+      const { error } = await getSupabaseHelper().batchUpdate('public', 'entities', entityIds, {
         site_id: siteId,
       } as any);
       if (error) throw new Error(`Failed to assign site_id to company entities: ${error}`);
@@ -110,22 +108,21 @@ export class SophosLinker extends BaseLinker {
   }
 
   private async cleanupStaleMappings(ctx: SyncContext, tracker: PipelineTracker): Promise<void> {
-    const orm = getORM();
-
     // Load only company entities — this is a company-sync-only operation
     tracker.trackQuery();
     const { data, error } = await tracker.trackSpan('linker:cleanup_stale_mappings', async () => {
-      return orm.select('public', 'entities', (q) =>
-        q
-          .eq('tenant_id', ctx.tenantId)
-          .eq('integration_id', ctx.integrationId)
-          .eq('entity_type', 'company')
-      );
+      return getSupabase()
+        .schema('public')
+        .from('entities')
+        .select('*')
+        .eq('tenant_id', ctx.tenantId)
+        .eq('integration_id', ctx.integrationId)
+        .eq('entity_type', 'company');
     });
 
     if (error) throw new Error(`Failed to load company entities: ${error}`);
 
-    const companyEntities = data?.rows || [];
+    const companyEntities = data || [];
     const knownExternalIds = new Set(companyEntities.map((e) => e.external_id));
 
     // Load site_to_integration mappings
@@ -142,7 +139,7 @@ export class SophosLinker extends BaseLinker {
 
     if (staleIds.length > 0) {
       tracker.trackUpsert();
-      const { error: deleteError } = await orm.batchDelete(
+      const { error: deleteError } = await getSupabaseHelper().batchDelete(
         'public',
         'site_to_integration',
         staleIds

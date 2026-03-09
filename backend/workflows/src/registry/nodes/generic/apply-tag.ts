@@ -1,10 +1,10 @@
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { registerNode } from '../../registry.js';
 import type { RunContext } from '../../../types.js';
-import { ENTITY_FK_COLUMN } from '../../../lib/entity-map.js';
+import { ENTITY_TABLE_MAP } from '../../../lib/entity-map.js';
 import { ExecutorError } from '../../../errors.js';
 import { TablesInsert } from '@workspace/shared/types/database.js';
-import { orm } from '../../../lib/orm.js';
+import { supabaseHelper } from '../../../lib/supabase-helper.js';
 
 registerNode({
   ref: 'Generic.ApplyTag',
@@ -32,7 +32,7 @@ registerNode({
       throw new ExecutorError(`Generic.ApplyTag: missing tag_definition_id`);
     }
 
-    if (!entityType || !(entityType in ENTITY_FK_COLUMN)) {
+    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
       throw new ExecutorError(`Generic.ApplyTag: unknown or missing _entityType "${entityType}"`);
     }
 
@@ -58,7 +58,7 @@ registerNode({
             }) as TablesInsert<'public', 'tags'>
         );
 
-        const { error } = await orm.batchUpsert('public', 'tags', rows, 500, [
+        const { error } = await supabaseHelper.batchUpsert('public', 'tags', rows, 500, [
           'tenant_id',
           'definition_id',
           'entity_id',

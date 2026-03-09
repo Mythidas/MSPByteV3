@@ -2,8 +2,8 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { registerNode } from '../../registry.js';
 import type { RunContext } from '../../../types.js';
 import { ExecutorError } from '../../../errors.js';
-import { ENTITY_FK_COLUMN } from '../../../lib/entity-map.js';
-import { orm } from '../../../lib/orm.js';
+import { ENTITY_TABLE_MAP } from '../../../lib/entity-map.js';
+import { getSupabase } from '../../../supabase.js';
 
 registerNode({
   ref: 'Generic.RemoveTag',
@@ -31,7 +31,7 @@ registerNode({
       throw new ExecutorError(`Generic.RemoveTag: missing tag_definition_id`);
     }
 
-    if (!entityType || !(entityType in ENTITY_FK_COLUMN)) {
+    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
       throw new ExecutorError(`Generic.RemoveTag: unknown or missing _entityType "${entityType}"`);
     }
 
@@ -45,13 +45,14 @@ registerNode({
 
     try {
       if (entityIds.length > 0) {
-        const { error } = await orm.delete('public', 'tags', (q) =>
-          q
-            .in('entity_id', entityIds)
-            .eq('definition_id', tag_definition_id)
-            .eq('entity_type', entityType)
-            .eq('tenant_id', ctx.tenant_id)
-        );
+        const { error } = await getSupabase()
+          .schema('public')
+          .from('tags')
+          .delete()
+          .in('entity_id', entityIds)
+          .eq('definition_id', tag_definition_id)
+          .eq('entity_type', entityType)
+          .eq('tenant_id', ctx.tenant_id);
         if (error) throw new ExecutorError(`Generic.RemoveTags: delete failed: ${error}`);
       }
     } catch (err) {

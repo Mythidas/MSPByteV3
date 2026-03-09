@@ -1,7 +1,7 @@
 import { Worker } from 'bullmq';
 import { Cron } from 'croner';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { orm } from '../lib/orm.js';
+import { getSupabase } from '../supabase.js';
 import { getRedisConnection } from '../redis.js';
 import { SCHEDULER_QUEUE } from '../queues/scheduler.js';
 import workflowRunQueue from '../queues/workflow-run.js';
@@ -10,12 +10,15 @@ import type { RunSeed, SchedulerJobPayload } from '../types.js';
 const processingTasks = new Set<string>();
 
 async function checkDueTasks(): Promise<void> {
-  const { data: tasks } = await orm.select('public', 'tasks', (q) =>
-    q.eq('enabled', true).lte('next_run_at', new Date().toISOString())
-  );
-  if (!tasks?.rows.length) return;
+  const { data: tasks } = await getSupabase()
+    .schema('public')
+    .from('tasks')
+    .select('*')
+    .eq('enabled', true)
+    .lte('next_run_at', new Date().toISOString());
+  if (!tasks?.length) return;
 
-  const due = tasks.rows.filter((t) => !processingTasks.has(t.id));
+  const due = tasks.filter((t) => !processingTasks.has(t.id));
 
   await Promise.all(
     due.map(async (task) => {
@@ -23,9 +26,12 @@ async function checkDueTasks(): Promise<void> {
 
       processingTasks.add(task.id);
       try {
-        const { data: workflow } = await orm.selectSingle('public', 'workflows', (q) =>
-          q.eq('id', task.workflow_id)
-        );
+        const { data: workflow } = await getSupabase()
+          .schema('public')
+          .from('workflows')
+          .select('*')
+          .eq('id', task.workflow_id)
+          .single();
         if (!workflow) throw new Error(`workflow ${task.workflow_id} not found`);
 
         const scope = task.scope as any;
@@ -37,26 +43,36 @@ async function checkDueTasks(): Promise<void> {
           params: (task.param_defaults as any) ?? {},
         };
 
-        const { data: runs, error: insertErr } = await orm.insert('public', 'task_runs' as any, [
-          {
-            tenant_id: task.tenant_id,
-            task_id: task.id,
-            workflow_id: task.workflow_id,
-            workflow_snapshot: (workflow as any).graph,
-            triggered_by: 'schedule',
-            seed: seed as any,
-            status: 'pending',
-          },
-        ] as any);
+        const { data: runs, error: insertErr } = await getSupabase()
+          .schema('public')
+          .from('task_runs')
+          .insert([
+            {
+              tenant_id: task.tenant_id,
+              task_id: task.id,
+              workflow_id: task.workflow_id,
+              workflow_snapshot: (workflow as any).graph,
+              triggered_by: 'schedule',
+              seed: seed as any,
+              status: 'pending',
+            },
+          ])
+          .select();
         if (insertErr || !runs?.length) throw new Error(`failed to insert task_run: ${insertErr}`);
 
         await workflowRunQueue.add('workflow-run', { run_id: (runs as any[])[0].id });
 
         const next = new Cron((task.schedule as any).cron).nextRun();
-        await orm.update('public', 'tasks', task.id, {
-          last_run_at: new Date().toISOString(),
-          next_run_at: next?.toISOString() ?? null,
-        } as any);
+        await getSupabase()
+          .schema('public')
+          .from('tasks')
+          .update({
+            last_run_at: new Date().toISOString(),
+            next_run_at: next?.toISOString() ?? null,
+          } as any)
+          .eq('id', task.id)
+          .select()
+          .single();
       } catch (err) {
         Logger.error({
           module: 'workflows',

@@ -2,8 +2,8 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { registerNode } from '../../registry.js';
 import type { RunContext } from '../../../types.js';
 import { ExecutorError } from '../../../errors.js';
-import { orm } from '../../../lib/orm.js';
-import { ENTITY_FK_COLUMN } from '../../../lib/entity-map.js';
+import { supabaseHelper } from '../../../lib/supabase-helper.js';
+import { ENTITY_TABLE_MAP } from '../../../lib/entity-map.js';
 
 registerNode({
   ref: 'Generic.ResolveAlert',
@@ -30,25 +30,24 @@ registerNode({
     const alertDefinitionId = input.alert_definition_id as string;
     const entityType = (entities[0] as any)?._entityType as string | undefined;
 
-    if (!entityType || !(entityType in ENTITY_FK_COLUMN)) {
+    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
       throw new ExecutorError(
         `Generic.ResolveAlert: unknown or missing _entityType "${entityType}"`,
       );
     }
 
-    const fkColumn = ENTITY_FK_COLUMN[entityType];
     const entityIds = entities.map((e) => e.id as string);
     let recordsResolved = 0;
 
     try {
       // 1. Fetch open alerts for these entities
-      const { data: openAlerts, error: fetchError } = await orm.batchSelect(
+      const { data: openAlerts, error: fetchError } = await supabaseHelper.batchSelect(
         'public',
         'alerts' as any,
         entityIds,
-        fkColumn as never,
+        'entity_id' as never,
         500,
-        (q: any) => q.eq('definition_id', alertDefinitionId).is('resolved_at', null),
+        (q: any) => q.eq('definition_id', alertDefinitionId).eq('entity_type', entityType).is('resolved_at', null),
       );
 
       if (fetchError || !openAlerts) {
@@ -61,7 +60,7 @@ registerNode({
       const resolvedIds = openAlerts.map((a: any) => a.id as string);
 
       if (resolvedIds.length > 0) {
-        const { error: updateError } = await orm.batchUpdate(
+        const { error: updateError } = await supabaseHelper.batchUpdate(
           'public',
           'alerts' as any,
           resolvedIds,

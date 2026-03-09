@@ -2,8 +2,9 @@ import { Logger } from '@workspace/shared/lib/utils/logger';
 import { registerNode } from '../../registry.js';
 import type { RunContext } from '../../../types.js';
 import { ExecutorError } from '../../../errors.js';
-import { orm } from '../../../lib/orm.js';
-import { ENTITY_FK_COLUMN } from '../../../lib/entity-map.js';
+import { supabaseHelper } from '../../../lib/supabase-helper.js';
+import { getSupabase } from '../../../supabase.js';
+import { ENTITY_TABLE_MAP } from '../../../lib/entity-map.js';
 import { TablesInsert } from '@workspace/shared/types/database.js';
 
 registerNode({
@@ -30,9 +31,12 @@ registerNode({
     const entities = input.entities as Record<string, unknown>[];
     const alertDefinitionId = input.alert_definition_id as string;
     const entityType = (entities[0] as any)?._entityType as string | undefined;
-    const { data: alertDefinition } = await orm.selectSingle('public', 'alert_definitions', (q) =>
-      q.eq('id', alertDefinitionId)
-    );
+    const { data: alertDefinition } = await getSupabase()
+      .schema('public')
+      .from('alert_definitions')
+      .select('*')
+      .eq('id', alertDefinitionId)
+      .single();
 
     if (!alertDefinition) {
       throw new ExecutorError(
@@ -40,13 +44,12 @@ registerNode({
       );
     }
 
-    if (!entityType || !(entityType in ENTITY_FK_COLUMN)) {
+    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
       throw new ExecutorError(
         `Generic.CreateAlert: unknown or missing _entityType "${entityType}"`
       );
     }
 
-    const fkColumn = ENTITY_FK_COLUMN[entityType];
     const entityIds = entities.map((e) => e.id as string);
     const entityMap = new Map(entities.map((e) => [e.id as string, e]));
     let recordsInserted = 0;
@@ -55,13 +58,13 @@ registerNode({
 
     try {
       // 1. Fetch open alerts for these entities
-      const { data: openAlerts, error: fetchError } = await orm.batchSelect(
+      const { data: openAlerts, error: fetchError } = await supabaseHelper.batchSelect(
         'public',
         'alerts' as any,
         entityIds,
-        fkColumn as never,
+        'entity_id' as never,
         500,
-        (q: any) => q.eq('definition_id', alertDefinitionId).is('resolved_at', null)
+        (q: any) => q.eq('definition_id', alertDefinitionId).eq('entity_type', entityType).is('resolved_at', null)
       );
 
       if (fetchError || !openAlerts) {
@@ -69,7 +72,7 @@ registerNode({
       }
 
       // 2. Split: entities with no open alert → insert; with open alert → update last_seen_at
-      const alreadyOpenIds = new Set(openAlerts.map((a: any) => a[fkColumn] as string));
+      const alreadyOpenIds = new Set(openAlerts.map((a: any) => a.entity_id as string));
       const toInsert = entityIds.filter((id) => !alreadyOpenIds.has(id));
       const toUpdate = entityIds.filter((id) => alreadyOpenIds.has(id));
 
@@ -84,9 +87,9 @@ registerNode({
             tenant_id: ctx.tenant_id,
             severity: alertDefinition.severity,
             message: hydrateMessageTemplate(alertDefinition.message_template, ent),
-            fingerprint: `${alertDefinitionId}:${id}`,
             status: 'active',
-            [fkColumn]: id,
+            entity_id: id,
+            entity_type: entityType,
             last_seen_at: now,
             metadata: ent,
             site_id: ent?.site_id ?? null,
@@ -94,7 +97,7 @@ registerNode({
           } as TablesInsert<'public', 'alerts'>;
         });
 
-        const { error: insertError } = await orm.batchInsert(
+        const { error: insertError } = await supabaseHelper.batchInsert(
           'public',
           'alerts' as any,
           rows as any
@@ -106,14 +109,14 @@ registerNode({
 
       // 4. Batch update last_seen_at on existing open alerts
       if (toUpdate.length > 0) {
-        const { error: updateError } = await orm.batchUpdateWhere(
+        const { error: updateError } = await supabaseHelper.batchUpdateWhere(
           'public',
           'alerts' as any,
           toUpdate,
-          fkColumn as never,
+          'entity_id' as never,
           { last_seen_at: new Date().toISOString() } as any,
           500,
-          (q: any) => q.eq('definition_id', alertDefinitionId).is('resolved_at', null)
+          (q: any) => q.eq('definition_id', alertDefinitionId).eq('entity_type', entityType).is('resolved_at', null)
         );
         if (updateError)
           throw new ExecutorError(`Generic.CreateAlert: update failed: ${updateError}`);

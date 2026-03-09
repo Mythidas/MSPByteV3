@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { ORM } from '@workspace/shared/lib/utils/orm';
+import { SupabaseHelper } from '@workspace/shared/lib/utils/supabase-helper';
 import type { Database } from '@workspace/shared/types/schema';
 
 let client: SupabaseClient<Database> | null = null;
@@ -21,9 +21,9 @@ export function getSupabase(): SupabaseClient<Database> {
   return client;
 }
 
-let orm: ORM | null = null;
+let supabaseHelper: SupabaseHelper | null = null;
 
-export function getORM(): ORM {
-  if (!orm) orm = new ORM(getSupabase());
-  return orm;
+export function getSupabaseHelper(): SupabaseHelper {
+  if (!supabaseHelper) supabaseHelper = new SupabaseHelper(getSupabase());
+  return supabaseHelper;
 }

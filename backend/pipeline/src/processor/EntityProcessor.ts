@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getSupabase, getORM } from '../supabase.js';
+import { getSupabase, getSupabaseHelper } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import type { Entity, RawEntity } from '../types.js';
@@ -116,7 +116,7 @@ export class EntityProcessor {
 
     if (staleIds.length === 0) return 0;
 
-    const { error } = await getORM().batchDelete('public', 'entities', staleIds);
+    const { error } = await getSupabaseHelper().batchDelete('public', 'entities', staleIds);
     if (error) throw new Error(`Delete stale entities failed: ${error}`);
 
     tracker.trackEntityDeleted(staleIds.length);
@@ -274,8 +274,7 @@ export class EntityProcessor {
     // TOUCH (unchanged, just bump last_seen_at)
     if (toTouch.length > 0) {
       tracker.trackUpsert();
-      const orm = getORM();
-      const { error: touchError } = await orm.batchUpdate('public', 'entities', toTouch, {
+      const { error: touchError } = await getSupabaseHelper().batchUpdate('public', 'entities', toTouch, {
         last_seen_at: now,
         sync_id: syncId,
         updated_at: now,

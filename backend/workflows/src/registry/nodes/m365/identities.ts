@@ -1,5 +1,6 @@
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { orm } from '../../../lib/orm.js';
+import { supabaseHelper } from '../../../lib/supabase-helper.js';
+import { getSupabase } from '../../../supabase.js';
 import { registerNode } from '../../registry.js';
 import type { RunContext, RunSeed } from '../../../types.js';
 
@@ -20,23 +21,27 @@ registerNode({
 
     switch (seed.scope_type) {
       case 'entity_ids': {
-        const { data } = await orm.batchSelect('vendors', 'm365_identities' as any, seed.entity_ids!, 'id' as never, 500, (q: any) => q.eq('tenant_id', ctx.tenant_id));
+        const { data } = await supabaseHelper.batchSelect('vendors', 'm365_identities' as any, seed.entity_ids!, 'id' as never, 500, (q: any) => q.eq('tenant_id', ctx.tenant_id));
         entities = data ?? [];
         break;
       }
       case 'link_ids': {
-        const { data } = await orm.batchSelect('vendors', 'm365_identities' as any, seed.link_ids!, 'link_id' as never, 500, (q: any) => q.eq('tenant_id', ctx.tenant_id));
+        const { data } = await supabaseHelper.batchSelect('vendors', 'm365_identities' as any, seed.link_ids!, 'link_id' as never, 500, (q: any) => q.eq('tenant_id', ctx.tenant_id));
         entities = data ?? [];
         break;
       }
       case 'site_ids': {
-        const { data } = await orm.batchSelect('vendors', 'm365_identities' as any, seed.site_ids!, 'site_id' as never, 500, (q: any) => q.eq('tenant_id', ctx.tenant_id));
+        const { data } = await supabaseHelper.batchSelect('vendors', 'm365_identities' as any, seed.site_ids!, 'site_id' as never, 500, (q: any) => q.eq('tenant_id', ctx.tenant_id));
         entities = data ?? [];
         break;
       }
       case 'all': {
-        const { data } = await orm.select('vendors', 'm365_identities' as any, (q: any) => q.eq('tenant_id', ctx.tenant_id));
-        entities = data?.rows ?? [];
+        const { data } = await getSupabase()
+          .schema('vendors')
+          .from('m365_identities')
+          .select('*')
+          .eq('tenant_id', ctx.tenant_id);
+        entities = data ?? [];
         break;
       }
     }

@@ -1,4 +1,4 @@
-import { getORM } from '../supabase.js';
+import { getSupabaseHelper } from '../supabase.js';
 import { PipelineTracker } from '../lib/tracker.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import {
@@ -103,7 +103,7 @@ export abstract class BaseLinker {
     ctx: SyncContext,
     tracker: PipelineTracker
   ): Promise<{ created: number; updated: number; deleted: number }> {
-    const orm = getORM();
+    const supabaseHelper = getSupabaseHelper();
     const now = new Date().toISOString();
 
     // sync_id FK references sync_jobs.id (PK), which is syncJobId — NOT syncId
@@ -154,7 +154,7 @@ export abstract class BaseLinker {
     // Execute using ORM batch methods
     if (toCreate.length > 0) {
       tracker.trackUpsert();
-      const { error } = await orm.batchUpsert('public', 'entity_relationships', toCreate, 100, [
+      const { error } = await supabaseHelper.batchUpsert('public', 'entity_relationships', toCreate, 100, [
         'parent_entity_id',
         'child_entity_id',
         'relationship_type',
@@ -166,7 +166,7 @@ export abstract class BaseLinker {
 
     if (toUpdate.length > 0) {
       tracker.trackUpsert();
-      const { error } = await orm.batchUpdate('public', 'entity_relationships', toUpdate, {
+      const { error } = await supabaseHelper.batchUpdate('public', 'entity_relationships', toUpdate, {
         last_seen_at: now,
         sync_id: syncJobId,
         updated_at: now,
@@ -178,7 +178,7 @@ export abstract class BaseLinker {
 
     if (toDelete.length > 0) {
       tracker.trackUpsert();
-      const { error } = await orm.batchDelete('public', 'entity_relationships', toDelete);
+      const { error } = await supabaseHelper.batchDelete('public', 'entity_relationships', toDelete);
       if (error) {
         throw new Error(`Failed to delete entity_relationships: ${error}`);
       }
