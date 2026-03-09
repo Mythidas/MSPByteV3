@@ -1,6 +1,6 @@
 <script lang="ts">
   import Badge from '$lib/components/ui/badge/badge.svelte';
-  import { stateClass } from '$lib/utils/state.js';
+  import { stateClass } from '$lib/config/state-cell.js';
   import { formatStringProper } from '$lib/utils/format.js';
 
   let { value }: { value: string | null } = $props();

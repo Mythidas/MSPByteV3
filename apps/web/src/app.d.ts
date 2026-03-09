@@ -1,4 +1,4 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
@@ -7,8 +7,9 @@ declare global {
     // interface Error {}
     interface Locals {
       supabase: SupabaseClient<Database>;
-      user: Tables<"public", "users"> | null;
-      role: Tables<"public", "roles"> | null;
+      user: Tables<'public', 'users'> | null;
+      role: Tables<'public', 'roles'> | null;
+      tenant: Tables<'public', 'tenants'> | null;
     }
     // interface PageData {}
     // interface PageState {}

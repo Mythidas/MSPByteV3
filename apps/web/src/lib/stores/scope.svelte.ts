@@ -6,41 +6,43 @@ type IntegrationScope = {
   linkId: string | null;
 };
 
-const currentSiteId = new PersistedState<string | null>(
-  "current_site_id",
-  null,
-  { storage: "session", syncTabs: false },
-);
-const currentLinkId = new PersistedState<string | null>(
-  "current_link_id",
-  null,
-  { storage: "session", syncTabs: false },
-);
-const currentIntegration = new PersistedState<IntegrationId | null>(
-  "current_integration",
-  null,
-  { storage: "session", syncTabs: false },
-);
+function createScopeStore() {
+  const currentSiteId = new PersistedState<string | null>(
+    "current_site_id",
+    null,
+    { storage: "session", syncTabs: false },
+  );
+  const currentLinkId = new PersistedState<string | null>(
+    "current_link_id",
+    null,
+    { storage: "session", syncTabs: false },
+  );
+  const currentIntegration = new PersistedState<IntegrationId | null>(
+    "current_integration",
+    null,
+    { storage: "session", syncTabs: false },
+  );
 
-export const getCurrentScope = () => {
   return {
-    siteId: currentSiteId.current,
-    linkId: currentLinkId.current,
-  } as IntegrationScope;
-};
+    get currentScope() {
+      return {
+        siteId: currentSiteId.current,
+        linkId: currentLinkId.current,
+      } as IntegrationScope;
+    },
+    get currentIntegration() {
+      return currentIntegration.current;
+    },
+    set currentSite(v: string | null) {
+      currentSiteId.current = v;
+    },
+    set currentLink(v: string | null) {
+      currentLinkId.current = v;
+    },
+    set currentIntegration(v: IntegrationId | null) {
+      currentIntegration.current = v;
+    },
+  };
+}
 
-export const getCurrentIntegration = () => {
-  return currentIntegration.current;
-};
-
-export const setCurrentSite = (v: string | null) => {
-  currentSiteId.current = v;
-};
-
-export const setCurrentLink = (v: string | null) => {
-  currentLinkId.current = v;
-};
-
-export const setCurrentIntegration = (v: IntegrationId | null) => {
-  currentIntegration.current = v;
-};
+export const scopeStore = createScopeStore();

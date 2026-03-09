@@ -49,6 +49,10 @@ export class Microsoft365Connector {
     return new Microsoft365Connector(this.config, customerTenantId);
   }
 
+  clearTokenCache(): void {
+    this.tokenCache.clear();
+  }
+
   async getIdentities(
     filters?: ConnectorFilters<MSGraphIdentity>,
     fetchAll?: boolean

@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@workspace/web",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -45,6 +45,7 @@
   "dependencies": {
     "@supabase/ssr": "^0.9.0",
     "@sveltejs/adapter-vercel": "^6.3.3",
+    "exceljs": "^4.4.0",
     "lucide-svelte": "^0.577.0",
     "runed": "^0.37.1"
   }
