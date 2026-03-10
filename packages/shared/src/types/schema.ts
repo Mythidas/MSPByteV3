@@ -417,163 +417,6 @@ export type Database = {
           },
         ]
       }
-      entities: {
-        Row: {
-          connection_id: string | null
-          created_at: string
-          data_hash: string
-          display_name: string | null
-          entity_type: string
-          external_id: string
-          id: string
-          integration_id: string
-          last_seen_at: string
-          raw_data: Json
-          site_id: string | null
-          state: string
-          sync_id: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          connection_id?: string | null
-          created_at?: string
-          data_hash: string
-          display_name?: string | null
-          entity_type: string
-          external_id: string
-          id?: string
-          integration_id: string
-          last_seen_at?: string
-          raw_data: Json
-          site_id?: string | null
-          state?: string
-          sync_id?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          connection_id?: string | null
-          created_at?: string
-          data_hash?: string
-          display_name?: string | null
-          entity_type?: string
-          external_id?: string
-          id?: string
-          integration_id?: string
-          last_seen_at?: string
-          raw_data?: Json
-          site_id?: string | null
-          state?: string
-          sync_id?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entities_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "integration_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entities_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entities_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      entity_relationships: {
-        Row: {
-          child_entity_id: string
-          created_at: string
-          id: string
-          integration_id: string
-          last_seen_at: string
-          metadata: Json | null
-          parent_entity_id: string
-          relationship_type: string
-          site_id: string | null
-          sync_id: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          child_entity_id: string
-          created_at?: string
-          id?: string
-          integration_id: string
-          last_seen_at?: string
-          metadata?: Json | null
-          parent_entity_id: string
-          relationship_type: string
-          site_id?: string | null
-          sync_id?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          child_entity_id?: string
-          created_at?: string
-          id?: string
-          integration_id?: string
-          last_seen_at?: string
-          metadata?: Json | null
-          parent_entity_id?: string
-          relationship_type?: string
-          site_id?: string | null
-          sync_id?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "entity_relationships_child_entity_id_fkey"
-            columns: ["child_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_relationships_parent_entity_id_fkey"
-            columns: ["parent_entity_id"]
-            isOneToOne: false
-            referencedRelation: "entities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_relationships_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_relationships_sync_id_fkey"
-            columns: ["sync_id"]
-            isOneToOne: false
-            referencedRelation: "sync_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "entity_relationships_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       ingest_jobs: {
         Row: {
           bullmq_job_id: string | null
@@ -652,50 +495,6 @@ export type Database = {
           },
           {
             foreignKeyName: "ingest_jobs_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      integration_connections: {
-        Row: {
-          created_at: string
-          external_id: string
-          id: string
-          integration_id: string
-          meta: Json
-          name: string
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          external_id: string
-          id?: string
-          integration_id: string
-          meta: Json
-          name: string
-          status: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string
-          id?: string
-          integration_id?: string
-          meta?: Json
-          name?: string
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "integration_connections_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -794,13 +593,13 @@ export type Database = {
           alerts_created: number
           alerts_resolved: number
           completed_at: string | null
-          connection_id: string | null
           created_at: string
           duration_ms: number | null
           entities_updated: number
           error: string | null
           id: string
           job_id: string
+          link_id: string | null
           metrics: Json | null
           site_id: string | null
           started_at: string
@@ -812,13 +611,13 @@ export type Database = {
           alerts_created?: number
           alerts_resolved?: number
           completed_at?: string | null
-          connection_id?: string | null
           created_at?: string
           duration_ms?: number | null
           entities_updated?: number
           error?: string | null
           id?: string
           job_id: string
+          link_id?: string | null
           metrics?: Json | null
           site_id?: string | null
           started_at?: string
@@ -830,13 +629,13 @@ export type Database = {
           alerts_created?: number
           alerts_resolved?: number
           completed_at?: string | null
-          connection_id?: string | null
           created_at?: string
           duration_ms?: number | null
           entities_updated?: number
           error?: string | null
           id?: string
           job_id?: string
+          link_id?: string | null
           metrics?: Json | null
           site_id?: string | null
           started_at?: string
@@ -846,17 +645,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "query_job_history_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "integration_connections"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "query_job_history_job_id_fkey"
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "query_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "query_job_history_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "integration_links"
             referencedColumns: ["id"]
           },
           {
@@ -1126,91 +925,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sites_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sync_jobs: {
-        Row: {
-          bullmq_job_id: string | null
-          completed_at: string | null
-          connection_id: string | null
-          created_at: string
-          entity_type: string | null
-          error: string | null
-          id: string
-          integration_id: string
-          metrics: Json | null
-          priority: number
-          scheduled_for: string | null
-          site_id: string | null
-          started_at: string | null
-          status: string
-          sync_id: string
-          tenant_id: string
-          trigger: string
-          updated_at: string
-        }
-        Insert: {
-          bullmq_job_id?: string | null
-          completed_at?: string | null
-          connection_id?: string | null
-          created_at?: string
-          entity_type?: string | null
-          error?: string | null
-          id?: string
-          integration_id: string
-          metrics?: Json | null
-          priority?: number
-          scheduled_for?: string | null
-          site_id?: string | null
-          started_at?: string | null
-          status?: string
-          sync_id?: string
-          tenant_id: string
-          trigger?: string
-          updated_at?: string
-        }
-        Update: {
-          bullmq_job_id?: string | null
-          completed_at?: string | null
-          connection_id?: string | null
-          created_at?: string
-          entity_type?: string | null
-          error?: string | null
-          id?: string
-          integration_id?: string
-          metrics?: Json | null
-          priority?: number
-          scheduled_for?: string | null
-          site_id?: string | null
-          started_at?: string | null
-          status?: string
-          sync_id?: string
-          tenant_id?: string
-          trigger?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sync_jobs_connection_id_fkey"
-            columns: ["connection_id"]
-            isOneToOne: false
-            referencedRelation: "integration_connections"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sync_jobs_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sync_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

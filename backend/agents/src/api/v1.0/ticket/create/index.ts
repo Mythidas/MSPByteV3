@@ -213,13 +213,13 @@ export default async function (fastify: FastifyInstance) {
         "psa_fetch_assets",
         async () => {
           if (!body.rmm_id || !psaSiteId) {
-            return { data: [] };
+            return { data: undefined, error: undefined };
           }
           return await connector.getAssets(psaSiteId);
         },
       );
 
-      if (assetError || assets.length === 0) {
+      if (assetError) {
         Logger.info({
           module: "v1.0/ticket/create",
           context: "psa_fetch_assets",

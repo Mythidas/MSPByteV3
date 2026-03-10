@@ -1,14 +1,9 @@
 {
-  "name": "@workspace/pipeline",
+  "name": "pipeline",
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "scripts": {
-    "dev": "bun run --watch src/index.ts",
-    "start": "bun run src/index.ts",
-    "build": "tsc --noEmit",
-    "test": "vitest run"
-  },
+  "scripts": {},
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
     "@workspace/shared": "workspace:*",
