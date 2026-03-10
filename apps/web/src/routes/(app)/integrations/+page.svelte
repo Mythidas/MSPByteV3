@@ -32,7 +32,7 @@
   {:then values}
     <FadeIn class="grid grid-cols-4 gap-2">
       {#each filtered as key}
-        {@const active = !!values.find((v) => v.id === key)}
+        {@const active = !!values.find((v) => v.id === key && !v.deleted_at)}
         <div class="flex flex-col bg-card/70 p-4 h-30 justify-between">
           <div class="flex w-full justify-between">
             <span>{INTEGRATIONS[key].name}</span>

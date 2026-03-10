@@ -26,6 +26,16 @@ export const actions = {
 
     throw redirect(303, consentUrl.href);
   },
+  deleteIntegration: async ({ locals }) => {
+    const { error } = await locals.supabase
+      .from('integrations')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', 'microsoft-365')
+      .eq('tenant_id', locals.tenant.id);
+
+    if (error) return fail(500, { error: error.message });
+    throw redirect(303, '/integrations');
+  },
   gdapConsent: async ({ request }) => {
     const formData = await request.formData();
     const gdapTenantId = formData.get('gdapTenantId') as string;

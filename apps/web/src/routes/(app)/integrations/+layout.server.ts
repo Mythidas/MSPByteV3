@@ -10,6 +10,7 @@ async function getIntegration({ locals, url }: { locals: App.Locals; url: URL })
     .select('*')
     .eq('id', integrationId)
     .eq('tenant_id', locals.tenant.id)
+    .is('deleted_at', null)
     .single();
   return (data as Tables<'public', 'integrations'>) ?? null;
 }
@@ -43,3 +44,4 @@ export const load: LayoutServerLoad = async ({ locals, url }) => {
     getSites: getSites({ locals }),
   };
 };
+

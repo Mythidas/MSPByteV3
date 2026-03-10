@@ -560,6 +560,7 @@ export type Database = {
         Row: {
           config: Json
           created_at: string
+          deleted_at: string | null
           id: string
           tenant_id: string
           updated_at: string
@@ -567,6 +568,7 @@ export type Database = {
         Insert: {
           config: Json
           created_at?: string
+          deleted_at?: string | null
           id: string
           tenant_id: string
           updated_at?: string
@@ -574,6 +576,7 @@ export type Database = {
         Update: {
           config?: Json
           created_at?: string
+          deleted_at?: string | null
           id?: string
           tenant_id?: string
           updated_at?: string
@@ -848,51 +851,6 @@ export type Database = {
           },
           {
             foreignKeyName: "site_to_group_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      site_to_integration: {
-        Row: {
-          created_at: string
-          external_id: string
-          id: string
-          integration_id: string
-          meta: Json | null
-          site_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          external_id: string
-          id?: string
-          integration_id: string
-          meta?: Json | null
-          site_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string
-          id?: string
-          integration_id?: string
-          meta?: Json | null
-          site_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "site_to_integration_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "site_to_integration_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"

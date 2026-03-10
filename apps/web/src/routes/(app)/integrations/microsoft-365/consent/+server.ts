@@ -229,11 +229,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
   const { error } = await locals.supabase.from('integrations').upsert(
     {
       id: 'microsoft-365',
-      tenant_id: mspbyteTenantId,
+      tenant_id: mspbyteTenantId!,
       config: {
         tenantId: msTenantId,
       },
       updated_at: new Date().toISOString(),
+      deleted_at: null,
     },
     { onConflict: 'id,tenant_id' }
   );
