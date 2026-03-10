@@ -37,7 +37,7 @@ export {
   nullableTextColumn,
   relativeDateColumn,
   boolBadgeColumn,
-  displayNameColumn,
+  textColumn as displayNameColumn,
 } from './column-defs';
 export type { BoolBadgeCellProps } from './column-defs';
 

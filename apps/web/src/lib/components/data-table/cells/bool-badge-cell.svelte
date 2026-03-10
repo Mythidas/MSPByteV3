@@ -13,10 +13,11 @@
     falseVariant?: 'muted' | 'destructive';
   } = $props();
 
-  const falseClass =
+  const falseClass = $derived(
     falseVariant === 'destructive'
       ? 'bg-destructive/15 text-destructive border-destructive/30'
-      : 'bg-muted/15 text-muted-foreground border-muted/30';
+      : 'bg-amber-500/15 text-amber-500 border-amber-500/30'
+  );
 </script>
 
 {#if value === null || value === undefined}

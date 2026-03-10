@@ -35,6 +35,8 @@ export type DataTableColumn<TData> = {
   sortable?: boolean;
   searchable?: boolean;
   hideable?: boolean;
+  hidden?: boolean;
+  defaultHidden?: boolean;
   width?: string;
   filter?: FilterConfig;
 };

@@ -1539,10 +1539,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "m365_identity_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "m365_groups_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "m365_identity_groups_identity_id_fkey"
             columns: ["identity_id"]
             isOneToOne: false
             referencedRelation: "m365_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_identity_groups_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "m365_identities_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1581,10 +1595,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "m365_identity_roles_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "m365_identities_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "m365_identity_roles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "m365_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_identity_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "m365_roles_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1756,7 +1784,136 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      m365_exchange_configs_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          external_id: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          reject_direct_send: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_groups_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          description: string | null
+          external_id: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          mail_enabled: boolean | null
+          member_count: number | null
+          name: string | null
+          security_enabled: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_identities_view: {
+        Row: {
+          alert_count: number | null
+          assigned_licenses: string[] | null
+          created_at: string | null
+          data_hash: string | null
+          email: string | null
+          enabled: boolean | null
+          external_id: string | null
+          group_count: number | null
+          id: string | null
+          ingest_id: string | null
+          last_non_interactive_sign_in_at: string | null
+          last_seen_at: string | null
+          last_sign_in_at: string | null
+          link_id: string | null
+          link_name: string | null
+          mfa_enforced: boolean | null
+          name: string | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          tenant_id: string | null
+          type: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_licenses_view: {
+        Row: {
+          available_units: number | null
+          consumed_units: number | null
+          created_at: string | null
+          data_hash: string | null
+          enabled: boolean | null
+          external_id: string | null
+          friendly_name: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          locked_out_units: number | null
+          service_plan_names: string[] | null
+          sku_id: string | null
+          sku_part_number: string | null
+          suspended_units: number | null
+          tenant_id: string | null
+          total_units: number | null
+          updated_at: string | null
+          warning_units: number | null
+        }
+        Relationships: []
+      }
+      m365_policies_view: {
+        Row: {
+          conditions: Json | null
+          created_at: string | null
+          data_hash: string | null
+          description: string | null
+          external_id: string | null
+          grant_controls: Json | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          name: string | null
+          policy_state: string | null
+          requires_mfa: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_roles_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          description: string | null
+          external_id: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          member_count: number | null
+          name: string | null
+          role_template_id: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       [_ in never]: never

@@ -3,10 +3,13 @@
   import * as NavigationMenu from '$lib/components/ui/navigation-menu/index.js';
   import { navigationMenuTriggerStyle } from '$lib/components/ui/navigation-menu/navigation-menu-trigger.svelte';
   import Separator from '$lib/components/ui/separator/separator.svelte';
-  import UserAccount from '$lib/components/user-account.svelte';
+  import UserAccount from '$lib/components/nav/user-account.svelte';
   import { authStore } from '$lib/stores/auth.svelte';
   import { cn } from '$lib/utils';
   import { type LayoutProps } from './$types';
+  import { scopeStore } from '$lib/stores/scope.svelte';
+  import IntegrationSelect from '$lib/components/nav/integration-select.svelte';
+  import ScopeSelect from '$lib/components/nav/scope-select.svelte';
 
   const { data, children }: LayoutProps = $props();
 
@@ -14,6 +17,7 @@
     authStore.currentUser = data.user;
     authStore.currentRole = data.role;
     authStore.currentTenant = data.tenant;
+    scopeStore.activeIntegrations = data.activeIntegrations;
   });
 </script>
 
@@ -35,8 +39,12 @@
     <div class="flex w-fit h-full gap-2 items-center">
       <span class="text-lg px-2">MSPByte</span>
       <Separator orientation="vertical" />
+      <IntegrationSelect />
+      <ScopeSelect />
+      <Separator orientation="vertical" />
       <NavigationMenu.Root>
         <NavigationMenu.List>
+          {@render navLink({ href: '/home', label: 'Home' })}
           {@render navLink({ href: '/sites', label: 'Sites' })}
           {@render navLink({ href: '/users', label: 'Users' })}
           {@render navLink({ href: '/roles', label: 'Roles' })}

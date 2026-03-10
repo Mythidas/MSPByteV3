@@ -1,37 +1,36 @@
-import { PersistedState } from "runed";
-import { type IntegrationId } from "@workspace/shared/config/integrations";
-
-type IntegrationScope = {
-  siteId: string | null;
-  linkId: string | null;
-};
+import { PersistedState } from 'runed';
+import { type IntegrationId } from '@workspace/shared/config/integrations';
 
 function createScopeStore() {
-  const currentSiteId = new PersistedState<string | null>(
-    "current_site_id",
-    null,
-    { storage: "session", syncTabs: false },
-  );
-  const currentLinkId = new PersistedState<string | null>(
-    "current_link_id",
-    null,
-    { storage: "session", syncTabs: false },
-  );
-  const currentIntegration = new PersistedState<IntegrationId | null>(
-    "current_integration",
-    null,
-    { storage: "session", syncTabs: false },
-  );
+  const currentSiteId = new PersistedState<string | null>('current_site_id', null, {
+    storage: 'session',
+    syncTabs: false,
+  });
+  const currentLinkId = new PersistedState<string | null>('current_link_id', null, {
+    storage: 'session',
+    syncTabs: false,
+  });
+  const currentIntegration = new PersistedState<IntegrationId | null>('current_integration', null, {
+    storage: 'session',
+    syncTabs: false,
+  });
+  const activeIntegrations = new PersistedState<IntegrationId[]>('active_integrations', [], {
+    storage: 'session',
+    syncTabs: true,
+  });
 
   return {
-    get currentScope() {
-      return {
-        siteId: currentSiteId.current,
-        linkId: currentLinkId.current,
-      } as IntegrationScope;
+    get currentLink() {
+      return currentLinkId.current;
+    },
+    get currentSite() {
+      return currentSiteId.current;
     },
     get currentIntegration() {
       return currentIntegration.current;
+    },
+    get activeIntegrations() {
+      return activeIntegrations.current;
     },
     set currentSite(v: string | null) {
       currentSiteId.current = v;
@@ -41,6 +40,9 @@ function createScopeStore() {
     },
     set currentIntegration(v: IntegrationId | null) {
       currentIntegration.current = v;
+    },
+    set activeIntegrations(v: IntegrationId[]) {
+      activeIntegrations.current = v;
     },
   };
 }

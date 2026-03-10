@@ -4,6 +4,7 @@ import TagsCell from './cells/tags-cell.svelte';
 import BoolBadgeCell from './cells/bool-badge-cell.svelte';
 import NullableTextCell from './cells/nullable-text-cell.svelte';
 import RelativeDateCell from './cells/relative-date-cell.svelte';
+import DateCell from '$lib/components/data-table/cells/date-cell.svelte';
 
 export interface BoolBadgeCellProps {
   trueLabel?: string;
@@ -62,6 +63,21 @@ export function relativeDateColumn<T>(
     key,
     title,
     cellComponent: RelativeDateCell,
+    sortable: true,
+    ...overrides,
+  };
+}
+
+export function dateColumn<T>(
+  key: string,
+  title: string,
+  overrides?: Partial<DataTableColumn<T>>
+): DataTableColumn<T> {
+  return {
+    key,
+    title,
+    cellComponent: DateCell,
+    sortable: true,
     ...overrides,
   };
 }
@@ -77,23 +93,26 @@ export function boolBadgeColumn<T>(
     title,
     cellComponent: BoolBadgeCell,
     cellProps,
+    sortable: true,
     ...overrides,
   };
 }
 
-export function displayNameColumn<T>(
+export function textColumn<T>(
+  key: string,
+  title: string,
   placeholder?: string,
   overrides?: Partial<DataTableColumn<T>>
 ): DataTableColumn<T> {
   return {
-    key: 'display_name',
-    title: 'Name',
+    key,
+    title,
     sortable: true,
     searchable: true,
     filter: {
       type: 'text',
       operators: ['ilike', 'eq'],
-      placeholder: placeholder ?? 'Search name...',
+      placeholder: placeholder ?? `Search ${title}...`,
     },
     ...overrides,
   };

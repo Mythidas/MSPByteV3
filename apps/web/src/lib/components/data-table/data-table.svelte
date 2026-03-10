@@ -15,6 +15,7 @@
   import { cn } from '$lib/utils';
   import { Checkbox } from '$lib/components/ui/checkbox';
   import { Button } from '$lib/components/ui/button';
+  import * as Dialog from '$lib/components/ui/dialog';
   import * as Table from '$lib/components/ui/table';
   import ArrowUpIcon from '@lucide/svelte/icons/arrow-up';
   import ArrowDownIcon from '@lucide/svelte/icons/arrow-down';
@@ -93,12 +94,10 @@
   let sortDir = $state<'asc' | 'desc' | undefined>(initialState.sortDir);
   let selectedRowIds = $state<Set<string>>(new Set());
   let allSelected = $state(false);
-  let visibleColumnKeys = $state<Set<string> | null>(null);
-
-  // Initialize visible columns on first render
-  const resolvedVisibleColumnKeys = $derived(
-    visibleColumnKeys ?? new Set(columns.map((c) => c.key))
+  let visibleColumnKeys = $state<Set<string>>(
+    new Set(columns.filter((c) => !c.defaultHidden).map((c) => c.key))
   );
+  const resolvedVisibleColumnKeys = $derived(visibleColumnKeys);
 
   // Data
   let data = $state<Tables<S, T>[]>([]);
@@ -118,7 +117,10 @@
     sortField && sortDir ? { [sortField]: sortDir } : {}
   );
 
-  const visibleColumns = $derived(columns.filter((col) => resolvedVisibleColumnKeys.has(col.key)));
+  const visibleColumns = $derived(
+    columns.filter((col) => !col.hidden && resolvedVisibleColumnKeys.has(col.key))
+  );
+  const toggleableColumns = $derived(columns.filter((c) => !c.hidden));
 
   const selectedRows = $derived<Tables<S, T>[]>(
     data.filter((row) => selectedRowIds.has(getRowId(row)))
@@ -247,6 +249,7 @@
     activeViewId;
     sortField;
     sortDir;
+    modifyQuery;
 
     untrack(() => {
       fetchData();
@@ -365,17 +368,29 @@
     }
   }
 
+  // Export modal state
+  let exportModalOpen = $state(false);
+  let pendingExportFormat = $state<'csv' | 'xlsx' | null>(null);
+
   // Export handlers
-  async function handleExport(format: 'csv' | 'xlsx') {
-    // Fetch all data without pagination
+  function handleExport(format: 'csv' | 'xlsx') {
+    pendingExportFormat = format;
+    exportModalOpen = true;
+  }
+
+  async function executeExport(scope: 'visible' | 'all') {
+    exportModalOpen = false;
+    if (!pendingExportFormat) return;
     const orm = new SupabaseHelper(supabase);
-    const { data: response } = await orm.selectPaginated(schema, table, {
-      ...paginationOptions,
-      page: 0,
-      size: total || 10000,
-    }, modifyQuery);
+    const { data: response } = await orm.selectPaginated(
+      schema,
+      table,
+      { ...paginationOptions, page: 0, size: total || 10000 },
+      modifyQuery
+    );
     if (response) {
-      await exportData(response.rows, columns, format, resolvedVisibleColumnKeys);
+      const keys = scope === 'visible' ? resolvedVisibleColumnKeys : undefined;
+      await exportData(response.rows, columns, pendingExportFormat, keys);
     }
   }
 
@@ -383,11 +398,16 @@
     let rows: Tables<S, T>[];
     if (allSelected) {
       const orm = new SupabaseHelper(supabase);
-      const { data: response } = await orm.selectPaginated(schema, table, {
-        ...paginationOptions,
-        page: 0,
-        size: total || 10000,
-      }, modifyQuery);
+      const { data: response } = await orm.selectPaginated(
+        schema,
+        table,
+        {
+          ...paginationOptions,
+          page: 0,
+          size: total || 10000,
+        },
+        modifyQuery
+      );
       rows = response?.rows ?? [];
     } else {
       rows = selectedRows;
@@ -402,7 +422,7 @@
   <!-- Toolbar -->
   <div>
     <DataTableToolbar
-      {columns}
+      columns={toggleableColumns}
       globalSearch={enableGlobalSearch ? globalSearch : undefined}
       onglobalsearchchange={enableGlobalSearch ? handleGlobalSearchChange : undefined}
       filters={enableFilters ? filters : undefined}
@@ -468,7 +488,7 @@
           <Table.Row>
             <Table.Cell
               colspan={enableRowSelection ? visibleColumns.length + 1 : visibleColumns.length}
-              class="h-24 text-center"
+              class="h-full text-center"
             >
               Loading...
             </Table.Cell>
@@ -579,4 +599,18 @@
       />
     </div>
   {/if}
+
+  <!-- Export modal -->
+  <Dialog.Root bind:open={exportModalOpen}>
+    <Dialog.Content class="max-w-sm">
+      <Dialog.Header>
+        <Dialog.Title>Export {pendingExportFormat?.toUpperCase()}</Dialog.Title>
+        <Dialog.Description>Choose which columns to include in the export.</Dialog.Description>
+      </Dialog.Header>
+      <div class="flex gap-2 justify-end">
+        <Button variant="outline" onclick={() => executeExport('visible')}>Visible columns</Button>
+        <Button onclick={() => executeExport('all')}>All columns</Button>
+      </div>
+    </Dialog.Content>
+  </Dialog.Root>
 </div>
