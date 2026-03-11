@@ -12,10 +12,14 @@
   import { supabase } from '$lib/utils/supabase.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import IdentitySheet from './_identity-sheet.svelte';
 
   type Identity = Tables<'vendors', 'm365_identities_view'>;
 
   const { data } = $props();
+
+  let selectedIdentity = $state<Identity | null>(null);
+  let sheetOpen = $state(false);
 
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
@@ -112,5 +116,8 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => { selectedIdentity = row; sheetOpen = true; }}
   />
 </div>
+
+<IdentitySheet bind:open={sheetOpen} bind:identity={selectedIdentity} />

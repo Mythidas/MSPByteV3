@@ -8,10 +8,14 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
+  import RoleDetailSheet from './_role-detail-sheet.svelte';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
   const { data } = $props();
+
+  let selectedRole = $state<Entity | null>(null);
+  let sheetOpen = $state(false);
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
@@ -61,6 +65,12 @@
       enableColumnToggle={true}
       enableExport={true}
       enableURLState={true}
+      onrowclick={(row) => {
+        selectedRole = row;
+        sheetOpen = true;
+      }}
     />
   {/key}
 </div>
+
+<RoleDetailSheet bind:open={sheetOpen} bind:role={selectedRole} />

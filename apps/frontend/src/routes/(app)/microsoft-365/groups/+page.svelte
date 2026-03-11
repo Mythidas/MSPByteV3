@@ -10,10 +10,14 @@
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
+  import GroupDetailSheet from './_group-detail-sheet.svelte';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
   const { data } = $props();
+
+  let selectedGroup = $state<Entity | null>(null);
+  let sheetOpen = $state(false);
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
@@ -116,6 +120,12 @@
       enableColumnToggle={true}
       enableExport={true}
       enableURLState={true}
+      onrowclick={(row) => {
+        selectedGroup = row;
+        sheetOpen = true;
+      }}
     />
   {/key}
 </div>
+
+<GroupDetailSheet bind:open={sheetOpen} bind:group={selectedGroup} />

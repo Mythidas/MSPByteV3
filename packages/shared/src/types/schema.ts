@@ -1737,6 +1737,183 @@ export type Database = {
         }
         Relationships: []
       }
+      m365_policy_groups: {
+        Row: {
+          created_at: string
+          group_id: string
+          included: boolean
+          last_seen_at: string
+          link_id: string
+          policy_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          included: boolean
+          last_seen_at?: string
+          link_id: string
+          policy_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          included?: boolean
+          last_seen_at?: string
+          link_id?: string
+          policy_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_policy_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "m365_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_groups_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "m365_groups_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_groups_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "m365_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_groups_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "m365_policies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_policy_identities: {
+        Row: {
+          created_at: string
+          identity_id: string
+          included: boolean
+          last_seen_at: string
+          link_id: string
+          policy_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          identity_id: string
+          included: boolean
+          last_seen_at?: string
+          link_id: string
+          policy_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          identity_id?: string
+          included?: boolean
+          last_seen_at?: string
+          link_id?: string
+          policy_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_policy_identities_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "m365_identities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_identities_identity_id_fkey"
+            columns: ["identity_id"]
+            isOneToOne: false
+            referencedRelation: "m365_identities_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_identities_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "m365_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_identities_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "m365_policies_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_policy_roles: {
+        Row: {
+          created_at: string
+          included: boolean
+          last_seen_at: string
+          link_id: string
+          policy_id: string
+          role_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          included: boolean
+          last_seen_at?: string
+          link_id: string
+          policy_id: string
+          role_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          included?: boolean
+          last_seen_at?: string
+          link_id?: string
+          policy_id?: string
+          role_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_policy_roles_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "m365_policies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_roles_policy_id_fkey"
+            columns: ["policy_id"]
+            isOneToOne: false
+            referencedRelation: "m365_policies_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "m365_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "m365_policy_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "m365_roles_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       m365_roles: {
         Row: {
           created_at: string

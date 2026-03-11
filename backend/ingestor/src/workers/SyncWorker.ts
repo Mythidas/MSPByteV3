@@ -1,14 +1,14 @@
-import type { Job } from 'bullmq';
-import { getSupabase } from '../supabase.js';
-import { queueManager, QueueNames } from '../lib/queue.js';
-import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { JobScheduler } from '../scheduler/JobScheduler.js';
-import type { IngestJobData, M365EntityType, IngestContext } from '../types.js';
-import type { Microsoft365Adapter } from '../adapters/Microsoft365Adapter.js';
-import type { M365Processor } from '../processors/M365Processor.js';
-import type { Microsoft365Linker } from '../linkers/Microsoft365Linker.js';
-import type { Microsoft365Enricher } from '../enrichers/Microsoft365Enricher.js';
+import type { Job } from "bullmq";
+import { getSupabase } from "../supabase.js";
+import { queueManager, QueueNames } from "../lib/queue.js";
+import { PipelineTracker } from "../lib/tracker.js";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { JobScheduler } from "../scheduler/JobScheduler.js";
+import type { IngestJobData, M365EntityType, IngestContext } from "../types.js";
+import type { Microsoft365Adapter } from "../adapters/Microsoft365Adapter.js";
+import type { M365Processor } from "../processors/M365Processor.js";
+import type { Microsoft365Linker } from "../linkers/Microsoft365Linker.js";
+import type { Microsoft365Enricher } from "../enrichers/Microsoft365Enricher.js";
 
 /**
  * SyncWorker — orchestrates one (ingestType) lane: adapter → processor → prune → linker → enricher.
@@ -26,7 +26,7 @@ export class SyncWorker {
     adapter: Microsoft365Adapter,
     processor: M365Processor,
     linker: Microsoft365Linker | null,
-    enricher: Microsoft365Enricher | null = null
+    enricher: Microsoft365Enricher | null = null,
   ) {
     this.ingestType = ingestType;
     this.adapter = adapter;
@@ -38,16 +38,20 @@ export class SyncWorker {
   start(): void {
     if (this.started) return;
 
-    const queueName = QueueNames.ingest('microsoft-365', this.ingestType);
+    const queueName = QueueNames.ingest("microsoft-365", this.ingestType);
 
-    queueManager.createWorker<IngestJobData>(queueName, this.handleJob.bind(this), {
-      concurrency: 3,
-    });
+    queueManager.createWorker<IngestJobData>(
+      queueName,
+      this.handleJob.bind(this),
+      {
+        concurrency: 3,
+      },
+    );
 
     this.started = true;
     Logger.info({
-      module: 'SyncWorker',
-      context: 'start',
+      module: "SyncWorker",
+      context: "start",
       message: `Worker started for microsoft-365:${this.ingestType}`,
     });
   }
@@ -58,26 +62,26 @@ export class SyncWorker {
     const supabase = getSupabase();
 
     Logger.info({
-      module: 'SyncWorker',
-      context: 'handleJob',
+      module: "SyncWorker",
+      context: "handleJob",
       message: `[${jobId}] Starting ingest for microsoft-365:${ingestType}`,
     });
 
     // Mark running
     await supabase
-      .from('ingest_jobs')
-      .update({ status: 'running', updated_at: new Date().toISOString() })
-      .eq('id', jobId);
+      .from("ingest_jobs")
+      .update({ status: "running", updated_at: new Date().toISOString() })
+      .eq("id", jobId);
 
     try {
       // 1. ADAPTER: fetch typed raw entities
-      const rawEntities = await tracker.trackSpan('stage:adapter', async () => {
+      const rawEntities = await tracker.trackSpan("stage:adapter", async () => {
         return this.adapter.fetch(job.data, tracker);
       });
 
       Logger.info({
-        module: 'SyncWorker',
-        context: 'handleJob',
+        module: "SyncWorker",
+        context: "handleJob",
         message: `[${jobId}] Fetched ${rawEntities.length} raw entities`,
       });
 
@@ -85,19 +89,34 @@ export class SyncWorker {
       const filtered = rawEntities.filter((e) => e.type === ingestType);
 
       // 2. PROCESSOR: hash-based upsert → typed vendor table
-      const processedRows = await tracker.trackSpan('stage:processor', async () => {
-        return this.processor.process(filtered, ingestType, tenantId, ingestId, tracker);
-      });
+      const processedRows = await tracker.trackSpan(
+        "stage:processor",
+        async () => {
+          return this.processor.process(
+            filtered,
+            ingestType,
+            tenantId,
+            ingestId,
+            tracker,
+          );
+        },
+      );
 
       // 3. PRUNE: delete stale rows
-      const pruned = await tracker.trackSpan('stage:prune', async () => {
-        return this.processor.pruneStale(processedRows, ingestType, tenantId, linkId, tracker);
+      const pruned = await tracker.trackSpan("stage:prune", async () => {
+        return this.processor.pruneStale(
+          processedRows,
+          ingestType,
+          tenantId,
+          linkId,
+          tracker,
+        );
       });
 
       if (pruned > 0) {
         Logger.info({
-          module: 'SyncWorker',
-          context: 'handleJob',
+          module: "SyncWorker",
+          context: "handleJob",
           message: `[${jobId}] Pruned ${pruned} stale ${ingestType} rows`,
         });
       }
@@ -115,13 +134,13 @@ export class SyncWorker {
         };
 
         if (this.linker) {
-          await tracker.trackSpan('stage:linker', async () => {
-            await this.linker!.linkAndReconcile(ctx, tracker);
+          await tracker.trackSpan("stage:linker", async () => {
+            await this.linker!.linkForLink(ctx, tracker);
           });
         }
 
         if (this.enricher) {
-          await tracker.trackSpan('stage:enricher', async () => {
+          await tracker.trackSpan("stage:enricher", async () => {
             await this.enricher!.enrichIdentities(ctx, tracker);
           });
         }
@@ -130,26 +149,26 @@ export class SyncWorker {
       // 5. Mark completed + schedule next
       const completedAt = new Date().toISOString();
       await supabase
-        .from('ingest_jobs')
+        .from("ingest_jobs")
         .update({
-          status: 'completed',
+          status: "completed",
           completed_at: completedAt,
           metrics: tracker.toJSON() as any,
           updated_at: completedAt,
         })
-        .eq('id', jobId);
+        .eq("id", jobId);
 
       await JobScheduler.scheduleNextIngest(
         tenantId,
         siteId,
         linkId,
         ingestType,
-        job.data.tenantId ? 50 : 50 // default priority
+        job.data.tenantId ? 50 : 50, // default priority
       );
 
       Logger.info({
-        module: 'SyncWorker',
-        context: 'handleJob',
+        module: "SyncWorker",
+        context: "handleJob",
         message: `[${jobId}] Ingest completed for microsoft-365:${ingestType}`,
       });
     } catch (error) {
@@ -157,26 +176,26 @@ export class SyncWorker {
 
       try {
         await supabase
-          .from('ingest_jobs')
+          .from("ingest_jobs")
           .update({
-            status: 'failed',
+            status: "failed",
             completed_at: new Date().toISOString(),
             metrics: tracker.toJSON() as any,
             error: (error as Error).message,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', jobId);
+          .eq("id", jobId);
       } catch (updateError) {
         Logger.error({
-          module: 'SyncWorker',
-          context: 'handleJob',
+          module: "SyncWorker",
+          context: "handleJob",
           message: `Failed to update ingest_job: ${updateError}`,
         });
       }
 
       Logger.error({
-        module: 'SyncWorker',
-        context: 'handleJob',
+        module: "SyncWorker",
+        context: "handleJob",
         message: `[${jobId}] Ingest failed for microsoft-365:${ingestType}: ${(error as Error).message}`,
       });
 

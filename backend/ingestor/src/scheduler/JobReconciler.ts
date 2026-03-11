@@ -1,6 +1,6 @@
-import { getSupabase } from '../supabase.js';
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { M365_TYPES, type M365EntityType } from '../types.js';
+import { getSupabase } from "../supabase.js";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { M365_TYPES, type M365EntityType } from "../types.js";
 
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -11,7 +11,7 @@ const TYPE_PRIORITY: Record<M365EntityType, number> = {
   role: 30,
   policy: 40,
   license: 50,
-  'exchange-config': 60,
+  "exchange-config": 60,
 };
 
 /**
@@ -25,8 +25,8 @@ export class JobReconciler {
     this.reconcile();
     this.timer = setInterval(() => this.reconcile(), RECONCILE_INTERVAL_MS);
     Logger.info({
-      module: 'JobReconciler',
-      context: 'start',
+      module: "JobReconciler",
+      context: "start",
       message: `Reconciler started (every ${RECONCILE_INTERVAL_MS / 60000}m)`,
     });
   }
@@ -44,15 +44,16 @@ export class JobReconciler {
 
       // Fetch all active M365 integration_links
       const { data: links, error } = await supabase
-        .from('integration_links')
-        .select('id, tenant_id, site_id')
-        .eq('integration_id', 'microsoft-365')
-        .eq('status', 'active');
+        .from("integration_links")
+        .select("id, tenant_id, site_id")
+        .eq("integration_id", "microsoft-365")
+        .eq("status", "active")
+        .is("site_id", null);
 
       if (error) {
         Logger.error({
-          module: 'JobReconciler',
-          context: 'reconcile',
+          module: "JobReconciler",
+          context: "reconcile",
           message: `Error fetching integration_links: ${(error as any).message}`,
         });
         return;
@@ -60,20 +61,25 @@ export class JobReconciler {
 
       for (const link of links ?? []) {
         for (const ingestType of M365_TYPES) {
-          if (link.id !== 'de8c9ef9-b722-4b53-a12f-b4be027cba9e') continue;
-          await this.ensureJobExists(link.tenant_id, link.id, link.site_id, ingestType);
+          if (link.id !== "de8c9ef9-b722-4b53-a12f-b4be027cba9e") continue;
+          await this.ensureJobExists(
+            link.tenant_id,
+            link.id,
+            link.site_id,
+            ingestType,
+          );
         }
       }
 
       Logger.trace({
-        module: 'JobReconciler',
-        context: 'reconcile',
-        message: 'Reconcile pass complete',
+        module: "JobReconciler",
+        context: "reconcile",
+        message: "Reconcile pass complete",
       });
     } catch (err) {
       Logger.error({
-        module: 'JobReconciler',
-        context: 'reconcile',
+        module: "JobReconciler",
+        context: "reconcile",
         message: `Reconcile error: ${err}`,
       });
     }
@@ -83,22 +89,22 @@ export class JobReconciler {
     tenantId: string,
     linkId: string,
     siteId: string | null,
-    ingestType: M365EntityType
+    ingestType: M365EntityType,
   ): Promise<void> {
     const supabase = getSupabase();
 
     const { count, error } = await supabase
-      .from('ingest_jobs')
-      .select('*', { count: 'exact', head: true })
-      .eq('tenant_id', tenantId)
-      .eq('link_id', linkId)
-      .eq('ingest_type', ingestType)
-      .in('status', ['pending', 'queued', 'running']);
+      .from("ingest_jobs")
+      .select("*", { count: "exact", head: true })
+      .eq("tenant_id", tenantId)
+      .eq("link_id", linkId)
+      .eq("ingest_type", ingestType)
+      .in("status", ["pending", "queued", "running"]);
 
     if (error) {
       Logger.error({
-        module: 'JobReconciler',
-        context: 'ensureJobExists',
+        module: "JobReconciler",
+        context: "ensureJobExists",
         message: `Error checking job for ${linkId}:${ingestType}: ${(error as any).message}`,
       });
       return;
@@ -106,30 +112,30 @@ export class JobReconciler {
 
     if (count && count > 0) return;
 
-    const { error: insertError } = await supabase.from('ingest_jobs').insert({
+    const { error: insertError } = await supabase.from("ingest_jobs").insert({
       tenant_id: tenantId,
       site_id: siteId,
       link_id: linkId,
-      integration_id: 'microsoft-365',
+      integration_id: "microsoft-365",
       ingest_type: ingestType,
-      status: 'pending',
+      status: "pending",
       priority: (TYPE_PRIORITY[ingestType] ?? 50) + 10, // first sync gets slight boost
-      trigger: 'scheduled',
+      trigger: "scheduled",
       scheduled_for: null,
     });
 
     if (insertError) {
       Logger.error({
-        module: 'JobReconciler',
-        context: 'ensureJobExists',
+        module: "JobReconciler",
+        context: "ensureJobExists",
         message: `Error inserting job for ${linkId}:${ingestType}: ${(insertError as any).message}`,
       });
       return;
     }
 
     Logger.info({
-      module: 'JobReconciler',
-      context: 'ensureJobExists',
+      module: "JobReconciler",
+      context: "ensureJobExists",
       message: `Created missing job: ${ingestType} for link ${linkId}`,
     });
   }

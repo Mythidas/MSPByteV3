@@ -37,6 +37,7 @@
           .select('id,name,external_id')
           .eq('tenant_id', authStore.currentTenant?.id ?? '')
           .eq('integration_id', scopeStore.currentIntegration as string)
+          .eq('status', 'active')
           .is('site_id', null)
           .order('name');
 

@@ -4,14 +4,19 @@
   import { hasPermission } from '$lib/utils/permissions';
   import {
     boolBadgeColumn,
+    nullableTextColumn,
     relativeDateColumn,
     textColumn,
   } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import GroupSheet from './_group-sheet.svelte';
 
   type Group = Tables<'vendors', 'm365_groups_view'>;
 
   const { data } = $props();
+
+  let selectedGroup = $state<Group | null>(null);
+  let sheetOpen = $state(false);
 
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
@@ -22,10 +27,10 @@
     return [
       boolBadgeColumn<Group>('security_enabled', 'Security Group'),
       boolBadgeColumn<Group>('mail_enabled', 'Mail Enabled'),
-      textColumn<Group>('name', 'Name'),
+      textColumn<Group>('name', 'Name', undefined),
       textColumn<Group>('description', 'Description'),
       textColumn<Group>('link_name', 'Tenant', undefined, { hidden: linkSelected }),
-      textColumn<Group>('member_count', 'Members'),
+      nullableTextColumn<Group>('member_count', 'Members'),
     ];
   });
 
@@ -55,5 +60,11 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => {
+      selectedGroup = row;
+      sheetOpen = true;
+    }}
   />
 </div>
+
+<GroupSheet bind:open={sheetOpen} bind:group={selectedGroup} />

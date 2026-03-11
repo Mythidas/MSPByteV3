@@ -4,10 +4,14 @@
   import { page } from '$app/state';
   import { getConnectionIdForScope, getSiteIdsForScope } from '$lib/utils/scope-filter';
   import Badge from '$lib/components/ui/badge/badge.svelte';
+  import LicenseDetailSheet from './_license-detail-sheet.svelte';
 
   type Entity = Tables<'views', 'd_entities_view'>;
 
   const { data } = $props();
+
+  let selectedLicense = $state<Entity | null>(null);
+  let sheetOpen = $state(false);
 
   let scope = $derived(page.url.searchParams.get('scope'));
   let scopeId = $derived(page.url.searchParams.get('scopeId'));
@@ -110,6 +114,12 @@
       enableColumnToggle={true}
       enableExport={true}
       enableURLState={true}
+      onrowclick={(row) => {
+        selectedLicense = row;
+        sheetOpen = true;
+      }}
     />
   {/key}
 </div>
+
+<LicenseDetailSheet bind:open={sheetOpen} bind:license={selectedLicense} />

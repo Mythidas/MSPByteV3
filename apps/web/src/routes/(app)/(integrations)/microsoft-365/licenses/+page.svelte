@@ -4,10 +4,14 @@
   import { hasPermission } from '$lib/utils/permissions';
   import { boolBadgeColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import LicenseSheet from './_license-sheet.svelte';
 
   type License = Tables<'vendors', 'm365_licenses_view'>;
 
   const { data } = $props();
+
+  let selectedLicense = $state<License | null>(null);
+  let sheetOpen = $state(false);
 
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
@@ -53,5 +57,8 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => { selectedLicense = row; sheetOpen = true; }}
   />
 </div>
+
+<LicenseSheet bind:open={sheetOpen} bind:license={selectedLicense} />

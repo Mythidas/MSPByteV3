@@ -4,10 +4,14 @@
   import { hasPermission } from '$lib/utils/permissions';
   import { textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import RoleSheet from './_role-sheet.svelte';
 
   type Role = Tables<'vendors', 'm365_roles_view'>;
 
   const { data } = $props();
+
+  let selectedRole = $state<Role | null>(null);
+  let sheetOpen = $state(false);
 
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
@@ -49,5 +53,8 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => { selectedRole = row; sheetOpen = true; }}
   />
 </div>
+
+<RoleSheet bind:open={sheetOpen} bind:role={selectedRole} />

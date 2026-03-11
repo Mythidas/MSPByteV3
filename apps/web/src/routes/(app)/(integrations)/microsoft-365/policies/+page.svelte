@@ -4,10 +4,14 @@
   import { hasPermission } from '$lib/utils/permissions';
   import { boolBadgeColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import PolicySheet from './_policy-sheet.svelte';
 
   type Policy = Tables<'vendors', 'm365_policies_view'>;
 
   const { data } = $props();
+
+  let selectedPolicy = $state<Policy | null>(null);
+  let sheetOpen = $state(false);
 
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
@@ -64,5 +68,8 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => { selectedPolicy = row; sheetOpen = true; }}
   />
 </div>
+
+<PolicySheet bind:open={sheetOpen} bind:policy={selectedPolicy} />
