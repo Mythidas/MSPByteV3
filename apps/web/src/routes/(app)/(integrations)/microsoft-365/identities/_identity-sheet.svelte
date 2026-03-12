@@ -17,7 +17,13 @@
     open = $bindable(false),
   }: { identity: Identity | null; open: boolean } = $props();
 
-  let activeTab = $state('roles');
+  let activeTab = $state('alerts');
+
+  let alerts = $state<any[]>([]);
+  let alertsLoading = $state(false);
+  let alertsError = $state<string | null>(null);
+  let alertsLoaded = $state(false);
+  let alertsSearch = $state('');
 
   let roles = $state<any[]>([]);
   let rolesLoading = $state(false);
@@ -45,28 +51,42 @@
 
   $effect(() => {
     if (open && identity) {
-      activeTab = 'roles';
+      activeTab = 'alerts';
+      alerts = [];
+      alertsLoading = false;
+      alertsError = null;
+      alertsLoaded = false;
+      alertsSearch = '';
+
       roles = [];
       rolesLoading = false;
       rolesError = null;
       rolesLoaded = false;
       rolesSearch = '';
+
       groups = [];
       groupsLoading = false;
       groupsError = null;
       groupsLoaded = false;
       groupsSearch = '';
+
       licenses = [];
       licensesLoading = false;
       licensesError = null;
       licensesLoaded = false;
       licensesSearch = '';
+
       policies = [];
       policiesLoading = false;
       policiesError = null;
       policiesLoaded = false;
       policiesSearch = '';
     }
+  });
+
+  $effect(() => {
+    if (!open || !identity) return;
+    if (activeTab === 'alerts' && !alertsLoaded) loadAlerts();
   });
 
   $effect(() => {
@@ -89,8 +109,32 @@
     if (activeTab === 'policies' && !policiesLoaded) loadPolicies();
   });
 
+  async function loadAlerts() {
+    if (!identity || !identity.id) return;
+
+    alertsLoading = true;
+    alertsError = null;
+    try {
+      console.log(identity.id);
+      const { data, error } = await supabase
+        .schema('views')
+        .from('d_alerts_view')
+        .select('id,name,description')
+        .eq('entity_type', 'm365_identity')
+        .eq('entity_id', identity.id);
+      if (error) throw error;
+      alerts = data ?? [];
+    } catch (e: any) {
+      alertsError = e.message ?? 'Failed to load alerts';
+    } finally {
+      alertsLoaded = true;
+      alertsLoading = false;
+    }
+  }
+
   async function loadRoles() {
-    if (!identity || !identity.id || !identity.link_id) return;
+    if (!identity || !identity.id || !identity.link_id || roles.length > 0) return;
+
     rolesLoading = true;
     rolesError = null;
     try {
@@ -125,7 +169,8 @@
   }
 
   async function loadGroups() {
-    if (!identity || !identity.id || !identity.link_id) return;
+    if (!identity || !identity.id || !identity.link_id || groups.length > 0) return;
+
     groupsLoading = true;
     groupsError = null;
     try {
@@ -159,7 +204,8 @@
   }
 
   async function loadLicenses() {
-    if (!identity || !identity.link_id) return;
+    if (!identity || !identity.link_id || licenses.length > 0) return;
+
     licensesLoading = true;
     licensesError = null;
     try {
@@ -300,6 +346,13 @@
       .toUpperCase();
   });
 
+  const filteredAlerts = $derived(
+    alerts.filter(
+      (a) =>
+        a.name?.toLowerCase().includes(alertsSearch.toLowerCase()) ||
+        a.description?.toLowerCase().includes(alertsSearch.toLowerCase())
+    )
+  );
   const filteredRoles = $derived(
     roles.filter((r) => r.name?.toLowerCase().includes(rolesSearch.toLowerCase()))
   );
@@ -355,12 +408,45 @@
 
     <div class="px-4 flex-1 flex flex-col min-h-0">
       <Tabs.Root bind:value={activeTab} class="flex flex-col flex-1 min-h-0">
-        <Tabs.List class="grid grid-cols-4 shrink-0">
+        <Tabs.List class="grid grid-cols-5 shrink-0">
+          <Tabs.Trigger value="alerts">Alerts</Tabs.Trigger>
           <Tabs.Trigger value="roles">Roles</Tabs.Trigger>
           <Tabs.Trigger value="groups">Groups</Tabs.Trigger>
           <Tabs.Trigger value="licenses">Licenses</Tabs.Trigger>
           <Tabs.Trigger value="policies">Policies</Tabs.Trigger>
         </Tabs.List>
+
+        <Tabs.Content value="alerts" class="mt-3 flex flex-col flex-1 min-h-0">
+          <div class="relative shrink-0">
+            <SearchIcon class="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input bind:value={alertsSearch} placeholder="Search alerts..." class="pl-8" />
+          </div>
+          <div class="mt-3 flex-1 overflow-y-auto">
+            {#if alertsLoading}
+              <div class="flex items-center justify-center py-8">
+                <LoaderCircleIcon class="animate-spin h-5 w-5 text-muted-foreground" />
+              </div>
+            {:else if alertsError}
+              <div class="flex items-center gap-2 text-destructive py-4">
+                <AlertCircleIcon class="h-4 w-4" />
+                <span class="text-sm">{alertsError}</span>
+              </div>
+            {:else if filteredAlerts.length === 0}
+              <p class="text-sm text-muted-foreground py-4">No alerts found.</p>
+            {:else}
+              <div class="flex flex-col gap-2">
+                {#each filteredAlerts as alert}
+                  <div class="rounded-md border bg-card px-3 py-2">
+                    <p class="text-sm font-medium">{alert.name}</p>
+                    {#if alert.description}
+                      <p class="text-xs text-muted-foreground mt-0.5">{alert.description}</p>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        </Tabs.Content>
 
         <Tabs.Content value="roles" class="mt-3 flex flex-col flex-1 min-h-0">
           <div class="relative shrink-0">

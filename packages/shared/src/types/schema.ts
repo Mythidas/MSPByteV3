@@ -252,7 +252,6 @@ export type Database = {
           message: string
           metadata: Json | null
           resolved_at: string | null
-          severity: string
           site_id: string | null
           status: string
           suppressed_at: string | null
@@ -272,7 +271,6 @@ export type Database = {
           message: string
           metadata?: Json | null
           resolved_at?: string | null
-          severity: string
           site_id?: string | null
           status?: string
           suppressed_at?: string | null
@@ -292,7 +290,6 @@ export type Database = {
           message?: string
           metadata?: Json | null
           resolved_at?: string | null
-          severity?: string
           site_id?: string | null
           status?: string
           suppressed_at?: string | null
@@ -2082,6 +2079,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "agents_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      d_alerts_view: {
+        Row: {
+          created_at: string | null
+          definition_id: string | null
+          description: string | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          message: string | null
+          metadata: Json | null
+          name: string | null
+          resolved_at: string | null
+          severity: string | null
+          site_id: string | null
+          site_name: string | null
+          status: string | null
+          suppressed_at: string | null
+          suppressed_by: string | null
+          suppressed_until: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alerts_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "d_sites_view"

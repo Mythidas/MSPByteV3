@@ -28,6 +28,11 @@
           variant="ghost"
           href={`/${integration.id}`}>Overview</Button
         >
+        <Button
+          class={cn('justify-start', page.url.pathname.includes('/alerts') && 'bg-primary/50')}
+          variant="ghost"
+          href={`/${integration.id}/alerts`}>Alerts</Button
+        >
         {#each globalLinks as navigation}
           {@const active = page.url.pathname.includes(navigation.route)}
           <Button

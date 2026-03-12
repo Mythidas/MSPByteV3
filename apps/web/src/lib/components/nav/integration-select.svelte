@@ -27,7 +27,10 @@
   <SingleSelect
     placeholder="Select Integration"
     searchPlaceholder="Search Integrations"
-    {options}
+    options={[
+      { label: 'Microsoft 365', value: 'microsoft-365' },
+      { label: 'MSPAgent', value: 'mspagent' },
+    ]}
     bind:selected={scopeStore.currentIntegration as string | undefined}
     onchange={(v) => (v ? goto(`/${v}`) : goto('/home'))}
   />
