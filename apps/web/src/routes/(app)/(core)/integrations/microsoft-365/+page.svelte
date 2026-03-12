@@ -30,6 +30,9 @@
   import { toast } from 'svelte-sonner';
   import PermissionGaurd from '$lib/components/auth/permission-gaurd.svelte';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+  import SelectedLink from './_selected-link.svelte';
+  import { supabase } from '$lib/utils/supabase';
+  import { authStore } from '$lib/stores/auth.svelte';
 
   const { data, form }: PageProps = $props();
 
@@ -77,6 +80,7 @@
     const map = new Map<string, string>();
     for (const sl of siteLinks) {
       for (const domain of (sl.meta as any)?.domains ?? []) {
+        if (!(selectedLink?.meta as any).domains?.includes(domain)) continue;
         map.set(domain, sl.site_id!);
       }
     }
@@ -119,6 +123,15 @@
       toast.info(`Failed to process action: ${form.error}`);
     }
   });
+
+  const loadLinks = async () => {
+    const { data: links } = await supabase
+      .from('integration_links')
+      .select('*')
+      .eq('integration_id', 'microsoft-365')
+      .eq('tenant_id', authStore.currentTenant?.id ?? '');
+    dbLinks = links ?? [];
+  };
 
   const missingCapsCount = (link: Tables<'public', 'integration_links'>): number =>
     Object.keys(MS_CAPABILITIES).filter((key) => (link.meta as any)?.capabilities?.[key] === false)
@@ -299,8 +312,10 @@
     {/if}
 
     <!-- Search -->
-    <div class="flex gap-2 items-center shrink-0 w-1/2">
-      <SearchBar bind:value={connectionSearch} placeholder="Search tenants..." />
+    <div class="flex gap-2 items-center shrink-0 w-full">
+      <div class="flex w-96!">
+        <SearchBar bind:value={connectionSearch} placeholder="Search tenants..." />
+      </div>
       <div class="flex gap-1.5 shrink-0">
         {#each ['All', 'Active', 'Needs Consent', 'Has Unmapped', 'Has Orphans', 'Missing Capabilities'] as filter}
           <button
@@ -391,164 +406,13 @@
       </div>
 
       {#if selectedLink}
-        <div class="flex-1 flex flex-col overflow-hidden border rounded bg-card/70">
-          <!-- Tenant header -->
-          <div class="flex items-start justify-between px-4 py-3 border-b shrink-0">
-            <div class="flex flex-col gap-0.5">
-              <h2 class="font-semibold">{selectedLink.name ?? selectedLink.external_id}</h2>
-              <span class="text-xs text-muted-foreground font-mono"
-                >Tenant: {selectedLink.external_id}</span
-              >
-            </div>
-            <button
-              class="p-1 rounded hover:bg-muted transition-colors"
-              onclick={() => (selectedLinkId = null)}
-              aria-label="Close panel"
-            >
-              <X class="size-4" />
-            </button>
-          </div>
-
-          {#if selectedLink.status === 'active'}
-            {@const needsConsent = (selectedLink.meta as any)?.consentVersion !== CONSENT_VERSION}
-            {#if needsConsent}
-              <div
-                class="flex items-center justify-between gap-3 mx-4 mt-3 px-3 py-2 rounded bg-warning/10 text-warning border border-warning/30 shrink-0"
-              >
-                <div class="flex items-center gap-2">
-                  <TriangleAlert class="size-4 shrink-0" />
-                  <span class="text-xs"
-                    >Consent is outdated — re-consent to restore full access.</span
-                  >
-                </div>
-                <form method="POST" action="?/gdapConsent" use:enhance>
-                  <input name="gdapTenantId" value={selectedLink.external_id} hidden />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    class="text-warning border-warning/40 hover:bg-warning/10 shrink-0"
-                    type="submit"
-                  >
-                    Re-consent
-                  </Button>
-                </form>
-              </div>
-            {/if}
-            <!-- Tabs -->
-            <Tabs.Root value="domains" class="flex flex-col flex-1 overflow-hidden">
-              <Tabs.List class="mx-4 mt-3 shrink-0">
-                <Tabs.Trigger value="domains">Domains</Tabs.Trigger>
-                <Tabs.Trigger value="identities">Identities</Tabs.Trigger>
-                <Tabs.Trigger value="capabilities">Capabilities</Tabs.Trigger>
-              </Tabs.List>
-
-              <!-- Domains tab -->
-              <Tabs.Content value="domains" class="flex flex-col overflow-y-auto p-4 gap-2">
-                {#if !(selectedLink.meta as any)?.domains?.length}
-                  <div
-                    class="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground"
-                  >
-                    <Globe class="size-8 opacity-40" />
-                    <span class="text-sm">No domains cached</span>
-                  </div>
-                {:else}
-                  <div class="flex flex-col h-full gap-3 overflow-auto">
-                    <div
-                      class="grid grid-cols-2 gap-2 text-xs font-medium text-muted-foreground px-1"
-                    >
-                      <span>Domain</span>
-                      <span>Mapped Site</span>
-                    </div>
-                    {#each (selectedLink.meta as any).domains as domain}
-                      {@const mappedSiteId = domainSiteMap.get(domain)}
-                      <div class="grid grid-cols-2 gap-2 items-center">
-                        <span class="text-sm font-mono truncate">{domain}</span>
-                        <SingleSelect
-                          options={dbSites.map((ds) => ({ label: ds.name, value: ds.id }))}
-                          selected={mappedSiteId}
-                        />
-                      </div>
-                    {/each}
-                  </div>
-                {/if}
-                <div class="flex h-fit pt-4">
-                  <Button size="sm" disabled>Save Mappings</Button>
-                </div>
-              </Tabs.Content>
-
-              <!-- Identities tab -->
-              <Tabs.Content value="identities" class="flex-1 overflow-y-auto px-4 pb-4 mt-3">
-                <div class="flex flex-col gap-4">
-                  <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium text-sm">Orphaned Identities</span>
-                      <Badge variant="outline" class="text-xs">0</Badge>
-                    </div>
-                    <Button size="sm" variant="outline" disabled>Load</Button>
-                  </div>
-                  <div
-                    class="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground border rounded"
-                  >
-                    <Users class="size-8 opacity-40" />
-                    <span class="text-sm">Click Load to fetch identities</span>
-                  </div>
-                  <div class="flex gap-2">
-                    <Button size="sm" variant="outline" disabled>Load More</Button>
-                    <Button size="sm" disabled>Save Assignments</Button>
-                  </div>
-                </div>
-              </Tabs.Content>
-
-              <!-- Capabilities tab -->
-              <Tabs.Content value="capabilities" class="flex-1 overflow-y-auto px-4 pb-4 mt-3">
-                <div class="flex flex-col gap-4">
-                  <div class="flex items-center justify-between">
-                    <span class="font-medium text-sm">Tenant Capabilities</span>
-                    <Button size="sm" variant="outline" disabled>
-                      <Activity class="size-4 mr-1.5" />
-                      Refresh Capabilities
-                    </Button>
-                  </div>
-                  <div class="flex flex-col gap-2">
-                    {#each Object.entries(MS_CAPABILITIES) as [key, cap]}
-                      {@const hasCapability = (selectedLink.meta as any)?.capabilities?.[
-                        key
-                      ] as boolean}
-                      <div class="flex items-start gap-3 p-3 rounded border bg-muted/30">
-                        {#if hasCapability}
-                          <CircleCheck class="size-4 text-primary mt-0.5 shrink-0" />
-                        {:else if (selectedLink.meta as any)?.capabilities?.[key] === undefined}
-                          <CircleQuestionMark class="size-4 text-amber-500 mt-0.5 shrink-0" />
-                        {:else}
-                          <CircleAlert class="size-4 text-red-500 mt-0.5 shrink-0" />
-                        {/if}
-                        <div class="flex flex-col gap-0.5">
-                          <span class="text-sm font-medium">{cap.label}</span>
-                          <span class="text-xs text-muted-foreground">{cap.description}</span>
-                          {#if (selectedLink.meta as any)?.capabilities?.[key] === undefined}
-                            <span class="text-xs text-muted-foreground/60 italic"
-                              >not yet checked</span
-                            >
-                          {/if}
-                        </div>
-                      </div>
-                    {/each}
-                  </div>
-                </div>
-              </Tabs.Content>
-            </Tabs.Root>
-          {:else}
-            <div class="flex flex-col size-full p-4 items-center justify-center">
-              <div class="flex flex-col h-fit justify-center items-center w-full gap-2">
-                Process consent flow to activate this tenant.
-                <form method="POST" action="?/gdapConsent" use:enhance>
-                  <input name="gdapTenantId" bind:value={selectedLink.external_id} hidden />
-                  <Button type="submit">Consent</Button>
-                </form>
-              </div>
-            </div>
-          {/if}
-        </div>
+        <SelectedLink
+          {selectedLink}
+          {domainSiteMap}
+          {dbSites}
+          onSaveMappings={loadLinks}
+          deselect={() => (selectedLinkId = null)}
+        />
       {/if}
     </div>
   {:else if loading}

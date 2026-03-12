@@ -32,6 +32,12 @@
   let open = $state(false);
   let search = $state('');
 
+  $effect(() => {
+    if (!open) {
+      search = '';
+    }
+  });
+
   const filteredOptions = $derived(
     options.filter((opt) => opt.label.toLowerCase().includes(search.toLowerCase()))
   );

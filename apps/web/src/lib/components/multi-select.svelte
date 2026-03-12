@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Check, ChevronDown } from "lucide-svelte";
-  import { cn } from "$lib/utils";
-  import Button from "$lib/components/ui/button/button.svelte";
-  import * as Popover from "$lib/components/ui/popover/index.js";
-  import * as Command from "$lib/components/ui/command/index.js";
+  import { Check, ChevronDown } from 'lucide-svelte';
+  import { cn } from '$lib/utils';
+  import Button from '$lib/components/ui/button/button.svelte';
+  import * as Popover from '$lib/components/ui/popover/index.js';
+  import * as Command from '$lib/components/ui/command/index.js';
 
   type Option = {
     value: string;
@@ -14,12 +14,12 @@
   let {
     options = [],
     selected = $bindable([]),
-    placeholder = "Select items...",
+    placeholder = 'Select items...',
     maxDisplay = 1,
-    searchPlaceholder = "Search...",
-    class: className = "",
+    searchPlaceholder = 'Search...',
+    class: className = '',
     disabled = false,
-    onchange = (_selected: string[]) => {}
+    onchange = (_selected: string[]) => {},
   }: {
     options: Option[];
     selected?: string[];
@@ -32,7 +32,13 @@
   } = $props();
 
   let open = $state(false);
-  let search = $state("");
+  let search = $state('');
+
+  $effect(() => {
+    if (!open) {
+      search = '';
+    }
+  });
 
   const filteredOptions = $derived.by(() => {
     const filtered = options.filter((opt) =>
@@ -53,9 +59,7 @@
     return filtered;
   });
 
-  const selectedOptions = $derived(
-    options.filter((opt) => selected.includes(opt.value))
-  );
+  const selectedOptions = $derived(options.filter((opt) => selected.includes(opt.value)));
 
   const toggleOption = (value: string) => {
     if (selected.includes(value)) {
@@ -74,7 +78,7 @@
   const displayText = $derived.by(() => {
     if (selectedOptions.length === 0) return placeholder;
     if (selectedOptions.length <= maxDisplay) {
-      return selectedOptions.map((o) => o.label).join(", ");
+      return selectedOptions.map((o) => o.label).join(', ');
     }
     return `${selectedOptions.length} selected`;
   });
@@ -88,7 +92,7 @@
         variant="outline"
         role="combobox"
         aria-expanded={open}
-        class={cn("w-full justify-between overflow-hidden", className)}
+        class={cn('w-full justify-between overflow-hidden', className)}
         {disabled}
       >
         <span class="truncate">{displayText}</span>
@@ -106,14 +110,14 @@
             value={option.value}
             onSelect={() => !option.disabled && toggleOption(option.value)}
             disabled={option.disabled}
-            class={cn(option.disabled && "opacity-50 cursor-not-allowed")}
+            class={cn(option.disabled && 'opacity-50 cursor-not-allowed')}
           >
             <div
               class={cn(
-                "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                'mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary',
                 selected.includes(option.value)
-                  ? "bg-primary text-primary-foreground"
-                  : "opacity-50 [&_svg]:invisible"
+                  ? 'bg-primary text-primary-foreground'
+                  : 'opacity-50 [&_svg]:invisible'
               )}
             >
               <Check class="h-4 w-4" />
