@@ -1,119 +1,124 @@
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { disconnectRedis } from './lib/redis.js';
-import { queueManager } from './lib/queue.js';
-import { Microsoft365Adapter } from './adapters/Microsoft365Adapter.js';
-import { M365Processor } from './processors/M365Processor.js';
-import { Microsoft365Linker } from './linkers/Microsoft365Linker.js';
-import { Microsoft365Enricher } from './enrichers/Microsoft365Enricher.js';
-import { JobScheduler } from './scheduler/JobScheduler.js';
-import { JobReconciler } from './scheduler/JobReconciler.js';
-import { SyncWorker } from './workers/SyncWorker.js';
-import { M365_TYPES, type M365EntityType } from './types.js';
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { disconnectRedis } from "./lib/redis.js";
+import { queueManager } from "./lib/queue.js";
+import { JobScheduler } from "./scheduler/JobScheduler.js";
+import { JobReconciler } from "./scheduler/JobReconciler.js";
+import { SyncWorker } from "./workers/SyncWorker.js";
+import { LinkWorker } from "./workers/LinkWorker.js";
+import { EnrichWorker } from "./workers/EnrichWorker.js";
+import { registry } from "./registry.js";
+import { INTEGRATIONS } from "@workspace/shared/config/integrations.js";
+
+// Side-effect imports — each registers itself with the registry
+import "./integrations/microsoft-365/index.js";
+// import './integrations/sophos/index.js';
+// import './integrations/dattormm/index.js';
 
 async function main() {
-  Logger.level = (process.env.LOG_LEVEL as any) || 'info';
+  Logger.level = (process.env.LOG_LEVEL as any) || "info";
 
   Logger.info({
-    module: 'Ingestor',
-    context: 'main',
-    message: 'Starting M365 ingestor...',
+    module: "Ingestor",
+    context: "main",
+    message: "Starting ingestor...",
   });
 
-  const required = ['PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_KEY', 'REDIS_HOST', 'REDIS_PORT'];
+  const required = [
+    "PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_KEY",
+    "REDIS_HOST",
+    "REDIS_PORT",
+  ];
   for (const envVar of required) {
-    if (!process.env[envVar]) {
-      throw new Error(`Missing required environment variable: ${envVar}`);
-    }
+    if (!process.env[envVar])
+      throw new Error(`Missing required env var: ${envVar}`);
   }
 
-  // Recover stuck jobs from previous crash
   const recovered = await JobScheduler.recoverStuckJobs();
   Logger.info({
-    module: 'Ingestor',
-    context: 'main',
+    module: "Ingestor",
+    context: "main",
     message: `Recovered ${recovered} stuck jobs`,
   });
 
-  const adapter = new Microsoft365Adapter();
-  const processor = new M365Processor();
-  const linker = new Microsoft365Linker();
-  const enricher = new Microsoft365Enricher();
+  // Spin up workers for every registered integration
+  const syncWorkers: SyncWorker[] = [];
 
-  // Start one worker per entity type; linker + enricher only run for identity
-  const workers: SyncWorker[] = [];
-  for (const ingestType of M365_TYPES) {
-    const worker = new SyncWorker(
-      ingestType,
-      adapter,
-      processor,
-      ingestType === 'identity' ? linker : null,
-      ingestType === 'identity' ? enricher : null
-    );
-    worker.start();
-    workers.push(worker);
+  for (const def of registry.getAll()) {
+    const config = INTEGRATIONS[def.integrationId];
+
+    // One SyncWorker per non-fanout entity type
+    for (const typeConfig of config.supportedTypes.filter((t) => !t.fanOut)) {
+      const worker = new SyncWorker(
+        def.integrationId,
+        typeConfig.type,
+        def.adapter,
+        def,
+      );
+      worker.start();
+      syncWorkers.push(worker);
+    }
+
+    // One LinkWorker + one EnrichWorker per integration
+    new LinkWorker(def.integrationId, def.linker, def).start();
+    new EnrichWorker(def.integrationId, def.enricher).start();
   }
 
   Logger.info({
-    module: 'Ingestor',
-    context: 'main',
-    message: `Started ${workers.length} workers (${M365_TYPES.join(', ')})`,
+    module: "Ingestor",
+    context: "main",
+    message: `Started ${syncWorkers.length} sync workers across ${registry.getAll().length} integration(s)`,
   });
 
-  // Reconciler ensures ingest_jobs exist for every active link × type
   const reconciler = new JobReconciler();
   await reconciler.reconcile();
   reconciler.start();
 
-  // Scheduler dispatches pending jobs to BullMQ
   const scheduler = new JobScheduler();
   scheduler.start();
 
   Logger.info({
-    module: 'Ingestor',
-    context: 'main',
-    message: 'Ingestor started. Press Ctrl+C to stop.',
+    module: "Ingestor",
+    context: "main",
+    message: "Ingestor started. Press Ctrl+C to stop.",
   });
 
   const shutdown = async (signal: string) => {
     Logger.info({
-      module: 'Ingestor',
-      context: 'shutdown',
-      message: `Received ${signal}, shutting down gracefully...`,
+      module: "Ingestor",
+      context: "shutdown",
+      message: `Received ${signal}, shutting down...`,
     });
-
     try {
       reconciler.stop();
       scheduler.stop();
       await queueManager.closeAll();
       await disconnectRedis();
-
       Logger.info({
-        module: 'Ingestor',
-        context: 'shutdown',
-        message: 'Graceful shutdown complete',
+        module: "Ingestor",
+        context: "shutdown",
+        message: "Graceful shutdown complete",
       });
-
       process.exit(0);
     } catch (error) {
       Logger.error({
-        module: 'Ingestor',
-        context: 'shutdown',
-        message: `Error during shutdown: ${error}`,
+        module: "Ingestor",
+        context: "shutdown",
+        message: `Shutdown error: ${error}`,
       });
       process.exit(1);
     }
   };
 
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
 main().catch((error) => {
   Logger.fatal({
-    module: 'Ingestor',
-    context: 'main',
+    module: "Ingestor",
+    context: "main",
     message: `Fatal error: ${error}`,
   });
-  console.error('Fatal error:', error);
   process.exit(1);
 });

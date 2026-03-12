@@ -6,9 +6,9 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "Sophos Partner",
     type: "security",
     supportedTypes: [
-      { type: "company", rateMinutes: DAILY, priority: 5 },
+      { type: "companies", rateMinutes: DAILY, priority: 5 },
       {
-        type: "endpoint",
+        type: "endpoints",
         rateMinutes: DAILY,
         priority: 3,
         fanOut: true,
@@ -23,9 +23,9 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "DattoRMM",
     type: "rmm",
     supportedTypes: [
-      { type: "company", rateMinutes: DAILY, priority: 5 },
+      { type: "companies", rateMinutes: DAILY, priority: 5 },
       {
-        type: "endpoint",
+        type: "endpoints",
         rateMinutes: DAILY,
         priority: 3,
         fanOut: true,
@@ -40,9 +40,9 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "Cove Backups",
     type: "recovery",
     supportedTypes: [
-      { type: "company", rateMinutes: DAILY, priority: 5 },
+      { type: "companies", rateMinutes: DAILY, priority: 5 },
       {
-        type: "endpoint",
+        type: "endpoints",
         rateMinutes: DAILY,
         priority: 3,
         fanOut: true,
@@ -57,11 +57,11 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "Microsoft 365",
     type: "security",
     supportedTypes: [
-      { type: "identity", rateMinutes: DAILY, priority: 3 },
-      { type: "group", rateMinutes: DAILY, priority: 5 },
-      { type: "license", rateMinutes: DAILY, priority: 7 },
-      { type: "role", rateMinutes: DAILY, priority: 5 },
-      { type: "policy", rateMinutes: DAILY, priority: 5 },
+      { type: "identities", rateMinutes: DAILY, priority: 3 },
+      { type: "groups", rateMinutes: DAILY, priority: 5 },
+      { type: "licenses", rateMinutes: DAILY, priority: 7 },
+      { type: "roles", rateMinutes: DAILY, priority: 5 },
+      { type: "policies", rateMinutes: DAILY, priority: 5 },
       { type: "exchange-config", rateMinutes: DAILY, priority: 9 },
     ],
     scope: "link",
@@ -125,17 +125,17 @@ export type IntegrationId =
   | "mspagent";
 
 export type EntityType =
-  | "company"
-  | "contract"
-  | "contract_service"
-  | "endpoint"
-  | "firewall"
-  | "license"
-  | "identity"
-  | "group"
-  | "role"
-  | "policy"
-  | "ticket"
+  | "companies"
+  | "contracts"
+  | "contract_services"
+  | "endpoints"
+  | "firewalls"
+  | "licenses"
+  | "identities"
+  | "groups"
+  | "roles"
+  | "policies"
+  | "tickets"
   | "exchange-config";
 
 export type EntityTypeConfig = {

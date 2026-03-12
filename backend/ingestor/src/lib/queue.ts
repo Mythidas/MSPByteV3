@@ -4,6 +4,8 @@ import { Logger } from '@workspace/shared/lib/utils/logger.js';
 
 export const QueueNames = {
   ingest: (integrationId: string, entityType: string) => `ingest.${integrationId}.${entityType}`,
+  link:   (integrationId: string) => `ingest.${integrationId}.link`,
+  enrich: (integrationId: string) => `ingest.${integrationId}.enrich`,
 };
 
 class QueueManager {

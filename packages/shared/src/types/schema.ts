@@ -425,7 +425,7 @@ export type Database = {
           error: string | null
           id: string
           ingest_id: string
-          ingest_type: string | null
+          ingest_type: Database["public"]["Enums"]["IngestType"]
           integration_id: string
           link_id: string | null
           metrics: Json | null
@@ -445,7 +445,7 @@ export type Database = {
           error?: string | null
           id?: string
           ingest_id?: string
-          ingest_type?: string | null
+          ingest_type: Database["public"]["Enums"]["IngestType"]
           integration_id: string
           link_id?: string | null
           metrics?: Json | null
@@ -465,7 +465,7 @@ export type Database = {
           error?: string | null
           id?: string
           ingest_id?: string
-          ingest_type?: string | null
+          ingest_type?: Database["public"]["Enums"]["IngestType"]
           integration_id?: string
           link_id?: string | null
           metrics?: Json | null
@@ -495,6 +495,61 @@ export type Database = {
           },
           {
             foreignKeyName: "ingest_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ingest_sync_states: {
+        Row: {
+          id: string
+          ingest_type: Database["public"]["Enums"]["IngestType"]
+          integration_id: string
+          last_job_id: string | null
+          last_synced_at: string
+          link_id: string | null
+          metadata: Json
+          tenant_id: string
+        }
+        Insert: {
+          id?: string
+          ingest_type: Database["public"]["Enums"]["IngestType"]
+          integration_id: string
+          last_job_id?: string | null
+          last_synced_at: string
+          link_id?: string | null
+          metadata?: Json
+          tenant_id: string
+        }
+        Update: {
+          id?: string
+          ingest_type?: Database["public"]["Enums"]["IngestType"]
+          integration_id?: string
+          last_job_id?: string | null
+          last_synced_at?: string
+          link_id?: string | null
+          metadata?: Json
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ingest_sync_states_last_job_id_fkey"
+            columns: ["last_job_id"]
+            isOneToOne: false
+            referencedRelation: "ingest_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_sync_states_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "integration_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ingest_sync_states_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -584,151 +639,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "integrations_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      query_job_history: {
-        Row: {
-          alerts_created: number
-          alerts_resolved: number
-          completed_at: string | null
-          created_at: string
-          duration_ms: number | null
-          entities_updated: number
-          error: string | null
-          id: string
-          job_id: string
-          link_id: string | null
-          metrics: Json | null
-          site_id: string | null
-          started_at: string
-          status: string
-          tags_applied: number
-          tenant_id: string
-        }
-        Insert: {
-          alerts_created?: number
-          alerts_resolved?: number
-          completed_at?: string | null
-          created_at?: string
-          duration_ms?: number | null
-          entities_updated?: number
-          error?: string | null
-          id?: string
-          job_id: string
-          link_id?: string | null
-          metrics?: Json | null
-          site_id?: string | null
-          started_at?: string
-          status?: string
-          tags_applied?: number
-          tenant_id: string
-        }
-        Update: {
-          alerts_created?: number
-          alerts_resolved?: number
-          completed_at?: string | null
-          created_at?: string
-          duration_ms?: number | null
-          entities_updated?: number
-          error?: string | null
-          id?: string
-          job_id?: string
-          link_id?: string | null
-          metrics?: Json | null
-          site_id?: string | null
-          started_at?: string
-          status?: string
-          tags_applied?: number
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "query_job_history_job_id_fkey"
-            columns: ["job_id"]
-            isOneToOne: false
-            referencedRelation: "query_jobs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "query_job_history_link_id_fkey"
-            columns: ["link_id"]
-            isOneToOne: false
-            referencedRelation: "integration_links"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "query_job_history_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "query_job_history_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      query_jobs: {
-        Row: {
-          created_at: string
-          depends_on: string[]
-          enabled: boolean
-          id: string
-          integration_id: string
-          is_built_in: boolean
-          last_run_at: string | null
-          name: string
-          next_run_at: string
-          repeated: boolean
-          schedule_hours: number
-          status: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          depends_on?: string[]
-          enabled?: boolean
-          id?: string
-          integration_id: string
-          is_built_in?: boolean
-          last_run_at?: string | null
-          name: string
-          next_run_at?: string
-          repeated?: boolean
-          schedule_hours: number
-          status?: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          depends_on?: string[]
-          enabled?: boolean
-          id?: string
-          integration_id?: string
-          is_built_in?: boolean
-          last_run_at?: string | null
-          name?: string
-          next_run_at?: string
-          repeated?: boolean
-          schedule_hours?: number
-          status?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "query_jobs_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -1347,7 +1257,21 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      [_ in never]: never
+      IngestType:
+        | "companies"
+        | "endpoints"
+        | "firewalls"
+        | "licenses"
+        | "identities"
+        | "groups"
+        | "roles"
+        | "policies"
+        | "tickets"
+        | "exchange-config"
+        | "link-identity-groups"
+        | "link-identity-roles"
+        | "link-policies"
+        | "enrich-mfa-enforced"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2346,7 +2270,24 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      IngestType: [
+        "companies",
+        "endpoints",
+        "firewalls",
+        "licenses",
+        "identities",
+        "groups",
+        "roles",
+        "policies",
+        "tickets",
+        "exchange-config",
+        "link-identity-groups",
+        "link-identity-roles",
+        "link-policies",
+        "enrich-mfa-enforced",
+      ],
+    },
   },
   vendors: {
     Enums: {},

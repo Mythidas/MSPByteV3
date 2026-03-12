@@ -28,7 +28,7 @@
       boolBadgeColumn<Group>('security_enabled', 'Security Group'),
       boolBadgeColumn<Group>('mail_enabled', 'Mail Enabled'),
       textColumn<Group>('name', 'Name', undefined),
-      textColumn<Group>('description', 'Description'),
+      textColumn<Group>('description', 'Description', undefined, { cell: descriptionCell }),
       textColumn<Group>('link_name', 'Tenant', undefined, { hidden: linkSelected }),
       nullableTextColumn<Group>('member_count', 'Members'),
     ];
@@ -43,6 +43,10 @@
     };
   });
 </script>
+
+{#snippet descriptionCell({ value }: { row: Group; value: string })}
+  <span>{value?.substring(0, 50)}{value && value?.length > 50 ? '...' : ''}</span>
+{/snippet}
 
 <div class="flex flex-col gap-2 size-full">
   <h1 class="h-fit text-2xl font-bold">Groups</h1>

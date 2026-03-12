@@ -1,7 +1,8 @@
-import { getSupabase } from '../supabase.js';
+import { getSupabase } from '../../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { PipelineTracker } from '../lib/tracker.js';
-import type { IngestContext } from '../types.js';
+import { PipelineTracker } from '../../lib/tracker.js';
+import type { EnrichJobData } from '../../types.js';
+import type { IEnricher } from '../../interfaces.js';
 import type { MSGraphConditionalAccessPolicy } from '@workspace/shared/types/integrations/microsoft/policies.js';
 
 const CHUNK = 500;
@@ -9,54 +10,21 @@ const CHUNK = 500;
 /**
  * Microsoft365Enricher — computes derived columns on already-synced vendor rows.
  * No API calls. Runs after Adapter → Processor → Linker.
+ * Dep checking is handled by EnrichWorker — no prerequisites guard here.
  */
-export class Microsoft365Enricher {
-  async enrichIdentities(ctx: IngestContext, tracker: PipelineTracker): Promise<void> {
-    if (!ctx.linkId) {
-      Logger.warn({
-        module: 'Microsoft365Enricher',
-        context: 'enrichIdentities',
-        message: 'No linkId in context — skipping enrichment',
-      });
-      return;
+export class Microsoft365Enricher implements IEnricher {
+  async enrich(job: EnrichJobData, tracker: PipelineTracker): Promise<void> {
+    switch (job.enrichOpType) {
+      case 'enrich-mfa-enforced':
+        return this.enrichMfaEnforced(job, tracker);
+      default:
+        throw new Error(`Microsoft365Enricher: unknown enrichOpType "${job.enrichOpType}"`);
     }
+  }
 
+  private async enrichMfaEnforced(job: EnrichJobData, tracker: PipelineTracker): Promise<void> {
+    const { tenantId, linkId } = job;
     const supabase = getSupabase();
-
-    // Guard: prerequisites must exist
-    tracker.trackQuery();
-    const { count: policyCount } = await supabase
-      .schema('vendors')
-      .from('m365_policies')
-      .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
-
-    tracker.trackQuery();
-    const { count: igCount } = await supabase
-      .schema('vendors')
-      .from('m365_identity_groups')
-      .select('identity_id', { count: 'exact', head: true })
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
-
-    if (!policyCount || policyCount === 0) {
-      Logger.warn({
-        module: 'Microsoft365Enricher',
-        context: 'enrichIdentities',
-        message: `No m365_policies found for linkId ${ctx.linkId} — deferring enrichment`,
-      });
-      return;
-    }
-
-    if (!igCount || igCount === 0) {
-      Logger.warn({
-        module: 'Microsoft365Enricher',
-        context: 'enrichIdentities',
-        message: `No m365_identity_groups found for linkId ${ctx.linkId} — deferring enrichment`,
-      });
-      return;
-    }
 
     // Load data
     tracker.trackQuery();
@@ -64,48 +32,48 @@ export class Microsoft365Enricher {
       .schema('vendors')
       .from('m365_policies')
       .select('id, policy_state, requires_mfa, conditions')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId);
 
     tracker.trackQuery();
     const { data: identityRows } = await supabase
       .schema('vendors')
       .from('m365_identities')
       .select('id, external_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId);
 
     tracker.trackQuery();
     const { data: groupRows } = await supabase
       .schema('vendors')
       .from('m365_groups')
       .select('id, external_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId);
 
     tracker.trackQuery();
     const { data: roleRows } = await supabase
       .schema('vendors')
       .from('m365_roles')
       .select('id, external_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId);
 
     tracker.trackQuery();
     const { data: identityGroupRows } = await supabase
       .schema('vendors')
       .from('m365_identity_groups')
       .select('identity_id, group_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId);
 
     tracker.trackQuery();
     const { data: identityRoleRows } = await supabase
       .schema('vendors')
       .from('m365_identity_roles')
       .select('identity_id, role_id')
-      .eq('tenant_id', ctx.tenantId)
-      .eq('link_id', ctx.linkId);
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId);
 
     // Filter to MFA + all-apps policies using pre-computed columns
     type PolicyConditions = MSGraphConditionalAccessPolicy['conditions'];
@@ -120,10 +88,10 @@ export class Microsoft365Enricher {
 
     // Build lookup maps
     const groupIdToExternal = new Map<string, string>(
-      (groupRows ?? []).map((g) => [g.id, g.external_id ?? ''])
+      (groupRows ?? []).map((g) => [g.id, g.external_id ?? '']),
     );
     const roleIdToExternal = new Map<string, string>(
-      (roleRows ?? []).map((r) => [r.id, r.external_id ?? ''])
+      (roleRows ?? []).map((r) => [r.id, r.external_id ?? '']),
     );
 
     const identityGroups = new Map<string, Set<string>>();
@@ -201,8 +169,8 @@ export class Microsoft365Enricher {
 
     Logger.info({
       module: 'Microsoft365Enricher',
-      context: 'enrichIdentities',
-      message: `Enriched ${total} identities (${trueIds.length} MFA enforced, ${falseIds.length} not) for linkId ${ctx.linkId}`,
+      context: 'enrich',
+      message: `Enriched ${total} identities (${trueIds.length} MFA enforced, ${falseIds.length} not) for linkId ${linkId}`,
     });
   }
 }

@@ -1,42 +1,54 @@
-import crypto from 'crypto';
-import { getSupabase, getSupabaseHelper } from '../supabase.js';
-import { PipelineTracker } from '../lib/tracker.js';
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import type { RawM365Entity, M365ProcessedRow, M365EntityType } from '../types.js';
-import { TablesInsert } from '@workspace/shared/types/database.js';
+import crypto from "crypto";
+import { getSupabase, getSupabaseHelper } from "../../supabase.js";
+import { PipelineTracker } from "../../lib/tracker.js";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import type { IngestJobData } from "../../types.js";
+import type { RawM365Entity, M365EntityType } from "./types.js";
+import type { IProcessor, ProcessedRow } from "../../interfaces.js";
+import { TablesInsert } from "@workspace/shared/types/database.js";
 
 /**
  * M365Processor — typed hash-based upsert for vendors.m365_* tables.
  * Routes per entity type. No raw blob stored.
  */
-export class M365Processor {
+export class M365Processor implements IProcessor<RawM365Entity> {
   async process(
     entities: RawM365Entity[],
-    entityType: M365EntityType,
-    tenantId: string,
-    ingestId: string,
-    tracker: PipelineTracker
-  ): Promise<M365ProcessedRow[]> {
+    job: IngestJobData,
+    tracker: PipelineTracker,
+  ): Promise<ProcessedRow[]> {
+    const entityType = job.ingestType as M365EntityType;
+    const { tenantId, ingestId } = job;
+
     Logger.info({
-      module: 'M365Processor',
-      context: 'process',
+      module: "M365Processor",
+      context: "process",
       message: `Processing ${entities.length} ${entityType} entities`,
     });
 
     const chunks = chunkArray(entities, 100);
-    const allProcessed: M365ProcessedRow[] = [];
+    const allProcessed: ProcessedRow[] = [];
 
     for (let i = 0; i < chunks.length; i++) {
-      const chunkRows = await tracker.trackSpan(`processor:chunk:${i}`, async () => {
-        return this.processChunk(chunks[i], entityType, tenantId, ingestId, tracker);
-      });
+      const chunkRows = await tracker.trackSpan(
+        `processor:chunk:${i}`,
+        async () => {
+          return this.processChunk(
+            chunks[i],
+            entityType,
+            tenantId,
+            ingestId,
+            tracker,
+          );
+        },
+      );
       allProcessed.push(...chunkRows);
     }
 
     const c = tracker.getCounters();
     Logger.info({
-      module: 'M365Processor',
-      context: 'process',
+      module: "M365Processor",
+      context: "process",
       message: `Completed: ${c.entities_created} created, ${c.entities_updated} updated, ${c.entities_unchanged} unchanged`,
     });
 
@@ -44,12 +56,13 @@ export class M365Processor {
   }
 
   async pruneStale(
-    processedRows: M365ProcessedRow[],
-    entityType: M365EntityType,
-    tenantId: string,
-    linkId: string | null,
-    tracker: PipelineTracker
+    processedRows: ProcessedRow[],
+    job: IngestJobData,
+    tracker: PipelineTracker,
   ): Promise<number> {
+    const entityType = job.ingestType as M365EntityType;
+    const { tenantId, linkId } = job;
+
     const survivingIds = new Set(processedRows.map((r) => r.external_id));
     const supabase = getSupabase();
     const tableName = getTableName(entityType);
@@ -60,19 +73,22 @@ export class M365Processor {
 
     while (true) {
       tracker.trackQuery();
-      let query = (supabase.schema('vendors').from(tableName as any) as any)
-        .select('id, external_id')
-        .eq('tenant_id', tenantId)
+      let query = (supabase.schema("vendors").from(tableName as any) as any)
+        .select("id, external_id")
+        .eq("tenant_id", tenantId)
         .range(offset, offset + PAGE_SIZE - 1);
 
       if (linkId !== null) {
-        query = query.eq('link_id', linkId);
+        query = query.eq("link_id", linkId);
       } else {
-        query = query.is('link_id', null);
+        query = query.is("link_id", null);
       }
 
       const { data, error } = await query;
-      if (error) throw new Error(`Fetch ${tableName} for prune failed: ${error.message}`);
+      if (error)
+        throw new Error(
+          `Fetch ${tableName} for prune failed: ${error.message}`,
+        );
       if (!data || data.length === 0) break;
 
       for (const row of data) {
@@ -87,13 +103,17 @@ export class M365Processor {
 
     if (staleIds.length === 0) return 0;
 
-    const { error } = await getSupabaseHelper().batchDelete('vendors', tableName as any, staleIds);
+    const { error } = await getSupabaseHelper().batchDelete(
+      "vendors",
+      tableName as any,
+      staleIds,
+    );
     if (error) throw new Error(`Delete stale ${tableName} failed: ${error}`);
 
     tracker.trackEntityDeleted(staleIds.length);
     Logger.info({
-      module: 'M365Processor',
-      context: 'pruneStale',
+      module: "M365Processor",
+      context: "pruneStale",
       message: `Deleted ${staleIds.length} stale ${entityType} rows`,
     });
 
@@ -105,8 +125,8 @@ export class M365Processor {
     entityType: M365EntityType,
     tenantId: string,
     ingestId: string,
-    tracker: PipelineTracker
-  ): Promise<M365ProcessedRow[]> {
+    tracker: PipelineTracker,
+  ): Promise<ProcessedRow[]> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
     const tableName = getTableName(entityType);
@@ -117,33 +137,39 @@ export class M365Processor {
 
     tracker.trackQuery();
     let lookupQuery = supabase
-      .schema('vendors')
+      .schema("vendors")
       .from(tableName as any)
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .in('external_id', externalIds);
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .in("external_id", externalIds);
 
     // If all entities share a single linkId, scope the lookup
     if (linkIds.length === 1) {
       const lid = linkIds[0];
-      lookupQuery = lid === null ? lookupQuery.is('link_id', null) : lookupQuery.eq('link_id', lid);
+      lookupQuery =
+        lid === null
+          ? lookupQuery.is("link_id", null)
+          : lookupQuery.eq("link_id", lid);
     }
 
     const { data: existing } = await lookupQuery;
     const existingMap = new Map<string, any>(
-      (existing ?? []).map((r: any) => [`${r.external_id}:${r.link_id ?? ''}`, r])
+      (existing ?? []).map((r: any) => [
+        `${r.external_id}:${r.link_id ?? ""}`,
+        r,
+      ]),
     );
 
     const toCreate: any[] = [];
     const toUpsert: any[] = [];
     const toTouch: string[] = [];
-    const result: M365ProcessedRow[] = [];
+    const result: ProcessedRow[] = [];
 
     for (const entity of entities) {
       const linkId = getLinkId(entity);
       const dataHash = calculateHash(getHashableFields(entity));
       const mapped = mapToDbRow(entity, tenantId, ingestId, now, dataHash);
-      const key = `${entity.externalId}:${linkId ?? ''}`;
+      const key = `${entity.externalId}:${linkId ?? ""}`;
       const ex = existingMap.get(key);
 
       if (!ex) {
@@ -159,7 +185,11 @@ export class M365Processor {
         });
       } else {
         toTouch.push(ex.id);
-        result.push({ id: ex.id, external_id: ex.external_id, link_id: ex.link_id ?? null });
+        result.push({
+          id: ex.id,
+          external_id: ex.external_id,
+          link_id: ex.link_id ?? null,
+        });
       }
     }
 
@@ -167,11 +197,12 @@ export class M365Processor {
     if (toCreate.length > 0) {
       tracker.trackUpsert();
       const { data: created, error } = await supabase
-        .schema('vendors')
+        .schema("vendors")
         .from(tableName as any)
         .insert(toCreate)
-        .select('id, external_id, link_id');
-      if (error) throw new Error(`Insert ${tableName} failed: ${error.message}`);
+        .select("id, external_id, link_id");
+      if (error)
+        throw new Error(`Insert ${tableName} failed: ${error.message}`);
       tracker.trackEntityCreated(toCreate.length);
       if (created) {
         result.push(
@@ -179,7 +210,7 @@ export class M365Processor {
             id: r.id,
             external_id: r.external_id,
             link_id: r.link_id ?? null,
-          }))
+          })),
         );
       }
     }
@@ -190,18 +221,19 @@ export class M365Processor {
         const chunk = toUpsert.slice(i, i + 100);
         tracker.trackUpsert();
         const { data: updated, error } = await supabase
-          .schema('vendors')
+          .schema("vendors")
           .from(tableName as any)
-          .upsert(chunk, { onConflict: 'id' })
-          .select('id, external_id, link_id');
-        if (error) throw new Error(`Upsert ${tableName} failed: ${error.message}`);
+          .upsert(chunk, { onConflict: "id" })
+          .select("id, external_id, link_id");
+        if (error)
+          throw new Error(`Upsert ${tableName} failed: ${error.message}`);
         if (updated) {
           result.push(
             ...(updated as any[]).map((r: any) => ({
               id: r.id,
               external_id: r.external_id,
               link_id: r.link_id ?? null,
-            }))
+            })),
           );
         }
       }
@@ -211,11 +243,16 @@ export class M365Processor {
     // TOUCH (unchanged — bump last_seen_at)
     if (toTouch.length > 0) {
       tracker.trackUpsert();
-      const { error } = await getSupabaseHelper().batchUpdate('vendors' as any, tableName as any, toTouch, {
-        last_seen_at: now,
-        ingest_id: ingestId,
-        updated_at: now,
-      } as any);
+      const { error } = await getSupabaseHelper().batchUpdate(
+        "vendors" as any,
+        tableName as any,
+        toTouch,
+        {
+          last_seen_at: now,
+          ingest_id: ingestId,
+          updated_at: now,
+        } as any,
+      );
       if (error) throw new Error(`Touch ${tableName} failed: ${error}`);
       tracker.trackEntityUnchanged(toTouch.length);
     }
@@ -230,18 +267,18 @@ export class M365Processor {
 
 function getTableName(entityType: M365EntityType): string {
   switch (entityType) {
-    case 'identity':
-      return 'm365_identities';
-    case 'group':
-      return 'm365_groups';
-    case 'role':
-      return 'm365_roles';
-    case 'policy':
-      return 'm365_policies';
-    case 'license':
-      return 'm365_licenses';
-    case 'exchange-config':
-      return 'm365_exchange_configs';
+    case "identities":
+      return "m365_identities";
+    case "groups":
+      return "m365_groups";
+    case "roles":
+      return "m365_roles";
+    case "policies":
+      return "m365_policies";
+    case "licenses":
+      return "m365_licenses";
+    case "exchange-config":
+      return "m365_exchange_configs";
   }
 }
 
@@ -258,7 +295,7 @@ function mapToDbRow(
   tenantId: string,
   ingestId: string,
   now: string,
-  dataHash: string
+  dataHash: string,
 ): Record<string, any> {
   const base = {
     tenant_id: tenantId,
@@ -272,7 +309,7 @@ function mapToDbRow(
   };
 
   switch (entity.type) {
-    case 'identity': {
+    case "identities": {
       const u = entity.data;
       return {
         ...base,
@@ -280,13 +317,14 @@ function mapToDbRow(
         enabled: u.accountEnabled ?? false,
         name: u.displayName ?? null,
         email: u.userPrincipalName ?? null,
-        type: u.userType ?? 'Member',
+        type: u.userType ?? "Member",
         last_sign_in_at: u.signInActivity?.lastSignInDateTime ?? null,
-        last_non_interactive_sign_in_at: u.signInActivity?.lastNonInteractiveSignInDateTime ?? null,
+        last_non_interactive_sign_in_at:
+          u.signInActivity?.lastNonInteractiveSignInDateTime ?? null,
         assigned_licenses: (u.assignedLicenses ?? []).map((l) => l.skuId),
-      } as TablesInsert<'vendors', 'm365_identities'>;
+      } as TablesInsert<"vendors", "m365_identities">;
     }
-    case 'group': {
+    case "groups": {
       const g = entity.data;
       return {
         ...base,
@@ -294,22 +332,24 @@ function mapToDbRow(
         description: g.description ?? null,
         mail_enabled: g.mailEnabled ?? null,
         security_enabled: g.securityEnabled ?? null,
-      } as TablesInsert<'vendors', 'm365_groups'>;
+      } as TablesInsert<"vendors", "m365_groups">;
     }
-    case 'role': {
+    case "roles": {
       const r = entity.data;
       return {
         ...base,
         name: r.displayName ?? null,
         description: r.description ?? null,
         role_template_id: r.roleTemplateId ?? null,
-      } as TablesInsert<'vendors', 'm365_roles'>;
+      } as TablesInsert<"vendors", "m365_roles">;
     }
-    case 'policy': {
+    case "policies": {
       const p = entity.data;
       const requiresMfa =
-        (p.grantControls?.builtInControls ?? []).includes('mfa') ||
-        (p.grantControls?.builtInControls ?? []).includes('multiFactorAuthentication');
+        (p.grantControls?.builtInControls ?? []).includes("mfa") ||
+        (p.grantControls?.builtInControls ?? []).includes(
+          "multiFactorAuthentication",
+        );
       return {
         ...base,
         name: p.displayName ?? null,
@@ -317,29 +357,31 @@ function mapToDbRow(
         requires_mfa: requiresMfa,
         grant_controls: p.grantControls ?? null,
         conditions: p.conditions ?? null,
-      } as TablesInsert<'vendors', 'm365_policies'>;
+      } as TablesInsert<"vendors", "m365_policies">;
     }
-    case 'license': {
+    case "licenses": {
       const s = entity.data;
       return {
         ...base,
-        enabled: s.capabilityStatus === 'Enabled',
+        enabled: s.capabilityStatus === "Enabled",
         friendly_name: (s as any)?.friendlyName ?? null,
         sku_id: s.skuId,
-        sku_part_number: s.skuPartNumber ?? '',
+        sku_part_number: s.skuPartNumber ?? "",
         total_units: s.prepaidUnits?.enabled ?? 0,
         consumed_units: s.consumedUnits ?? 0,
         suspended_units: s.prepaidUnits?.suspended ?? 0,
         warning_units: s.prepaidUnits?.warning ?? 0,
         locked_out_units: s.prepaidUnits?.lockedOut ?? 0,
-        service_plan_names: (s.servicePlans ?? []).map((s) => s.servicePlanName),
-      } as TablesInsert<'vendors', 'm365_licenses'>;
+        service_plan_names: (s.servicePlans ?? []).map(
+          (s) => s.servicePlanName,
+        ),
+      } as TablesInsert<"vendors", "m365_licenses">;
     }
-    case 'exchange-config': {
+    case "exchange-config": {
       return {
         ...base,
         reject_direct_send: entity.rejectDirectSend,
-      } as TablesInsert<'vendors', 'm365_exchange_configs'>;
+      } as TablesInsert<"vendors", "m365_exchange_configs">;
     }
   }
 }
@@ -350,7 +392,7 @@ function mapToDbRow(
 
 function getHashableFields(entity: RawM365Entity): Record<string, any> {
   switch (entity.type) {
-    case 'identity': {
+    case "identities": {
       const u = entity.data;
       return {
         enabled: u.accountEnabled,
@@ -358,11 +400,13 @@ function getHashableFields(entity: RawM365Entity): Record<string, any> {
         email: u.userPrincipalName,
         type: u.userType,
         last_sign_in_at: u.signInActivity?.lastSignInDateTime ?? null,
-        assigned_licenses: (u.assignedLicenses ?? []).map((l) => l.skuId).sort(),
+        assigned_licenses: (u.assignedLicenses ?? [])
+          .map((l) => l.skuId)
+          .sort(),
         site_id: entity.siteId,
       };
     }
-    case 'group': {
+    case "groups": {
       const g = entity.data;
       return {
         name: g.displayName,
@@ -371,7 +415,7 @@ function getHashableFields(entity: RawM365Entity): Record<string, any> {
         security_enabled: g.securityEnabled,
       };
     }
-    case 'role': {
+    case "roles": {
       const r = entity.data;
       return {
         name: r.displayName,
@@ -379,7 +423,7 @@ function getHashableFields(entity: RawM365Entity): Record<string, any> {
         role_template_id: r.roleTemplateId,
       };
     }
-    case 'policy': {
+    case "policies": {
       const p = entity.data;
       return {
         name: p.displayName,
@@ -389,7 +433,7 @@ function getHashableFields(entity: RawM365Entity): Record<string, any> {
         conditions: p.conditions,
       };
     }
-    case 'license': {
+    case "licenses": {
       const s = entity.data;
       return {
         friendly_name: (s as any)?.friendlyName ?? null,
@@ -402,7 +446,7 @@ function getHashableFields(entity: RawM365Entity): Record<string, any> {
         service_plan_names: s.servicePlans,
       };
     }
-    case 'exchange-config': {
+    case "exchange-config": {
       return {
         reject_direct_send: entity.rejectDirectSend,
       };
@@ -412,7 +456,7 @@ function getHashableFields(entity: RawM365Entity): Record<string, any> {
 
 function calculateHash(data: Record<string, any>): string {
   const jsonString = JSON.stringify(data, Object.keys(data).sort());
-  return crypto.createHash('sha256').update(jsonString).digest('hex');
+  return crypto.createHash("sha256").update(jsonString).digest("hex");
 }
 
 function chunkArray<T>(array: T[], size: number): T[][] {
