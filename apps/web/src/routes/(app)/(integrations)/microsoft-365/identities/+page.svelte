@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type RowAction } from '$lib/components/data-table';
+  import { DataTable, type DataTableColumn, type RowAction, type TableView } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { hasPermission } from '$lib/utils/permissions';
   import {
@@ -82,6 +82,21 @@
     load();
   });
 
+  const views: TableView[] = [
+    { id: 'disabled', label: 'Disabled', filters: [{ field: 'enabled', operator: 'eq', value: false }] },
+    { id: 'no-mfa', label: 'MFA Not Enforced', filters: [{ field: 'mfa_enforced', operator: 'eq', value: false }] },
+    {
+      id: 'no-sign-in',
+      label: 'No Recent Sign-In',
+      filters: [{ field: 'enabled', operator: 'eq', value: true }],
+      modifyQuery: (q: any) => {
+        const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+        q.or(`last_sign_in_at.is.null,last_sign_in_at.lt.${cutoff}`)
+         .or(`last_non_interactive_sign_in_at.is.null,last_non_interactive_sign_in_at.lt.${cutoff}`);
+      },
+    },
+  ];
+
   const modifyQuery = $derived.by(() => {
     const link = scopeStore.currentLink;
     return (q: any) => {
@@ -108,6 +123,7 @@
     table="m365_identities_view"
     {columns}
     {modifyQuery}
+    {views}
     defaultSort={{ field: 'name', dir: 'asc' }}
     enableRowSelection={canWrite}
     enableGlobalSearch={true}

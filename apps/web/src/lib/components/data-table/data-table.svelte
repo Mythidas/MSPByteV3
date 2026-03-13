@@ -169,6 +169,14 @@
     return String((row as any).id || JSON.stringify(row));
   }
 
+  const effectiveModifyQuery = $derived.by(() => {
+    const vMod = activeView?.modifyQuery;
+    const pMod = modifyQuery;
+    if (!vMod) return pMod;
+    if (!pMod) return vMod;
+    return (q: any) => { pMod(q); vMod(q); };
+  });
+
   // Fetch data
   async function fetchData() {
     loading = true;
@@ -177,7 +185,7 @@
       schema,
       table,
       paginationOptions,
-      modifyQuery
+      effectiveModifyQuery
     );
 
     if (response) {
@@ -386,7 +394,7 @@
       schema,
       table,
       { ...paginationOptions, page: 0, size: total || 10000 },
-      modifyQuery
+      effectiveModifyQuery
     );
     if (response) {
       const keys = scope === 'visible' ? resolvedVisibleColumnKeys : undefined;
@@ -406,7 +414,7 @@
           page: 0,
           size: total || 10000,
         },
-        modifyQuery
+        effectiveModifyQuery
       );
       rows = response?.rows ?? [];
     } else {

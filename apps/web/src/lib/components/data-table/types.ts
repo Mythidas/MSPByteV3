@@ -49,6 +49,7 @@ export interface TableView {
   filters: Omit<TableFilter, 'id'>[];
   sort?: { field: string; dir: 'asc' | 'desc' };
   isDefault?: boolean;
+  modifyQuery?: (query: any) => void;
 }
 
 export interface RowAction<TData> {

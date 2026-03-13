@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn } from '$lib/components/data-table';
+  import { DataTable, type DataTableColumn, type TableView } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { hasPermission } from '$lib/utils/permissions';
   import { boolBadgeColumn, textColumn } from '$lib/components/data-table/column-defs.js';
@@ -42,6 +42,12 @@
     ];
   });
 
+  const views: TableView[] = [
+    { id: 'enabled', label: 'Enabled', filters: [{ field: 'policy_state', operator: 'eq', value: 'enabled' }], isDefault: true },
+    { id: 'disabled', label: 'Disabled', filters: [{ field: 'policy_state', operator: 'eq', value: 'disabled' }] },
+    { id: 'mfa', label: 'MFA Required', filters: [{ field: 'requires_mfa', operator: 'eq', value: true }] },
+  ];
+
   const modifyQuery = $derived.by(() => {
     const link = scopeStore.currentLink;
     return (q: any) => {
@@ -60,6 +66,7 @@
     table="m365_policies_view"
     {columns}
     {modifyQuery}
+    {views}
     defaultSort={{ field: 'name', dir: 'asc' }}
     enableRowSelection={canWrite}
     enableGlobalSearch={true}
