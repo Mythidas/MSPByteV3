@@ -113,10 +113,6 @@
         ]
       : []
   );
-
-  function handleRowClick(row: Site) {
-    goto(`/sites/${row.id}`);
-  }
 </script>
 
 {#snippet integrationsCell({ value }: { row: Site; value: IntegrationId[] })}
@@ -149,6 +145,5 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
-    onrowclick={handleRowClick}
   />
 </div>

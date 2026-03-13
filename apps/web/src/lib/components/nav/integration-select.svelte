@@ -21,6 +21,8 @@
       scopeStore.currentIntegration = urlPart as IntegrationId;
     }
   });
+
+  $inspect(scopeStore.currentIntegration);
 </script>
 
 <div class="w-44">
@@ -31,7 +33,7 @@
       { label: 'Microsoft 365', value: 'microsoft-365' },
       { label: 'MSPAgent', value: 'mspagent' },
     ]}
-    bind:selected={scopeStore.currentIntegration as string | undefined}
+    selected={scopeStore.currentIntegration as string | undefined}
     onchange={(v) => (v ? goto(`/${v}`) : goto('/home'))}
   />
 </div>
