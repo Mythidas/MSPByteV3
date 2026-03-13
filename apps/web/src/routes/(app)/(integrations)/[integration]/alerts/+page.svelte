@@ -88,6 +88,10 @@
     const scope = currentScope;
     const linked = isLinkScoped;
     return (q: any) => {
+      q.in(
+        'entity_type',
+        integration.supportedTypes.filter((t) => t.entityKey).map((t) => t.entityKey!)
+      );
       if (scope) {
         q.eq(linked ? 'link_id' : 'site_id', scope as string);
       }

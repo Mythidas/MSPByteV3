@@ -57,12 +57,12 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "Microsoft 365",
     type: "security",
     supportedTypes: [
-      { type: "identities", rateMinutes: DAILY, priority: 3 },
-      { type: "groups", rateMinutes: DAILY, priority: 5 },
-      { type: "licenses", rateMinutes: DAILY, priority: 7 },
+      { type: "identities", rateMinutes: DAILY, priority: 3, entityKey: "m365_identity", schema: "vendors", table: "m365_identities" },
+      { type: "groups", rateMinutes: DAILY, priority: 5, entityKey: "m365_group", schema: "vendors", table: "m365_groups" },
+      { type: "licenses", rateMinutes: DAILY, priority: 7, entityKey: "m365_license", schema: "vendors", table: "m365_licenses" },
       { type: "roles", rateMinutes: DAILY, priority: 5 },
-      { type: "policies", rateMinutes: DAILY, priority: 5 },
-      { type: "exchange-config", rateMinutes: DAILY, priority: 9 },
+      { type: "policies", rateMinutes: DAILY, priority: 5, entityKey: "m365_policy", schema: "vendors", table: "m365_policies" },
+      { type: "exchange-config", rateMinutes: DAILY, priority: 9, entityKey: "m365_exchange_config", schema: "vendors", table: "m365_exchange_configs" },
     ],
     scope: "link",
     navigation: [
@@ -112,7 +112,23 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     type: "other",
     supportedTypes: [],
     scope: "site",
-    navigation: [],
+    navigation: [
+      {
+        label: "Agents",
+        route: "/agents",
+        isNullable: true,
+      },
+      {
+        label: "Tickets",
+        route: "/tickets",
+        isNullable: true,
+      },
+      {
+        label: "Logs",
+        route: "/logs",
+        isNullable: true,
+      },
+    ],
   },
 };
 
@@ -144,6 +160,10 @@ export type EntityTypeConfig = {
   priority: number;
   fanOut?: boolean; // true = created by linker fan-out; reconciler skips these
   concurrency?: number; // max parallel BullMQ workers for this entity type (default: 5)
+  // Optional DB routing (only set for types that are workflow entity targets)
+  entityKey?: string; // e.g. "m365_identity" — the key used in alerts.entity_type
+  schema?: string; // e.g. "vendors"
+  table?: string; // e.g. "m365_identities"
 };
 
 export type IntegrationNavigationConfig = {
