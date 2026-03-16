@@ -408,7 +408,7 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
         type: "exchange-config",
         externalId: `org-config-${linkId ?? gdapTenantId}`,
         linkId,
-        rejectDirectSend,
+        data: { rejectDirectSend },
       },
     ];
   }

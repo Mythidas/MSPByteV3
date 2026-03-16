@@ -684,87 +684,6 @@ export type Database = {
           },
         ]
       }
-      site_groups: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          name: string
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name: string
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          name?: string
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "site_groups_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      site_to_group: {
-        Row: {
-          created_at: string
-          group_id: string
-          id: number
-          site_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          group_id: string
-          id?: number
-          site_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          group_id?: string
-          id?: number
-          site_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "site_to_group_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "site_groups"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "site_to_group_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sites"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "site_to_group_tenant_id_fkey"
-            columns: ["tenant_id"]
-            isOneToOne: false
-            referencedRelation: "tenants"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       sites: {
         Row: {
           created_at: string
@@ -1255,7 +1174,7 @@ export type Database = {
     }
     Enums: {
       IngestType:
-        | "companies"
+        | "sites"
         | "endpoints"
         | "firewalls"
         | "licenses"
@@ -1269,6 +1188,7 @@ export type Database = {
         | "link-identity-roles"
         | "link-policies"
         | "enrich-mfa-enforced"
+        | "link-site-endpoints"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1880,6 +1800,171 @@ export type Database = {
         }
         Relationships: []
       }
+      sophos_endpoints: {
+        Row: {
+          created_at: string
+          data_hash: string
+          external_id: string
+          has_mdr: boolean
+          health: string
+          hostname: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string
+          lockdown: string
+          needs_upgrade: boolean
+          online: boolean
+          os_name: string
+          platform: string
+          site_id: string | null
+          tamper_protection_enabled: boolean
+          tenant_id: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          external_id: string
+          has_mdr: boolean
+          health: string
+          hostname: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id: string
+          lockdown: string
+          needs_upgrade: boolean
+          online: boolean
+          os_name: string
+          platform: string
+          site_id?: string | null
+          tamper_protection_enabled: boolean
+          tenant_id: string
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          external_id?: string
+          has_mdr?: boolean
+          health?: string
+          hostname?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string
+          lockdown?: string
+          needs_upgrade?: boolean
+          online?: boolean
+          os_name?: string
+          platform?: string
+          site_id?: string | null
+          tamper_protection_enabled?: boolean
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sophos_site_endpoints: {
+        Row: {
+          created_at: string
+          endpoint_id: string
+          last_seen_at: string
+          link_id: string
+          site_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_id: string
+          last_seen_at?: string
+          link_id: string
+          site_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_id?: string
+          last_seen_at?: string
+          link_id?: string
+          site_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sophos_site_endpoints_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "sophos_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sophos_site_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sophos_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sophos_sites: {
+        Row: {
+          api_host: string
+          created_at: string
+          data_hash: string
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string
+          name: string
+          products: string[]
+          show_as_name: string
+          site_id: string | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          api_host: string
+          created_at?: string
+          data_hash: string
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id: string
+          name: string
+          products: string[]
+          show_as_name: string
+          site_id?: string | null
+          status: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          api_host?: string
+          created_at?: string
+          data_hash?: string
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string
+          name?: string
+          products?: string[]
+          show_as_name?: string
+          site_id?: string | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       m365_exchange_configs_view: {
@@ -2304,7 +2389,7 @@ export const Constants = {
   public: {
     Enums: {
       IngestType: [
-        "companies",
+        "sites",
         "endpoints",
         "firewalls",
         "licenses",
@@ -2318,6 +2403,7 @@ export const Constants = {
         "link-identity-roles",
         "link-policies",
         "enrich-mfa-enforced",
+        "link-site-endpoints",
       ],
     },
   },

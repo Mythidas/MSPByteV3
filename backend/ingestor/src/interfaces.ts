@@ -65,4 +65,6 @@ export interface IngestorDefinition {
   /** Dep types that must be fresh before an enrich job fires (keyed by op name) */
   enrichOpDeps: Record<string, string[]>;
   staleThresholdMs: Record<string, number> | number;
+  /** Optional fan-out hook called after processor+prune; used to spawn child ingest jobs */
+  fanOut?: (rows: ProcessedRow[], job: IngestJobData) => Promise<void>;
 }

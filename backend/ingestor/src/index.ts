@@ -11,7 +11,7 @@ import { INTEGRATIONS } from "@workspace/shared/config/integrations.js";
 
 // Side-effect imports — each registers itself with the registry
 import "./integrations/microsoft-365/index.js";
-// import './integrations/sophos/index.js';
+import "./integrations/sophos-partner/index.js";
 // import './integrations/dattormm/index.js';
 
 async function main() {
@@ -47,8 +47,8 @@ async function main() {
   for (const def of registry.getAll()) {
     const config = INTEGRATIONS[def.integrationId];
 
-    // One SyncWorker per non-fanout entity type
-    for (const typeConfig of config.supportedTypes.filter((t) => !t.fanOut)) {
+    // One SyncWorker per entity type (fanOut flag only affects reconciler, not worker creation)
+    for (const typeConfig of config.supportedTypes) {
       const worker = new SyncWorker(
         def.integrationId,
         typeConfig.type,

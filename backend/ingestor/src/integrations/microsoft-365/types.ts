@@ -3,20 +3,10 @@ import type { MSGraphGroup } from "@workspace/shared/types/integrations/microsof
 import type { MSGraphRole } from "@workspace/shared/types/integrations/microsoft/roles.js";
 import type { MSGraphConditionalAccessPolicy } from "@workspace/shared/types/integrations/microsoft/policies.js";
 import type { MSGraphSubscribedSku } from "@workspace/shared/types/integrations/microsoft/licenses.js";
+import { BaseRawType } from "../types";
+import { EntityType } from "@workspace/shared/config/integrations";
 
-// ============================================================================
-// M365 ENTITY TYPES
-// ============================================================================
-
-export type M365EntityType =
-  | "identities"
-  | "groups"
-  | "roles"
-  | "policies"
-  | "licenses"
-  | "exchange-config";
-
-export const M365_TYPES: M365EntityType[] = [
+export const M365_TYPES: Partial<EntityType>[] = [
   "identities",
   "groups",
   "roles",
@@ -29,42 +19,18 @@ export const M365_TYPES: M365EntityType[] = [
 // TYPED RAW ENTITIES (adapter output)
 // ============================================================================
 
-export type RawM365Identity = {
-  externalId: string;
-  linkId: string | null;
-  siteId: string | null;
-  data: MSGraphIdentity;
-};
-
-export type RawM365Group = {
-  externalId: string;
-  linkId: string | null;
-  data: MSGraphGroup;
-};
-
-export type RawM365Role = {
-  externalId: string;
-  linkId: string | null;
-  data: MSGraphRole;
-};
-
-export type RawM365Policy = {
-  externalId: string;
-  linkId: string | null;
-  data: MSGraphConditionalAccessPolicy;
-};
-
-export type RawM365License = {
-  externalId: string;
-  linkId: string | null;
-  data: MSGraphSubscribedSku;
-};
-
-export type RawM365ExchangeConfig = {
-  externalId: string;
-  linkId: string | null;
-  rejectDirectSend: boolean;
-};
+export type RawM365Identity = BaseRawType<MSGraphIdentity>;
+export type RawM365Group = Omit<BaseRawType<MSGraphGroup>, "siteId">;
+export type RawM365Role = Omit<BaseRawType<MSGraphRole>, "siteId">;
+export type RawM365Policy = Omit<
+  BaseRawType<MSGraphConditionalAccessPolicy>,
+  "siteId"
+>;
+export type RawM365License = Omit<BaseRawType<MSGraphSubscribedSku>, "siteId">;
+export type RawM365ExchangeConfig = Omit<
+  BaseRawType<{ rejectDirectSend: boolean }>,
+  "siteId"
+>;
 
 // Discriminated union for adapter output
 export type RawM365Entity =
@@ -74,10 +40,6 @@ export type RawM365Entity =
   | ({ type: "policies" } & RawM365Policy)
   | ({ type: "licenses" } & RawM365License)
   | ({ type: "exchange-config" } & RawM365ExchangeConfig);
-
-// ============================================================================
-// PROCESSED ROW (for linker + prune)
-// ============================================================================
 
 export type M365ProcessedRow = {
   id: string;

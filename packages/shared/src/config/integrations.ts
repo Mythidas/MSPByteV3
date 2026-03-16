@@ -6,7 +6,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "Sophos Partner",
     type: "security",
     supportedTypes: [
-      { type: "companies", rateMinutes: DAILY, priority: 5 },
+      { type: "sites", rateMinutes: DAILY, priority: 5 },
       {
         type: "endpoints",
         rateMinutes: DAILY,
@@ -23,7 +23,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "DattoRMM",
     type: "rmm",
     supportedTypes: [
-      { type: "companies", rateMinutes: DAILY, priority: 5 },
+      { type: "sites", rateMinutes: DAILY, priority: 5 },
       {
         type: "endpoints",
         rateMinutes: DAILY,
@@ -40,7 +40,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     name: "Cove Backups",
     type: "recovery",
     supportedTypes: [
-      { type: "companies", rateMinutes: DAILY, priority: 5 },
+      { type: "sites", rateMinutes: DAILY, priority: 5 },
       {
         type: "endpoints",
         rateMinutes: DAILY,
@@ -171,7 +171,7 @@ export type IntegrationId =
   | "mspagent";
 
 export type EntityType =
-  | "companies"
+  | "sites"
   | "contracts"
   | "contract_services"
   | "endpoints"

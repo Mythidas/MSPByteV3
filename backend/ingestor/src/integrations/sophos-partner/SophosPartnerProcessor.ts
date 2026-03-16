@@ -3,28 +3,24 @@ import { getSupabase, getSupabaseHelper } from "../../supabase.js";
 import { PipelineTracker } from "../../lib/tracker.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import type { IngestJobData } from "../../types.js";
-import type { RawM365Entity } from "./types.js";
+import type { RawSophosEntity } from "./types.js";
 import type { IProcessor, ProcessedRow } from "../../interfaces.js";
-import { TablesInsert } from "@workspace/shared/types/database.js";
-import { EntityType } from "@workspace/shared/config/integrations.js";
 
 /**
- * M365Processor — typed hash-based upsert for vendors.m365_* tables.
- * Routes per entity type. No raw blob stored.
+ * SophosPartnerProcessor — typed hash-based upsert for vendors.sophos_* tables.
  */
-export class M365Processor implements IProcessor<RawM365Entity> {
+export class SophosPartnerProcessor implements IProcessor<RawSophosEntity> {
   async process(
-    entities: RawM365Entity[],
+    entities: RawSophosEntity[],
     job: IngestJobData,
     tracker: PipelineTracker,
   ): Promise<ProcessedRow[]> {
-    const entityType = job.ingestType as EntityType;
-    const { tenantId, ingestId } = job;
+    const { ingestType, tenantId, ingestId } = job;
 
     Logger.info({
-      module: "M365Processor",
+      module: "SophosPartnerProcessor",
       context: "process",
-      message: `Processing ${entities.length} ${entityType} entities`,
+      message: `Processing ${entities.length} ${ingestType} entities`,
     });
 
     const chunks = chunkArray(entities, 100);
@@ -36,7 +32,7 @@ export class M365Processor implements IProcessor<RawM365Entity> {
         async () => {
           return this.processChunk(
             chunks[i],
-            entityType,
+            ingestType,
             tenantId,
             ingestId,
             tracker,
@@ -48,7 +44,7 @@ export class M365Processor implements IProcessor<RawM365Entity> {
 
     const c = tracker.getCounters();
     Logger.info({
-      module: "M365Processor",
+      module: "SophosPartnerProcessor",
       context: "process",
       message: `Completed: ${c.entities_created} created, ${c.entities_updated} updated, ${c.entities_unchanged} unchanged`,
     });
@@ -61,12 +57,10 @@ export class M365Processor implements IProcessor<RawM365Entity> {
     job: IngestJobData,
     tracker: PipelineTracker,
   ): Promise<number> {
-    const entityType = job.ingestType as EntityType;
-    const { tenantId, linkId } = job;
-
+    const { ingestType, tenantId, linkId } = job;
     const survivingIds = new Set(processedRows.map((r) => r.external_id));
     const supabase = getSupabase();
-    const tableName = getTableName(entityType);
+    const tableName = getTableName(ingestType);
 
     const staleIds: string[] = [];
     const PAGE_SIZE = 1000;
@@ -81,9 +75,8 @@ export class M365Processor implements IProcessor<RawM365Entity> {
 
       if (linkId !== null) {
         query = query.eq("link_id", linkId);
-      } else {
-        query = query.is("link_id", null);
       }
+      // linkId === null means tenant-wide sites job: query all rows for the tenant (no link_id filter)
 
       const { data, error } = await query;
       if (error)
@@ -113,27 +106,26 @@ export class M365Processor implements IProcessor<RawM365Entity> {
 
     tracker.trackEntityDeleted(staleIds.length);
     Logger.info({
-      module: "M365Processor",
+      module: "SophosPartnerProcessor",
       context: "pruneStale",
-      message: `Deleted ${staleIds.length} stale ${entityType} rows`,
+      message: `Deleted ${staleIds.length} stale ${ingestType} rows`,
     });
 
     return staleIds.length;
   }
 
   private async processChunk(
-    entities: RawM365Entity[],
-    entityType: EntityType,
+    entities: RawSophosEntity[],
+    ingestType: string,
     tenantId: string,
     ingestId: string,
     tracker: PipelineTracker,
   ): Promise<ProcessedRow[]> {
     const supabase = getSupabase();
     const now = new Date().toISOString();
-    const tableName = getTableName(entityType);
+    const tableName = getTableName(ingestType);
 
-    // Group by linkId for scoped lookup
-    const linkIds = [...new Set(entities.map((e) => getLinkId(e)))];
+    const linkIds = [...new Set(entities.map((e) => e.linkId))];
     const externalIds = entities.map((e) => e.externalId);
 
     tracker.trackQuery();
@@ -144,7 +136,6 @@ export class M365Processor implements IProcessor<RawM365Entity> {
       .eq("tenant_id", tenantId)
       .in("external_id", externalIds);
 
-    // If all entities share a single linkId, scope the lookup
     if (linkIds.length === 1) {
       const lid = linkIds[0];
       lookupQuery =
@@ -167,7 +158,7 @@ export class M365Processor implements IProcessor<RawM365Entity> {
     const result: ProcessedRow[] = [];
 
     for (const entity of entities) {
-      const linkId = getLinkId(entity);
+      const linkId = entity.linkId;
       const dataHash = calculateHash(getHashableFields(entity));
       const mapped = mapToDbRow(entity, tenantId, ingestId, now, dataHash);
       const key = `${entity.externalId}:${linkId ?? ""}`;
@@ -248,11 +239,7 @@ export class M365Processor implements IProcessor<RawM365Entity> {
         "vendors" as any,
         tableName as any,
         toTouch,
-        {
-          last_seen_at: now,
-          ingest_id: ingestId,
-          updated_at: now,
-        } as any,
+        { last_seen_at: now, ingest_id: ingestId, updated_at: now } as any,
       );
       if (error) throw new Error(`Touch ${tableName} failed: ${error}`);
       tracker.trackEntityUnchanged(toTouch.length);
@@ -266,35 +253,23 @@ export class M365Processor implements IProcessor<RawM365Entity> {
 // TABLE ROUTING
 // ============================================================================
 
-function getTableName(entityType: EntityType): string {
-  switch (entityType) {
-    case "identities":
-      return "m365_identities";
-    case "groups":
-      return "m365_groups";
-    case "roles":
-      return "m365_roles";
-    case "policies":
-      return "m365_policies";
-    case "licenses":
-      return "m365_licenses";
-    case "exchange-config":
-      return "m365_exchange_configs";
+function getTableName(ingestType: string): string {
+  switch (ingestType) {
+    case "sites":
+      return "sophos_sites";
+    case "endpoints":
+      return "sophos_endpoints";
     default:
       return "";
   }
 }
 
-function getLinkId(entity: RawM365Entity): string | null {
-  return entity.linkId;
-}
-
 // ============================================================================
-// DB ROW MAPPING — typed columns only, no raw blob
+// DB ROW MAPPING
 // ============================================================================
 
 function mapToDbRow(
-  entity: RawM365Entity,
+  entity: RawSophosEntity,
   tenantId: string,
   ingestId: string,
   now: string,
@@ -312,79 +287,34 @@ function mapToDbRow(
   };
 
   switch (entity.type) {
-    case "identities": {
-      const u = entity.data;
+    case "sites": {
+      const t = entity.data;
       return {
         ...base,
         site_id: entity.siteId,
-        enabled: u.accountEnabled ?? false,
-        name: u.displayName ?? null,
-        email: u.userPrincipalName ?? null,
-        type: u.userType ?? "Member",
-        last_sign_in_at: u.signInActivity?.lastSignInDateTime ?? null,
-        last_non_interactive_sign_in_at:
-          u.signInActivity?.lastNonInteractiveSignInDateTime ?? null,
-        assigned_licenses: (u.assignedLicenses ?? []).map((l) => l.skuId),
-      } as TablesInsert<"vendors", "m365_identities">;
+        name: t.name ?? null,
+        status: t.status ?? null,
+        api_host: t.apiHost ?? null,
+        products: (t.products ?? []).map((p) => p.code),
+        show_as_name: t.showAs ?? null,
+      };
     }
-    case "groups": {
-      const g = entity.data;
+    case "endpoints": {
+      const ep = entity.data;
       return {
         ...base,
-        name: g.displayName ?? null,
-        description: g.description ?? null,
-        mail_enabled: g.mailEnabled ?? null,
-        security_enabled: g.securityEnabled ?? null,
-      } as TablesInsert<"vendors", "m365_groups">;
-    }
-    case "roles": {
-      const r = entity.data;
-      return {
-        ...base,
-        name: r.displayName ?? null,
-        description: r.description ?? null,
-        role_template_id: r.roleTemplateId ?? null,
-      } as TablesInsert<"vendors", "m365_roles">;
-    }
-    case "policies": {
-      const p = entity.data;
-      const requiresMfa =
-        (p.grantControls?.builtInControls ?? []).includes("mfa") ||
-        (p.grantControls?.builtInControls ?? []).includes(
-          "multiFactorAuthentication",
-        );
-      return {
-        ...base,
-        name: p.displayName ?? null,
-        policy_state: p.state ?? null,
-        requires_mfa: requiresMfa,
-        grant_controls: p.grantControls ?? null,
-        conditions: p.conditions ?? null,
-      } as TablesInsert<"vendors", "m365_policies">;
-    }
-    case "licenses": {
-      const s = entity.data;
-      return {
-        ...base,
-        enabled: s.capabilityStatus === "Enabled",
-        friendly_name: (s as any)?.friendlyName ?? null,
-        sku_id: s.skuId,
-        sku_part_number: s.skuPartNumber ?? "",
-        total_units: s.prepaidUnits?.enabled ?? 0,
-        consumed_units: s.consumedUnits ?? 0,
-        suspended_units: s.prepaidUnits?.suspended ?? 0,
-        warning_units: s.prepaidUnits?.warning ?? 0,
-        locked_out_units: s.prepaidUnits?.lockedOut ?? 0,
-        service_plan_names: (s.servicePlans ?? []).map(
-          (s) => s.servicePlanName,
-        ),
-      } as TablesInsert<"vendors", "m365_licenses">;
-    }
-    case "exchange-config": {
-      return {
-        ...base,
-        reject_direct_send: entity.data.rejectDirectSend,
-      } as TablesInsert<"vendors", "m365_exchange_configs">;
+        site_id: entity.siteId,
+        hostname: ep.hostname ?? null,
+        online: ep.online ?? false,
+        health: ep.health?.overall ?? null,
+        lockdown: ep.lockdown?.status ?? null,
+        platform: ep.os?.platform ?? null,
+        os_name: ep.os?.name ?? null,
+        type: ep.type ?? null,
+        has_mdr: ep.mdrManaged ?? false,
+        needs_upgrade: ep.packages?.protection?.status === "upgradable",
+        tamper_protection_enabled: ep.tamperProtectionEnabled ?? false,
+      };
     }
   }
 }
@@ -393,65 +323,32 @@ function mapToDbRow(
 // HASH — only over typed stored columns
 // ============================================================================
 
-function getHashableFields(entity: RawM365Entity): Record<string, any> {
+function getHashableFields(entity: RawSophosEntity): Record<string, any> {
   switch (entity.type) {
-    case "identities": {
-      const u = entity.data;
+    case "sites": {
+      const t = entity.data;
       return {
-        enabled: u.accountEnabled,
-        name: u.displayName,
-        email: u.userPrincipalName,
-        type: u.userType,
-        last_sign_in_at: u.signInActivity?.lastSignInDateTime ?? null,
-        assigned_licenses: (u.assignedLicenses ?? [])
-          .map((l) => l.skuId)
-          .sort(),
+        name: t.name,
+        status: t.status,
+        api_host: t.apiHost,
+        products: (t.products ?? []).map((p) => p.code).sort(),
+        show_as_name: t.showAs,
         site_id: entity.siteId,
       };
     }
-    case "groups": {
-      const g = entity.data;
+    case "endpoints": {
+      const ep = entity.data;
       return {
-        name: g.displayName,
-        description: g.description,
-        mail_enabled: g.mailEnabled,
-        security_enabled: g.securityEnabled,
-      };
-    }
-    case "roles": {
-      const r = entity.data;
-      return {
-        name: r.displayName,
-        description: r.description,
-        role_template_id: r.roleTemplateId,
-      };
-    }
-    case "policies": {
-      const p = entity.data;
-      return {
-        name: p.displayName,
-        policy_state: p.state,
-        template_id: p.templateId,
-        grant_controls: p.grantControls,
-        conditions: p.conditions,
-      };
-    }
-    case "licenses": {
-      const s = entity.data;
-      return {
-        friendly_name: (s as any)?.friendlyName ?? null,
-        sku_part_number: s.skuPartNumber,
-        total_units: s.prepaidUnits?.enabled,
-        consumed_units: s.consumedUnits,
-        suspended_units: s.prepaidUnits?.suspended,
-        warning_units: s.prepaidUnits?.warning,
-        locked_out_units: s.prepaidUnits?.lockedOut,
-        service_plan_names: s.servicePlans,
-      };
-    }
-    case "exchange-config": {
-      return {
-        reject_direct_send: entity.data.rejectDirectSend,
+        hostname: ep.hostname,
+        online: ep.online,
+        health: ep.health?.overall,
+        lockdown: ep.lockdown?.status,
+        platform: ep.os?.platform,
+        os_name: ep.os?.name,
+        type: ep.type,
+        has_mdr: ep.mdrManaged,
+        needs_upgrade: ep.packages?.protection?.status === "upgradable",
+        tamper_protection_enabled: ep.tamperProtectionEnabled,
       };
     }
   }

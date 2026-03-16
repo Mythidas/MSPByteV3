@@ -23,8 +23,11 @@ registry.register({
   // Which deps must be fresh before each enrich op can fire
   enrichOpDeps: {
     "enrich-mfa-enforced": [
-      "identities", "policies",
-      "link-identity-groups", "link-identity-roles", "link-policies",
+      "identities",
+      "policies",
+      "link-identity-groups",
+      "link-identity-roles",
+      "link-policies",
     ],
   },
 

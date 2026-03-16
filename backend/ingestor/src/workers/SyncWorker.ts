@@ -87,7 +87,14 @@ export class SyncWorker {
         this.def.processor.pruneStale(processedRows, job.data, tracker),
       );
 
-      // 3. Write sync state
+      // 3. Fan-out (optional — e.g. sophos sites → endpoints jobs)
+      if (this.def.fanOut) {
+        await tracker.trackSpan("stage:fanout", () =>
+          this.def.fanOut!(processedRows, job.data),
+        );
+      }
+
+      // 4. Write sync state
       await completeIngestJob(jobId, { metrics: tracker.toJSON() as any });
 
       // 4. Smart link enqueue — one job per satisfied op
