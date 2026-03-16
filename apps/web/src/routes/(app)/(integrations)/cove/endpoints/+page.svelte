@@ -50,22 +50,26 @@
         title: 'Storage Used',
         cell: storageCell,
         exportValue: ({ value }) => formatBytes((value as number) ?? 0),
+        sortable: true,
       },
       {
         key: 'selected_size',
         title: 'Selected Size',
         cell: storageCell,
         exportValue: ({ value }) => formatBytes((value as number) ?? 0),
+        sortable: true,
       },
       {
         key: 'errors',
         title: 'Errors',
         cell: errorsCell,
+        sortable: true,
       },
       {
         key: 'last_28_days',
         title: 'Last 28 Days',
         cell: last28DaysCell,
+        sortable: true,
       },
       relativeDateColumn<Endpoint>('last_success_at', 'Last Success'),
     ];
