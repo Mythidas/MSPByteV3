@@ -1196,6 +1196,324 @@ export type Database = {
   }
   vendors: {
     Tables: {
+      cove_endpoints: {
+        Row: {
+          created_at: string
+          data_hash: string
+          endpoint_name: string
+          errors: number
+          external_id: string
+          hostname: string
+          id: string
+          ingest_id: string | null
+          last_28_days: string
+          last_seen_at: string
+          last_success_at: string | null
+          link_id: string
+          lsv_status: string | null
+          profile: string
+          retention_policy: string
+          selected_size: number
+          site_id: string | null
+          status: string
+          tenant_id: string
+          type: string
+          updated_at: string
+          used_storage: number
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          endpoint_name: string
+          errors: number
+          external_id: string
+          hostname: string
+          id?: string
+          ingest_id?: string | null
+          last_28_days: string
+          last_seen_at?: string
+          last_success_at?: string | null
+          link_id: string
+          lsv_status?: string | null
+          profile: string
+          retention_policy: string
+          selected_size: number
+          site_id?: string | null
+          status: string
+          tenant_id: string
+          type: string
+          updated_at?: string
+          used_storage: number
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          endpoint_name?: string
+          errors?: number
+          external_id?: string
+          hostname?: string
+          id?: string
+          ingest_id?: string | null
+          last_28_days?: string
+          last_seen_at?: string
+          last_success_at?: string | null
+          link_id?: string
+          lsv_status?: string | null
+          profile?: string
+          retention_policy?: string
+          selected_size?: number
+          site_id?: string | null
+          status?: string
+          tenant_id?: string
+          type?: string
+          updated_at?: string
+          used_storage?: number
+        }
+        Relationships: []
+      }
+      cove_site_endpoints: {
+        Row: {
+          created_at: string
+          endpoint_id: string
+          last_seen_at: string
+          link_id: string
+          site_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_id: string
+          last_seen_at?: string
+          link_id: string
+          site_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_id?: string
+          last_seen_at?: string
+          link_id?: string
+          site_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cove_site_endpoints_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "cove_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cove_site_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "cove_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cove_sites: {
+        Row: {
+          created_at: string
+          data_hash: string
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string
+          name: string
+          site_id: string | null
+          tenant_id: string
+          uid: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id: string
+          name: string
+          site_id?: string | null
+          tenant_id: string
+          uid: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string
+          name?: string
+          site_id?: string | null
+          tenant_id?: string
+          uid?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      datto_endpoints: {
+        Row: {
+          category: string
+          created_at: string
+          data_hash: string
+          ext_address: string
+          external_id: string
+          hostname: string
+          id: string
+          ingest_id: string | null
+          ip_address: string
+          last_reboot_at: string
+          last_seen_at: string
+          link_id: string
+          online: boolean
+          os: string
+          site_id: string | null
+          tenant_id: string
+          udfs: Json
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          data_hash: string
+          ext_address: string
+          external_id: string
+          hostname: string
+          id?: string
+          ingest_id?: string | null
+          ip_address: string
+          last_reboot_at: string
+          last_seen_at?: string
+          link_id: string
+          online: boolean
+          os: string
+          site_id?: string | null
+          tenant_id: string
+          udfs: Json
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          data_hash?: string
+          ext_address?: string
+          external_id?: string
+          hostname?: string
+          id?: string
+          ingest_id?: string | null
+          ip_address?: string
+          last_reboot_at?: string
+          last_seen_at?: string
+          link_id?: string
+          online?: boolean
+          os?: string
+          site_id?: string | null
+          tenant_id?: string
+          udfs?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      datto_site_endpoints: {
+        Row: {
+          created_at: string
+          endpoint_id: string
+          last_seen_at: string
+          link_id: string
+          site_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          endpoint_id: string
+          last_seen_at?: string
+          link_id: string
+          site_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          endpoint_id?: string
+          last_seen_at?: string
+          link_id?: string
+          site_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "datto_site_endpoints_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "datto_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "datto_site_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "datto_sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      datto_sites: {
+        Row: {
+          created_at: string
+          data_hash: string
+          external_id: string
+          id: string
+          ingest_id: string | null
+          last_seen_at: string
+          link_id: string
+          name: string
+          site_id: string | null
+          site_variables: Json
+          status: string
+          tenant_id: string
+          uid: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          data_hash: string
+          external_id: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id: string
+          name: string
+          site_id?: string | null
+          site_variables: Json
+          status: string
+          tenant_id: string
+          uid: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          data_hash?: string
+          external_id?: string
+          id?: string
+          ingest_id?: string | null
+          last_seen_at?: string
+          link_id?: string
+          name?: string
+          site_id?: string | null
+          site_variables?: Json
+          status?: string
+          tenant_id?: string
+          uid?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       m365_exchange_configs: {
         Row: {
           created_at: string

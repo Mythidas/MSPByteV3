@@ -12,7 +12,8 @@ import { INTEGRATIONS } from "@workspace/shared/config/integrations.js";
 // Side-effect imports — each registers itself with the registry
 import "./integrations/microsoft-365/index.js";
 import "./integrations/sophos-partner/index.js";
-// import './integrations/dattormm/index.js';
+import "./integrations/dattormm/index.js";
+import "./integrations/cove/index.js";
 
 async function main() {
   Logger.level = (process.env.LOG_LEVEL as any) || "info";

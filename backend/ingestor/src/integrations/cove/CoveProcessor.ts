@@ -3,30 +3,30 @@ import { getSupabase, getSupabaseHelper } from "../../supabase.js";
 import { PipelineTracker } from "../../lib/tracker.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import type { IngestJobData } from "../../types.js";
-import type { RawDattoEntity } from "./types.js";
+import type { RawCoveEntity } from "./types.js";
 import type { IProcessor, ProcessedRow } from "../../interfaces.js";
 
-type DattoTableName = "datto_sites" | "datto_endpoints";
+type CoveTableName = "cove_sites" | "cove_endpoints";
 
-function getTableName(ingestType: string): DattoTableName {
-  if (ingestType === "sites") return "datto_sites";
-  if (ingestType === "endpoints") return "datto_endpoints";
-  throw new Error(`DattoRMMProcessor: unknown ingestType "${ingestType}"`);
+function getTableName(ingestType: string): CoveTableName {
+  if (ingestType === "sites") return "cove_sites";
+  if (ingestType === "endpoints") return "cove_endpoints";
+  throw new Error(`CoveProcessor: unknown ingestType "${ingestType}"`);
 }
 
 /**
- * DattoRMMProcessor — typed hash-based upsert for vendors.datto_* tables.
+ * CoveProcessor — typed hash-based upsert for vendors.cove_* tables.
  */
-export class DattoRMMProcessor implements IProcessor<RawDattoEntity> {
+export class CoveProcessor implements IProcessor<RawCoveEntity> {
   async process(
-    entities: RawDattoEntity[],
+    entities: RawCoveEntity[],
     job: IngestJobData,
     tracker: PipelineTracker,
   ): Promise<ProcessedRow[]> {
     const { ingestType, tenantId, ingestId } = job;
 
     Logger.info({
-      module: "DattoRMMProcessor",
+      module: "CoveProcessor",
       context: "process",
       message: `Processing ${entities.length} ${ingestType} entities`,
     });
@@ -52,7 +52,7 @@ export class DattoRMMProcessor implements IProcessor<RawDattoEntity> {
 
     const c = tracker.getCounters();
     Logger.info({
-      module: "DattoRMMProcessor",
+      module: "CoveProcessor",
       context: "process",
       message: `Completed: ${c.entities_created} created, ${c.entities_updated} updated, ${c.entities_unchanged} unchanged`,
     });
@@ -115,7 +115,7 @@ export class DattoRMMProcessor implements IProcessor<RawDattoEntity> {
 
     tracker.trackEntityDeleted(staleIds.length);
     Logger.info({
-      module: "DattoRMMProcessor",
+      module: "CoveProcessor",
       context: "pruneStale",
       message: `Deleted ${staleIds.length} stale ${ingestType} rows`,
     });
@@ -124,7 +124,7 @@ export class DattoRMMProcessor implements IProcessor<RawDattoEntity> {
   }
 
   private async processChunk(
-    entities: RawDattoEntity[],
+    entities: RawCoveEntity[],
     ingestType: string,
     tenantId: string,
     ingestId: string,
@@ -263,7 +263,7 @@ export class DattoRMMProcessor implements IProcessor<RawDattoEntity> {
 // ============================================================================
 
 function mapToDbRow(
-  entity: RawDattoEntity,
+  entity: RawCoveEntity,
   tenantId: string,
   ingestId: string,
   now: string,
@@ -282,29 +282,33 @@ function mapToDbRow(
 
   switch (entity.type) {
     case "sites": {
-      const s = entity.data;
+      const p = entity.data;
       return {
         ...base,
         site_id: entity.siteId,
-        uid: s.uid,
-        name: s.name,
-        status: "active",
-        site_variables: s.siteVariables ?? {},
+        uid: p.Info.Uid,
+        name: p.Info.Name,
       };
     }
     case "endpoints": {
-      const d = entity.data;
+      const s = entity.data.Settings;
       return {
         ...base,
         site_id: entity.siteId,
-        hostname: d.hostname,
-        online: d.online,
-        category: d.deviceType.category,
-        os: d.operatingSystem || "",
-        ip_address: d.intIpAddress,
-        ext_address: d.extIpAddress || "",
-        last_reboot_at: new Date(d.lastReboot || 0).toISOString(),
-        udfs: d.udf,
+        endpoint_name: s.deviceName ?? "",
+        hostname: s.computerName ?? "",
+        status: s.storageStatus ?? "",
+        profile: s.profile ?? "",
+        retention_policy: s.retentionPolicy ?? "",
+        selected_size: parseInt(s.selectedSize) || 0,
+        used_storage: parseInt(s.usedStorage) || 0,
+        last_28_days: s.last28Days ?? "",
+        lsv_status: s.lsvStatus ?? null,
+        errors: parseInt(s.errors, 10) || 0,
+        type: s.deviceType,
+        last_success_at: new Date(
+          parseInt(s.lastSuccessfulSession) || 0,
+        ).toISOString(),
       };
     }
   }
@@ -314,29 +318,33 @@ function mapToDbRow(
 // HASH — only over typed stored columns
 // ============================================================================
 
-function getHashableFields(entity: RawDattoEntity): Record<string, any> {
+function getHashableFields(entity: RawCoveEntity): Record<string, any> {
   switch (entity.type) {
     case "sites": {
-      const s = entity.data;
+      const p = entity.data;
       return {
-        uid: s.uid,
-        name: s.name,
-        status: "active",
-        site_variables: s.siteVariables ?? {},
+        uid: p.Info.Uid,
+        name: p.Info.Name,
         site_id: entity.siteId,
       };
     }
     case "endpoints": {
-      const d = entity.data;
+      const s = entity.data.Settings;
       return {
-        hostname: d.hostname,
-        online: d.online,
-        category: d.deviceType.category,
-        os: d.operatingSystem || "",
-        ip_address: d.intIpAddress,
-        ext_address: d.extIpAddress || "",
-        last_reboot_at: new Date(d.lastReboot || 0).toISOString(),
-        udfs: d.udf,
+        endpoint_name: s.deviceName,
+        hostname: s.computerName,
+        status: s.storageStatus,
+        profile: s.profile,
+        retention_policy: s.retentionPolicy,
+        selected_size: parseFloat(s.selectedSize) || 0,
+        used_storage: parseFloat(s.usedStorage) || 0,
+        last_28_days: s.last28Days,
+        lsv_status: s.lsvStatus,
+        errors: parseInt(s.errors, 10) || 0,
+        type: s.deviceType,
+        last_success_at: new Date(
+          parseInt(s.lastSuccessfulSession) || 0,
+        ).toISOString(),
       };
     }
   }

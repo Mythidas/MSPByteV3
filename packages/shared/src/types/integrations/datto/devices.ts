@@ -13,9 +13,9 @@ export type DattoRMMDevice = {
 
   hostname: string;
   intIpAddress: string;
-  extIpAddress: string;
+  extIpAddress?: string;
 
-  operatingSystem: string;
+  operatingSystem?: string;
   displayVersion: string;
   cagVersion: string;
 

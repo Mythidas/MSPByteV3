@@ -1,21 +1,21 @@
 import { registry } from '../../registry.js';
 import { getSupabase } from '../../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { DattoRMMAdapter } from './DattoRMMAdapter.js';
-import { DattoRMMProcessor } from './DattoRMMProcessor.js';
-import { DattoRMMLinker } from './DattoRMMLinker.js';
-import { DattoRMMEnricher } from './DattoRMMEnricher.js';
+import { CoveAdapter } from './CoveAdapter.js';
+import { CoveProcessor } from './CoveProcessor.js';
+import { CoveLinker } from './CoveLinker.js';
+import { CoveEnricher } from './CoveEnricher.js';
 import type { ProcessedRow } from '../../interfaces.js';
 import type { IngestJobData } from '../../types.js';
 
 const DAILY = 24 * 60 * 60 * 1000;
 
 registry.register({
-  integrationId: 'dattormm',
-  adapter: new DattoRMMAdapter(),
-  processor: new DattoRMMProcessor(),
-  linker: new DattoRMMLinker(),
-  enricher: new DattoRMMEnricher(),
+  integrationId: 'cove',
+  adapter: new CoveAdapter(),
+  processor: new CoveProcessor(),
+  linker: new CoveLinker(),
+  enricher: new CoveEnricher(),
 
   linkOpDeps: {
     'link-site-endpoints': ['endpoints'],
@@ -42,7 +42,7 @@ registry.register({
 
     if (linksError) {
       Logger.error({
-        module: 'DattoRMMFanOut',
+        module: 'CoveFanOut',
         context: 'fanOut',
         message: `Error fetching integration_links for fan-out: ${linksError.message}`,
       });
@@ -63,7 +63,7 @@ registry.register({
 
       if (countError) {
         Logger.error({
-          module: 'DattoRMMFanOut',
+          module: 'CoveFanOut',
           context: 'fanOut',
           message: `Error checking endpoints job for link ${linkId}: ${countError.message}`,
         });
@@ -76,7 +76,7 @@ registry.register({
         tenant_id: job.tenantId,
         site_id: siteId,
         link_id: linkId,
-        integration_id: 'dattormm',
+        integration_id: 'cove',
         ingest_type: 'endpoints',
         status: 'pending',
         priority: 3,
@@ -86,7 +86,7 @@ registry.register({
 
       if (insertError) {
         Logger.error({
-          module: 'DattoRMMFanOut',
+          module: 'CoveFanOut',
           context: 'fanOut',
           message: `Error creating endpoints job for link ${linkId}: ${insertError.message}`,
         });
@@ -94,7 +94,7 @@ registry.register({
       }
 
       Logger.info({
-        module: 'DattoRMMFanOut',
+        module: 'CoveFanOut',
         context: 'fanOut',
         message: `Created endpoints ingest_job for link ${linkId}`,
       });
