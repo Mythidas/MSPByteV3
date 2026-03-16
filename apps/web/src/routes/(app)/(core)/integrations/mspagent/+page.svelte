@@ -46,7 +46,11 @@
   });
 
   $effect(() => {
-    if (form?.error) {
+    if (form?.pushResult) {
+      const { pushed, failed, errors } = form.pushResult;
+      if (failed > 0) toast.error(`Pushed ${pushed}, failed ${failed}: ${errors?.join(', ')}`);
+      else toast.success(`Successfully pushed ${pushed} site variable${pushed !== 1 ? 's' : ''}`);
+    } else if (form?.error) {
       toast.error(`Action failed: ${form.error}`);
     } else if ((form as any)?.success && savingConfig === false) {
       toast.success('Settings saved successfully!');
@@ -98,44 +102,16 @@
 
   const allLinkedSiteIds = $derived([...linkedSiteIds]);
 
-  async function pushSiteVars(siteIds: string[]) {
-    const isPushAll = siteIds === allLinkedSiteIds || siteIds.length > 1;
-    if (isPushAll) {
-      pushingAll = true;
-    } else {
-      pushing = new Set([...pushing, ...siteIds]);
-    }
-
-    try {
-      const res = await fetch('/api/integrations/mspagent/push-vars', {
-        method: 'POST',
-        body: JSON.stringify({ siteIds }),
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        toast.error(`Push failed: ${result.error ?? res.statusText}`);
-        return;
-      }
-
-      if (result.failed > 0) {
-        toast.error(`Pushed ${result.pushed}, failed ${result.failed}: ${result.errors?.join(', ')}`);
-      } else {
-        toast.success(`Successfully pushed ${result.pushed} site variable${result.pushed !== 1 ? 's' : ''}`);
-      }
-    } catch (err) {
-      toast.error(`Push failed: ${err}`);
-    } finally {
-      if (isPushAll) {
-        pushingAll = false;
-      } else {
+  function makePushEnhance(siteId: string) {
+    return () => {
+      pushing = new Set([...pushing, siteId]);
+      return async ({ update }: { update: (opts?: { reset?: boolean }) => Promise<void> }) => {
         const next = new Set(pushing);
-        for (const id of siteIds) next.delete(id);
+        next.delete(siteId);
         pushing = next;
-      }
-    }
+        await update({ reset: false });
+      };
+    };
   }
 
   const existingConfig = $derived((dbIntegration?.config as MSPAgentConfig) ?? null);
@@ -276,13 +252,21 @@
       </div>
       <div class="flex gap-2 ml-auto shrink-0">
         <PermissionGaurd permission="Integrations.Write">
-          <Button
-            size="sm"
-            disabled={pushingAll || allLinkedSiteIds.length === 0}
-            onclick={() => pushSiteVars(allLinkedSiteIds)}
+          <form
+            method="POST"
+            action="?/pushVars"
+            use:enhance={() => {
+              pushingAll = true;
+              return async ({ update }) => {
+                pushingAll = false;
+                await update({ reset: false });
+              };
+            }}
           >
-            {pushingAll ? 'Pushing...' : 'Push All'}
-          </Button>
+            <Button type="submit" size="sm" disabled={pushingAll || allLinkedSiteIds.length === 0}>
+              {pushingAll ? 'Pushing...' : 'Push All'}
+            </Button>
+          </form>
         </PermissionGaurd>
       </div>
     </div>
@@ -337,14 +321,12 @@
                   {#if isLinked && dattoLink}
                     <span class="text-sm text-muted-foreground truncate">{dattoLink.name}</span>
                     <PermissionGaurd permission="Integrations.Write">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={isPushing || pushingAll}
-                        onclick={() => pushSiteVars([site.id])}
-                      >
-                        {isPushing ? 'Pushing...' : 'Push'}
-                      </Button>
+                      <form method="POST" action="?/pushVars" use:enhance={makePushEnhance(site.id)}>
+                        <input type="hidden" name="siteId" value={site.id} />
+                        <Button type="submit" size="sm" variant="outline" disabled={isPushing || pushingAll}>
+                          {isPushing ? 'Pushing...' : 'Push'}
+                        </Button>
+                      </form>
                     </PermissionGaurd>
                   {:else}
                     <span class="text-sm text-muted-foreground/50">No DattoRMM link</span>

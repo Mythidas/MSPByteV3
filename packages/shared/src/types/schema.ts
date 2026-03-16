@@ -1305,6 +1305,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cove_site_endpoints_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "cove_endpoints_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "cove_site_endpoints_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -2285,6 +2292,36 @@ export type Database = {
       }
     }
     Views: {
+      cove_endpoints_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          endpoint_name: string | null
+          errors: number | null
+          external_id: string | null
+          hostname: string | null
+          id: string | null
+          ingest_id: string | null
+          last_28_days: string | null
+          last_seen_at: string | null
+          last_success_at: string | null
+          link_id: string | null
+          link_name: string | null
+          lsv_status: string | null
+          profile: string | null
+          retention_policy: string | null
+          selected_size: number | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          status: string | null
+          tenant_id: string | null
+          type: string | null
+          updated_at: string | null
+          used_storage: number | null
+        }
+        Relationships: []
+      }
       m365_exchange_configs_view: {
         Row: {
           created_at: string | null

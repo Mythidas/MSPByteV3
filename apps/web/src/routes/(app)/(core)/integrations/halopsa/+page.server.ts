@@ -1,10 +1,26 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { encryptSecret } from '$lib/server/encryption';
+import { encryptSecret, decryptSecret } from '$lib/server/encryption';
 import { HaloPSAConnector } from '@workspace/shared/lib/connectors/HaloPSAConnector';
 import type { HaloPSAConfig } from '@workspace/shared/types/integrations/halopsa/index.js';
+import type { HaloPSASite } from '@workspace/shared/types/integrations/halopsa/sites.js';
 
-export const load: PageServerLoad = async ({}) => {};
+async function getHalopSites(parent: () => Promise<any>): Promise<HaloPSASite[]> {
+  const { getIntegration } = await parent();
+  const integration = await getIntegration;
+  if (!integration) return [];
+  const config = integration.config as HaloPSAConfig;
+  if (!config?.url || !config?.clientId || !config?.clientSecret) return [];
+  const clientSecret = await decryptSecret(config.clientSecret);
+  if (!clientSecret) return [];
+  const connector = new HaloPSAConnector({ url: config.url, clientId: config.clientId, clientSecret });
+  const { data } = await connector.getSites();
+  return data ?? [];
+}
+
+export const load: PageServerLoad = async ({ parent }) => {
+  return { getHalopSites: getHalopSites(parent) };
+};
 
 export const actions = {
   save: async ({ request, locals }) => {

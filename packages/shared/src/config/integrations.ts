@@ -16,7 +16,13 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       },
     ],
     scope: "site",
-    navigation: [],
+    navigation: [
+      {
+        label: "Endpoints",
+        route: "/endpoints",
+        isNullable: true,
+      },
+    ],
   },
   dattormm: {
     id: "dattormm",
@@ -33,7 +39,13 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       },
     ],
     scope: "site",
-    navigation: [],
+    navigation: [
+      {
+        label: "Endpoints",
+        route: "/endpoints",
+        isNullable: true,
+      },
+    ],
   },
   cove: {
     id: "cove",
@@ -50,7 +62,13 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       },
     ],
     scope: "site",
-    navigation: [],
+    navigation: [
+      {
+        label: "Endpoints",
+        route: "/endpoints",
+        isNullable: true,
+      },
+    ],
   },
   "microsoft-365": {
     id: "microsoft-365",

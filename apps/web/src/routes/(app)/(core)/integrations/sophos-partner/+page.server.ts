@@ -1,10 +1,25 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { encryptSecret } from '$lib/server/encryption';
+import { encryptSecret, decryptSecret } from '$lib/server/encryption';
 import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
-import type { SophosPartnerConfig } from '@workspace/shared/types/integrations/sophos/index.js';
+import type { SophosPartnerConfig, SophosPartnerTenant } from '@workspace/shared/types/integrations/sophos/index.js';
 
-export const load: PageServerLoad = async ({}) => {};
+async function getTenants(parent: () => Promise<any>): Promise<SophosPartnerTenant[]> {
+  const { getIntegration } = await parent();
+  const integration = await getIntegration;
+  if (!integration) return [];
+  const config = integration.config as SophosPartnerConfig;
+  if (!config?.clientId || !config?.clientSecret) return [];
+  const clientSecret = await decryptSecret(config.clientSecret);
+  if (!clientSecret) return [];
+  const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret });
+  const { data } = await connector.getTenants();
+  return data ?? [];
+}
+
+export const load: PageServerLoad = async ({ parent }) => {
+  return { getTenants: getTenants(parent) };
+};
 
 export const actions = {
   save: async ({ request, locals }) => {

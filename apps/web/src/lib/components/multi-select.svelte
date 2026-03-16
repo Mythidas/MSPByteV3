@@ -41,8 +41,10 @@
   });
 
   const filteredOptions = $derived.by(() => {
-    const filtered = options.filter((opt) =>
-      opt.label.toLowerCase().includes(search.toLowerCase())
+    const current = options.filter((o) => selected.includes(o.value));
+    const filtered = options.filter(
+      (opt) =>
+        !selected.includes(opt.value) && opt.label.toLowerCase().includes(search.toLowerCase())
     );
 
     // Sort selected items to the top (only when not actively searching)
@@ -56,7 +58,7 @@
       });
     }
 
-    return filtered;
+    return current.length ? [...current, ...filtered] : filtered;
   });
 
   const selectedOptions = $derived(options.filter((opt) => selected.includes(opt.value)));

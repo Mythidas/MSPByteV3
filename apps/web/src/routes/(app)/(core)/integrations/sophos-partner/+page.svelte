@@ -38,7 +38,7 @@
   let dbSites = $state<Tables<'public', 'sites'>[]>([]);
   let tenants = $state<SophosPartnerTenant[]>([]);
   let loading = $state(true);
-  let loadingTenants = $state(false);
+  let loadingTenants = $state(true);
   let pendingMappings = $state<Record<string, string | undefined>>({});
   let saving = $state(false);
   let siteSearch = $state('');
@@ -48,15 +48,15 @@
   let savingConfig = $state(false);
 
   const committedMappings = $derived(
-    Object.fromEntries(dbLinks.filter((l) => l.site_id).map((l) => [l.site_id!, l.external_id])),
+    Object.fromEntries(dbLinks.filter((l) => l.site_id).map((l) => [l.site_id!, l.external_id]))
   );
 
   const isDirty = $derived(
-    dbSites.some((s) => (pendingMappings[s.id] ?? null) !== (committedMappings[s.id] ?? null)),
+    dbSites.some((s) => (pendingMappings[s.id] ?? null) !== (committedMappings[s.id] ?? null))
   );
 
   const linkedSiteIds = $derived(
-    new Set(Object.keys(pendingMappings).filter((k) => !!pendingMappings[k])),
+    new Set(Object.keys(pendingMappings).filter((k) => !!pendingMappings[k]))
   );
 
   const filteredSites = $derived(
@@ -67,7 +67,7 @@
         if (activeFilter === 'Unlinked') return !linkedSiteIds.has(s.id);
         return true;
       })
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
   );
 
   const metrics = $derived({
@@ -106,7 +106,10 @@
   });
 
   $effect(() => {
-    if (dbIntegration) loadTenants();
+    data.getTenants.then((result) => {
+      tenants = result ?? [];
+      loadingTenants = false;
+    });
   });
 
   const loadLinks = async () => {
@@ -117,22 +120,6 @@
       .eq('tenant_id', authStore.currentTenant?.id ?? '');
     dbLinks = links ?? [];
   };
-
-  async function loadTenants() {
-    loadingTenants = true;
-    try {
-      const res = await fetch('/api/integrations/sophos-partner/tenants');
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error ?? res.statusText);
-      }
-      tenants = await res.json();
-    } catch (err) {
-      toast.error(`Failed to load Sophos tenants: ${err}`);
-    } finally {
-      loadingTenants = false;
-    }
-  }
 
   function normalize(s: string): string[] {
     return s
@@ -155,7 +142,7 @@
     const taken = new Set(
       Object.entries(pendingMappings)
         .filter(([, v]) => !!v)
-        .map(([, v]) => v as string),
+        .map(([, v]) => v as string)
     );
     const next = { ...pendingMappings };
 
@@ -217,15 +204,12 @@
       if (toUpsert.length > 0) {
         const { error } = await supabase
           .from('integration_links')
-          .upsert(toUpsert, { onConflict: 'tenant_id,integration_id,site_id' });
+          .upsert(toUpsert, { onConflict: 'tenant_id,integration_id,site_id,external_id' });
         if (error) throw error.message;
       }
 
       if (toDeleteIds.length > 0) {
-        const { error } = await supabase
-          .from('integration_links')
-          .delete()
-          .in('id', toDeleteIds);
+        const { error } = await supabase.from('integration_links').delete().in('id', toDeleteIds);
         if (error) throw error.message;
       }
 
@@ -385,8 +369,7 @@
       <Card.Root class="p-4">
         <div class="flex flex-col gap-1">
           <span class="text-xs text-muted-foreground">Unlinked</span>
-          <span class="text-2xl font-bold text-destructive"
-            >{loading ? '—' : metrics.unlinked}</span
+          <span class="text-2xl font-bold text-destructive">{loading ? '—' : metrics.unlinked}</span
           >
         </div>
       </Card.Root>
@@ -474,7 +457,7 @@
               {@const takenByOthers = new Set(
                 Object.entries(pendingMappings)
                   .filter(([k, v]) => k !== site.id && !!v)
-                  .map(([, v]) => v as string),
+                  .map(([, v]) => v as string)
               )}
               {@const rowOptions = tenants
                 .filter((t) => !takenByOthers.has(t.id))
@@ -520,8 +503,7 @@
       >
         <TriangleAlert class="size-4" />
         <span class="text-sm">
-          Sophos Partner is not configured yet. Click <strong>Configure</strong> to set up your
-          credentials.
+          Sophos Partner is not configured yet. Click <strong>Configure</strong> to set up your credentials.
         </span>
       </div>
     </FadeIn>

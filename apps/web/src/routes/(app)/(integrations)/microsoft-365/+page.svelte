@@ -4,6 +4,7 @@
   import { supabase } from '$lib/utils/supabase.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
 
   let loading = $state(true);
 
@@ -35,6 +36,7 @@
   $effect(() => {
     const link = scopeStore.currentLink;
     const tenantId = authStore.currentTenant?.id ?? '';
+    const integration = INTEGRATIONS['microsoft-365'];
 
     const load = async () => {
       loading = true;
@@ -154,7 +156,11 @@
             .from('d_alerts_view' as any)
             .select('*', { count: 'exact', head: true })
             .eq('tenant_id', tenantId)
-            .eq('status', 'active');
+            .eq('status', 'active')
+            .in(
+              'entity_type',
+              integration.supportedTypes.filter((t) => t.entityKey).map((t) => t.entityKey!)
+            );
           if (link) q.eq('link_id', link as string);
           return q;
         })(),

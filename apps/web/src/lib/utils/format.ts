@@ -21,3 +21,10 @@ export function formatStringProper(input?: string | null): string {
     .replace(/[_-]+/g, ' ') // Replace underscores and dashes with spaces
     .replace(/\b\w/g, (char) => char.toUpperCase()); // Capitalize first letter of each word
 }
+
+export function formatBytes(bytes: number): string {
+  if (bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${units[i]}`;
+}

@@ -38,9 +38,18 @@
     }
   });
 
-  const filteredOptions = $derived(
-    options.filter((opt) => opt.label.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredOptions = $derived.by(() => {
+    const current = options.find((o) => o.value === selected);
+    return current
+      ? [
+          current,
+          ...options.filter(
+            (opt) =>
+              opt.value !== selected && opt.label.toLowerCase().includes(search.toLowerCase())
+          ),
+        ]
+      : options.filter((opt) => opt.label.toLowerCase().includes(search.toLowerCase()));
+  });
 
   const selectOption = (value: string) => {
     if (selected === value) {

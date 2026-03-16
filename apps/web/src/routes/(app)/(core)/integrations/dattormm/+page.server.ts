@@ -1,10 +1,26 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
-import { encryptSecret } from '$lib/server/encryption';
+import { encryptSecret, decryptSecret } from '$lib/server/encryption';
 import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
 import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index.js';
+import type { DattoRMMSite } from '@workspace/shared/types/integrations/datto/sites.js';
 
-export const load: PageServerLoad = async ({}) => {};
+async function getDattoSites(parent: () => Promise<any>): Promise<DattoRMMSite[]> {
+  const { getIntegration } = await parent();
+  const integration = await getIntegration;
+  if (!integration) return [];
+  const config = integration.config as DattoRMMConfig;
+  if (!config?.url || !config?.apiKey || !config?.apiSecretKey) return [];
+  const apiSecretKey = await decryptSecret(config.apiSecretKey);
+  if (!apiSecretKey) return [];
+  const connector = new DattoRMMConnector({ url: config.url, apiKey: config.apiKey, apiSecretKey });
+  const { data } = await connector.getSites();
+  return data ?? [];
+}
+
+export const load: PageServerLoad = async ({ parent }) => {
+  return { getDattoSites: getDattoSites(parent) };
+};
 
 export const actions = {
   save: async ({ request, locals }) => {

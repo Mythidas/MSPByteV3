@@ -21,18 +21,13 @@
       scopeStore.currentIntegration = urlPart as IntegrationId;
     }
   });
-
-  $inspect(scopeStore.currentIntegration);
 </script>
 
 <div class="w-44">
   <SingleSelect
     placeholder="Select Integration"
     searchPlaceholder="Search Integrations"
-    options={[
-      { label: 'Microsoft 365', value: 'microsoft-365' },
-      { label: 'MSPAgent', value: 'mspagent' },
-    ]}
+    {options}
     selected={scopeStore.currentIntegration as string | undefined}
     onchange={(v) => (v ? goto(`/${v}`) : goto('/home'))}
   />

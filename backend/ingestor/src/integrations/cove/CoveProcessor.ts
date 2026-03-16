@@ -297,7 +297,7 @@ function mapToDbRow(
         site_id: entity.siteId,
         endpoint_name: s.deviceName ?? "",
         hostname: s.computerName ?? "",
-        status: s.storageStatus ?? "",
+        status: convertStatus(s.backupStatus ?? ""),
         profile: s.profile ?? "",
         retention_policy: s.retentionPolicy ?? "",
         selected_size: parseInt(s.selectedSize) || 0,
@@ -305,10 +305,10 @@ function mapToDbRow(
         last_28_days: s.last28Days ?? "",
         lsv_status: s.lsvStatus ?? null,
         errors: parseInt(s.errors, 10) || 0,
-        type: s.deviceType,
-        last_success_at: new Date(
-          parseInt(s.lastSuccessfulSession) || 0,
-        ).toISOString(),
+        type: convertDeviceType(s.deviceType ?? ""),
+        last_success_at: s.lastSuccessfulSession
+          ? new Date(parseInt(s.lastSuccessfulSession) * 1000).toISOString()
+          : null,
       };
     }
   }
@@ -333,7 +333,7 @@ function getHashableFields(entity: RawCoveEntity): Record<string, any> {
       return {
         endpoint_name: s.deviceName,
         hostname: s.computerName,
-        status: s.storageStatus,
+        status: convertStatus(s.backupStatus),
         profile: s.profile,
         retention_policy: s.retentionPolicy,
         selected_size: parseFloat(s.selectedSize) || 0,
@@ -341,10 +341,10 @@ function getHashableFields(entity: RawCoveEntity): Record<string, any> {
         last_28_days: s.last28Days,
         lsv_status: s.lsvStatus,
         errors: parseInt(s.errors, 10) || 0,
-        type: s.deviceType,
-        last_success_at: new Date(
-          parseInt(s.lastSuccessfulSession) || 0,
-        ).toISOString(),
+        type: convertDeviceType(s.deviceType),
+        last_success_at: s.lastSuccessfulSession
+          ? new Date(parseInt(s.lastSuccessfulSession) * 1000).toISOString()
+          : null,
       };
     }
   }
@@ -361,4 +361,34 @@ function chunkArray<T>(array: T[], size: number): T[][] {
     chunks.push(array.slice(i, i + size));
   }
   return chunks;
+}
+
+function convertDeviceType(type: string): string {
+  switch (type) {
+    case "2":
+      return "Server";
+    case "1":
+      return "Worksation";
+    default:
+      return "Unknown";
+  }
+}
+
+function convertStatus(status: string): string {
+  switch (status) {
+    case "5":
+      return "Completed";
+    case "1":
+      return "In Process";
+    case "6":
+      return "Interrupted";
+    case "8":
+      return "Completed with Errors";
+    case "7":
+      return "Not Started";
+    case "2":
+      return "Failed";
+    default:
+      return "Unknown";
+  }
 }
