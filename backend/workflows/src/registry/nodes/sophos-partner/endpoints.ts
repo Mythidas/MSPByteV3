@@ -1,21 +1,20 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
-import { getSupabase } from "../../../supabase.js";
 import { registerNode } from "../../registry.js";
 import type { RunContext, RunSeed } from "../../../types.js";
 
 registerNode({
-  ref: "M365.Identities.Query",
-  label: "M365 Identities",
-  description: "Queries M365 identities for the run scope.",
+  ref: "Sophos.Endpoints.Query",
+  label: "Sophos Endpoints",
+  description: "Queries Sophos endpoints for the run scope.",
   category: "source",
-  integration: "M365",
+  integration: "Sophos-Partner",
   isGeneric: false,
   pins: [
     {
       key: "entities",
       kind: "output",
-      dataType: "m365_identity",
+      dataType: "sophos_endpoint",
       cardinality: "array",
     },
   ],
@@ -28,7 +27,7 @@ registerNode({
       case "entity_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
-          "m365_identities" as any,
+          "sophos_endpoints",
           seed.entity_ids!,
           "id" as never,
           500,
@@ -40,7 +39,7 @@ registerNode({
       case "link_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
-          "m365_identities" as any,
+          "sophos_endpoints",
           seed.link_ids!,
           "link_id" as never,
           500,
@@ -52,7 +51,7 @@ registerNode({
       case "site_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
-          "m365_identities" as any,
+          "sophos_endpoints",
           seed.site_ids!,
           "site_id" as never,
           500,
@@ -64,7 +63,7 @@ registerNode({
       case "all": {
         const { data } = await supabaseHelper.selectAll(
           "vendors",
-          "m365_identities" as any,
+          "sophos_endpoints",
           (q: any) => q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
@@ -74,13 +73,13 @@ registerNode({
 
     const tagged = (entities as Record<string, unknown>[]).map((e) => ({
       ...e,
-      _entityType: "m365_identity",
+      _entityType: "sophos_endpoint",
     }));
 
     Logger.info({
       module: "workflows",
-      context: "M365.Identities.Query",
-      message: `fetched ${tagged.length} identities`,
+      context: "Sophos.Endpoints.Query",
+      message: `fetched ${tagged.length} endpoints`,
     });
     return { entities: tagged, _metrics: { records_fetched: tagged.length } };
   },
