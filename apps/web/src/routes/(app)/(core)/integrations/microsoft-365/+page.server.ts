@@ -7,7 +7,22 @@ import { safeErrorMessage } from '@workspace/shared/lib/utils/errors';
 import type { Tables } from '@workspace/shared/types/database';
 import type { Actions, PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({}) => {};
+export const load: PageServerLoad = async ({ locals }) => {
+  const { data: frameworks } = await (locals.supabase as any)
+    .from('compliance_frameworks')
+    .select('*, compliance_framework_checks(*)')
+    .eq('tenant_id', locals.tenant.id)
+    .eq('integration_id', 'microsoft-365')
+    .order('name');
+
+  const { data: assignments } = await (locals.supabase as any)
+    .from('compliance_assignments')
+    .select('*')
+    .eq('tenant_id', locals.tenant.id)
+    .eq('integration_id', 'microsoft-365');
+
+  return { frameworks: frameworks ?? [], assignments: assignments ?? [] };
+};
 
 export const actions = {
   initialConsent: async ({ locals }) => {

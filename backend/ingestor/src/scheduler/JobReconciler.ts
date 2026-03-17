@@ -2,6 +2,8 @@ import { getSupabase } from "../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { registry } from "../registry.js";
 import { INTEGRATIONS } from "@workspace/shared/config/integrations.js";
+import { queueManager, QueueNames } from "../lib/queue.js";
+import { ComplianceJobData } from "../types.js";
 
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -32,7 +34,7 @@ export class JobReconciler {
 
       for (const def of definitions) {
         const config = INTEGRATIONS[def.integrationId];
-        if (config.id !== "sophos-partner") continue;
+        if (config.id !== "microsoft-365") continue;
 
         // Only reconcile types that aren't fan-out (those are created by fanOut)
         const types = config.supportedTypes
@@ -95,6 +97,17 @@ export class JobReconciler {
           }
 
           for (const link of links ?? []) {
+            if (link.id !== "de8c9ef9-b722-4b53-a12f-b4be027cba9e") continue;
+            await queueManager.addJob(
+              QueueNames.compliance(),
+              {
+                tenantId: link.tenant_id,
+                integrationId: "microsoft-365",
+                linkId: link.id,
+              } satisfies ComplianceJobData,
+              { jobId: `compliance_${link.id}`, delay: 5_000, priority: 70 },
+            );
+
             for (const ingestType of types) {
               await this.ensureJobExists(
                 link.tenant_id,

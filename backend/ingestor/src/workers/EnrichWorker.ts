@@ -3,7 +3,7 @@ import { queueManager, QueueNames } from "../lib/queue.js";
 import { PipelineTracker } from "../lib/tracker.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { startIngestJob, completeIngestJob, failIngestJob } from "../lib/ingest-state.js";
-import type { EnrichJobData } from "../types.js";
+import type { EnrichJobData, ComplianceJobData } from "../types.js";
 import { IEnricher } from "../interfaces.js";
 
 export class EnrichWorker {
@@ -40,6 +40,12 @@ export class EnrichWorker {
     try {
       await this.enricher.enrich(job.data, tracker);
       await completeIngestJob(dbJob.id, { metrics: tracker.toJSON() as any });
+
+      await queueManager.addJob(
+        QueueNames.compliance(),
+        { tenantId, integrationId, linkId } satisfies ComplianceJobData,
+        { jobId: `compliance_${linkId}`, delay: 5_000, priority: 70 },
+      );
     } catch (err) {
       await failIngestJob(dbJob.id, { error: String(err) });
       throw err;

@@ -6,6 +6,7 @@ import { JobReconciler } from "./scheduler/JobReconciler.js";
 import { SyncWorker } from "./workers/SyncWorker.js";
 import { LinkWorker } from "./workers/LinkWorker.js";
 import { EnrichWorker } from "./workers/EnrichWorker.js";
+import { ComplianceWorker } from "./workers/ComplianceWorker.js";
 import { registry } from "./registry.js";
 import { INTEGRATIONS } from "@workspace/shared/config/integrations.js";
 
@@ -64,6 +65,9 @@ async function main() {
     new LinkWorker(def.integrationId, def.linker, def).start();
     new EnrichWorker(def.integrationId, def.enricher).start();
   }
+
+  // One global ComplianceWorker (integration-agnostic)
+  new ComplianceWorker().start();
 
   Logger.info({
     module: "Ingestor",

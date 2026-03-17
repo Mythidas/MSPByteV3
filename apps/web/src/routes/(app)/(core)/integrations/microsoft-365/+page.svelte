@@ -31,6 +31,7 @@
   import PermissionGaurd from '$lib/components/auth/permission-gaurd.svelte';
   import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
   import SelectedLink from './_selected-link.svelte';
+  import ComplianceTab from './_compliance-tab.svelte';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
 
@@ -42,6 +43,8 @@
   let dbLinks = $state<Tables<'public', 'integration_links'>[]>([]);
   let dbSites = $state<Tables<'public', 'sites'>[]>([]);
   let loading = $state(true);
+  let complianceFrameworks = $state<any[]>([]);
+  let complianceAssignments = $state<any[]>([]);
   let selectedLinkId = $state<string | null>(null);
   let connectionSearch = $state('');
   let activeFilter = $state<
@@ -92,11 +95,29 @@
       dbIntegration = (await data.getIntegration) ?? null;
       dbLinks = (await data.getLinks) ?? [];
       dbSites = (await data.getSites) ?? [];
+      complianceFrameworks = data.frameworks ?? [];
+      complianceAssignments = data.assignments ?? [];
       loading = false;
     };
 
     load();
   });
+
+  const reloadCompliance = async () => {
+    const { data: frameworks } = await (supabase as any)
+      .from('compliance_frameworks')
+      .select('*, compliance_framework_checks(*)')
+      .eq('tenant_id', authStore.currentTenant?.id ?? '')
+      .eq('integration_id', 'microsoft-365')
+      .order('name');
+    const { data: assignments } = await (supabase as any)
+      .from('compliance_assignments')
+      .select('*')
+      .eq('tenant_id', authStore.currentTenant?.id ?? '')
+      .eq('integration_id', 'microsoft-365');
+    complianceFrameworks = frameworks ?? [];
+    complianceAssignments = assignments ?? [];
+  };
 
   $effect(() => {
     const error = page.url.searchParams.get('error');
@@ -245,6 +266,14 @@
   </div>
 
   {#if !!dbIntegration}
+    <Tabs.Root value="connections" class="flex flex-col flex-1 overflow-hidden gap-3">
+      <Tabs.List class="shrink-0 w-fit">
+        <Tabs.Trigger value="connections">Connections</Tabs.Trigger>
+        <Tabs.Trigger value="compliance">Compliance</Tabs.Trigger>
+      </Tabs.List>
+
+      <Tabs.Content value="connections" class="flex flex-col flex-1 overflow-hidden gap-4 mt-0">
+
     <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 shrink-0">
       <Card.Root class="p-4">
         <div class="flex flex-col gap-1">
@@ -416,6 +445,18 @@
         />
       {/if}
     </div>
+
+      </Tabs.Content>
+
+      <Tabs.Content value="compliance" class="flex-1 overflow-hidden mt-0">
+        <ComplianceTab
+          frameworks={complianceFrameworks}
+          assignments={complianceAssignments}
+          links={dbLinks}
+          onmutated={reloadCompliance}
+        />
+      </Tabs.Content>
+    </Tabs.Root>
   {:else if loading}
     <Loader />
   {:else}

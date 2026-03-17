@@ -25,3 +25,9 @@ export type EnrichJobData = {
   linkId: string;
   enrichOpType: string;
 };
+
+export type ComplianceJobData = {
+  tenantId: string;
+  integrationId: string;
+  linkId: string;
+};

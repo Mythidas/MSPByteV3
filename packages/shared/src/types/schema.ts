@@ -373,6 +373,209 @@ export type Database = {
           },
         ]
       }
+      compliance_assignments: {
+        Row: {
+          created_at: string
+          framework_id: string
+          id: string
+          integration_id: string
+          link_id: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          framework_id: string
+          id?: string
+          integration_id: string
+          link_id?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          framework_id?: string
+          id?: string
+          integration_id?: string
+          link_id?: string | null
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_assignments_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_frameworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_assignments_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "integration_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_framework_checks: {
+        Row: {
+          check_config: Json
+          check_type_id: string
+          description: string | null
+          framework_id: string
+          id: string
+          name: string
+          severity: string
+          sort_order: number
+          tenant_id: string
+        }
+        Insert: {
+          check_config: Json
+          check_type_id: string
+          description?: string | null
+          framework_id: string
+          id?: string
+          name: string
+          severity?: string
+          sort_order?: number
+          tenant_id: string
+        }
+        Update: {
+          check_config?: Json
+          check_type_id?: string
+          description?: string | null
+          framework_id?: string
+          id?: string
+          name?: string
+          severity?: string
+          sort_order?: number
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_framework_checks_framework_id_fkey"
+            columns: ["framework_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_frameworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_framework_checks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_frameworks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          integration_id: string
+          is_managed: boolean
+          name: string
+          parent_id: string | null
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          integration_id: string
+          is_managed?: boolean
+          name: string
+          parent_id?: string | null
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          integration_id?: string
+          is_managed?: boolean
+          name?: string
+          parent_id?: string | null
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_frameworks_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_frameworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_frameworks_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_results: {
+        Row: {
+          detail: Json | null
+          evaluated_at: string
+          framework_check_id: string
+          id: string
+          link_id: string
+          status: string
+          tenant_id: string
+        }
+        Insert: {
+          detail?: Json | null
+          evaluated_at?: string
+          framework_check_id: string
+          id?: string
+          link_id: string
+          status: string
+          tenant_id: string
+        }
+        Update: {
+          detail?: Json | null
+          evaluated_at?: string
+          framework_check_id?: string
+          id?: string
+          link_id?: string
+          status?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_results_framework_check_id_fkey"
+            columns: ["framework_check_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_framework_checks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_results_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "integration_links"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_results_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diagnostic_logs: {
         Row: {
           context: string
