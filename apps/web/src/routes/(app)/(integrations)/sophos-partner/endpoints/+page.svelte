@@ -10,7 +10,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { Badge } from '$lib/components/ui/badge';
 
-  type Endpoint = Tables<'vendors', 'sophos_endpoints_view'>;
+  type Endpoint = Tables<'views', 'sophos_endpoints_view'>;
 
   const columns: DataTableColumn<Endpoint>[] = $derived.by(() => {
     const siteSelected = !!scopeStore.currentSite;
@@ -98,7 +98,7 @@
   <h1 class="h-fit text-2xl font-bold">Endpoints</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="sophos_endpoints_view"
     {columns}
     {modifyQuery}

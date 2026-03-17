@@ -5,7 +5,7 @@
   import { boolBadgeColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
 
-  type ExchangeConfig = Tables<'vendors', 'm365_exchange_configs_view'>;
+  type ExchangeConfig = Tables<'views', 'm365_exchange_configs_view'>;
 
   const { data } = $props();
 
@@ -35,7 +35,7 @@
   <h1 class="h-fit text-2xl font-bold">Exchange</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="m365_exchange_configs_view"
     {columns}
     {modifyQuery}

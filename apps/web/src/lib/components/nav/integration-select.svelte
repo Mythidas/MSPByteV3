@@ -6,10 +6,12 @@
   import { page } from '$app/state';
 
   const options = $derived(
-    scopeStore.activeIntegrations.map((i) => {
-      const integration = INTEGRATIONS[i];
-      return { label: integration.name, value: i };
-    })
+    scopeStore.activeIntegrations
+      .filter((a) => INTEGRATIONS[a].navigation.length > 0)
+      .map((i) => {
+        const integration = INTEGRATIONS[i];
+        return { label: integration.name, value: i };
+      })
   );
 
   $effect(() => {

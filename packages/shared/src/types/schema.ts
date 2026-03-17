@@ -1305,13 +1305,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "cove_site_endpoints_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "cove_endpoints_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "cove_site_endpoints_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -1376,6 +1369,7 @@ export type Database = {
           id: string
           ingest_id: string | null
           ip_address: string
+          last_heartbeat_at: string | null
           last_reboot_at: string
           last_seen_at: string
           link_id: string
@@ -1396,6 +1390,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           ip_address: string
+          last_heartbeat_at?: string | null
           last_reboot_at: string
           last_seen_at?: string
           link_id: string
@@ -1416,6 +1411,7 @@ export type Database = {
           id?: string
           ingest_id?: string | null
           ip_address?: string
+          last_heartbeat_at?: string | null
           last_reboot_at?: string
           last_seen_at?: string
           link_id?: string
@@ -1459,13 +1455,6 @@ export type Database = {
             columns: ["endpoint_id"]
             isOneToOne: false
             referencedRelation: "datto_endpoints"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "datto_site_endpoints_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "datto_endpoints_view"
             referencedColumns: ["id"]
           },
           {
@@ -1712,24 +1701,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "m365_identity_groups_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "m365_groups_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "m365_identity_groups_identity_id_fkey"
             columns: ["identity_id"]
             isOneToOne: false
             referencedRelation: "m365_identities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "m365_identity_groups_identity_id_fkey"
-            columns: ["identity_id"]
-            isOneToOne: false
-            referencedRelation: "m365_identities_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1768,24 +1743,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "m365_identity_roles_identity_id_fkey"
-            columns: ["identity_id"]
-            isOneToOne: false
-            referencedRelation: "m365_identities_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "m365_identity_roles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "m365_roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "m365_identity_roles_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "m365_roles_view"
             referencedColumns: ["id"]
           },
         ]
@@ -1947,24 +1908,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "m365_policy_groups_group_id_fkey"
-            columns: ["group_id"]
-            isOneToOne: false
-            referencedRelation: "m365_groups_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "m365_policy_groups_policy_id_fkey"
             columns: ["policy_id"]
             isOneToOne: false
             referencedRelation: "m365_policies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "m365_policy_groups_policy_id_fkey"
-            columns: ["policy_id"]
-            isOneToOne: false
-            referencedRelation: "m365_policies_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2006,24 +1953,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "m365_policy_identities_identity_id_fkey"
-            columns: ["identity_id"]
-            isOneToOne: false
-            referencedRelation: "m365_identities_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "m365_policy_identities_policy_id_fkey"
             columns: ["policy_id"]
             isOneToOne: false
             referencedRelation: "m365_policies"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "m365_policy_identities_policy_id_fkey"
-            columns: ["policy_id"]
-            isOneToOne: false
-            referencedRelation: "m365_policies_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2065,24 +1998,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "m365_policy_roles_policy_id_fkey"
-            columns: ["policy_id"]
-            isOneToOne: false
-            referencedRelation: "m365_policies_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "m365_policy_roles_role_id_fkey"
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "m365_roles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "m365_policy_roles_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "m365_roles_view"
             referencedColumns: ["id"]
           },
         ]
@@ -2238,13 +2157,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "sophos_site_endpoints_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "sophos_endpoints_view"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "sophos_site_endpoints_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -2309,6 +2221,23 @@ export type Database = {
       }
     }
     Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  views: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
       cove_endpoints_view: {
         Row: {
           created_at: string | null
@@ -2337,208 +2266,16 @@ export type Database = {
           updated_at: string | null
           used_storage: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cove_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      datto_endpoints_view: {
-        Row: {
-          category: string | null
-          created_at: string | null
-          data_hash: string | null
-          ext_address: string | null
-          external_id: string | null
-          hostname: string | null
-          id: string | null
-          ingest_id: string | null
-          ip_address: string | null
-          last_reboot_at: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          online: boolean | null
-          os: string | null
-          site_id: string | null
-          site_name: string | null
-          state: string | null
-          tenant_id: string | null
-          udfs: Json | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      m365_exchange_configs_view: {
-        Row: {
-          created_at: string | null
-          data_hash: string | null
-          external_id: string | null
-          id: string | null
-          ingest_id: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          reject_direct_send: boolean | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      m365_groups_view: {
-        Row: {
-          created_at: string | null
-          data_hash: string | null
-          description: string | null
-          external_id: string | null
-          id: string | null
-          ingest_id: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          mail_enabled: boolean | null
-          member_count: number | null
-          name: string | null
-          security_enabled: boolean | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      m365_identities_view: {
-        Row: {
-          alert_count: number | null
-          assigned_licenses: string[] | null
-          created_at: string | null
-          data_hash: string | null
-          email: string | null
-          enabled: boolean | null
-          external_id: string | null
-          group_count: number | null
-          id: string | null
-          ingest_id: string | null
-          last_non_interactive_sign_in_at: string | null
-          last_seen_at: string | null
-          last_sign_in_at: string | null
-          link_id: string | null
-          link_name: string | null
-          mfa_enforced: boolean | null
-          name: string | null
-          site_id: string | null
-          site_name: string | null
-          state: string | null
-          tenant_id: string | null
-          type: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      m365_licenses_view: {
-        Row: {
-          available_units: number | null
-          consumed_units: number | null
-          created_at: string | null
-          data_hash: string | null
-          enabled: boolean | null
-          external_id: string | null
-          friendly_name: string | null
-          id: string | null
-          ingest_id: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          locked_out_units: number | null
-          service_plan_names: string[] | null
-          sku_id: string | null
-          sku_part_number: string | null
-          suspended_units: number | null
-          tenant_id: string | null
-          total_units: number | null
-          updated_at: string | null
-          warning_units: number | null
-        }
-        Relationships: []
-      }
-      m365_policies_view: {
-        Row: {
-          conditions: Json | null
-          created_at: string | null
-          data_hash: string | null
-          description: string | null
-          external_id: string | null
-          grant_controls: Json | null
-          id: string | null
-          ingest_id: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          name: string | null
-          policy_state: string | null
-          requires_mfa: boolean | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      m365_roles_view: {
-        Row: {
-          created_at: string | null
-          data_hash: string | null
-          description: string | null
-          external_id: string | null
-          id: string | null
-          ingest_id: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          member_count: number | null
-          name: string | null
-          role_template_id: string | null
-          tenant_id: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-      sophos_endpoints_view: {
-        Row: {
-          created_at: string | null
-          data_hash: string | null
-          external_id: string | null
-          has_mdr: boolean | null
-          health: string | null
-          hostname: string | null
-          id: string | null
-          ingest_id: string | null
-          last_seen_at: string | null
-          link_id: string | null
-          link_name: string | null
-          lockdown: string | null
-          needs_upgrade: boolean | null
-          online: boolean | null
-          os_name: string | null
-          platform: string | null
-          site_id: string | null
-          site_name: string | null
-          state: string | null
-          tamper_protection_enabled: boolean | null
-          tenant_id: string | null
-          type: string | null
-          updated_at: string | null
-        }
-        Relationships: []
-      }
-    }
-    Functions: {
-      [_ in never]: never
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-  views: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
       d_agent_tickets_view: {
         Row: {
           agent_id: string | null
@@ -2677,6 +2414,216 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "d_roles_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      datto_endpoints_view: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          data_hash: string | null
+          ext_address: string | null
+          external_id: string | null
+          hostname: string | null
+          id: string | null
+          ingest_id: string | null
+          ip_address: string | null
+          last_heartbeat_at: string | null
+          last_reboot_at: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          online: boolean | null
+          os: string | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          tenant_id: string | null
+          udfs: Json | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "datto_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_exchange_configs_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          external_id: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          reject_direct_send: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_groups_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          description: string | null
+          external_id: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          mail_enabled: boolean | null
+          member_count: number | null
+          name: string | null
+          security_enabled: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_identities_view: {
+        Row: {
+          alert_count: number | null
+          assigned_licenses: string[] | null
+          created_at: string | null
+          data_hash: string | null
+          email: string | null
+          enabled: boolean | null
+          external_id: string | null
+          group_count: number | null
+          id: string | null
+          ingest_id: string | null
+          last_non_interactive_sign_in_at: string | null
+          last_seen_at: string | null
+          last_sign_in_at: string | null
+          link_id: string | null
+          link_name: string | null
+          mfa_enforced: boolean | null
+          name: string | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          tenant_id: string | null
+          type: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "m365_identities_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      m365_licenses_view: {
+        Row: {
+          available_units: number | null
+          consumed_units: number | null
+          created_at: string | null
+          data_hash: string | null
+          enabled: boolean | null
+          external_id: string | null
+          friendly_name: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          locked_out_units: number | null
+          service_plan_names: string[] | null
+          sku_id: string | null
+          sku_part_number: string | null
+          suspended_units: number | null
+          tenant_id: string | null
+          total_units: number | null
+          updated_at: string | null
+          warning_units: number | null
+        }
+        Relationships: []
+      }
+      m365_policies_view: {
+        Row: {
+          conditions: Json | null
+          created_at: string | null
+          data_hash: string | null
+          description: string | null
+          external_id: string | null
+          grant_controls: Json | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          name: string | null
+          policy_state: string | null
+          requires_mfa: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      m365_roles_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          description: string | null
+          external_id: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          member_count: number | null
+          name: string | null
+          role_template_id: string | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      sophos_endpoints_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          external_id: string | null
+          has_mdr: boolean | null
+          health: string | null
+          hostname: string | null
+          id: string | null
+          ingest_id: string | null
+          last_heartbeat_at: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          lockdown: string | null
+          needs_upgrade: boolean | null
+          online: boolean | null
+          os_name: string | null
+          platform: string | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          tamper_protection_enabled: boolean | null
+          tenant_id: string | null
+          type: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sophos_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
             referencedColumns: ["id"]
           },
         ]

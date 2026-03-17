@@ -10,7 +10,7 @@
   import AlertCircleIcon from '@lucide/svelte/icons/alert-circle';
   import SearchIcon from '@lucide/svelte/icons/search';
 
-  type Identity = Tables<'vendors', 'm365_identities_view'>;
+  type Identity = Tables<'views', 'm365_identities_view'>;
 
   let {
     identity = $bindable(null),
@@ -189,7 +189,7 @@
         return;
       }
       const { data, error } = await supabase
-        .schema('vendors')
+        .schema('views')
         .from('m365_groups_view')
         .select('id,name,description,security_enabled,mail_enabled')
         .in('id', groupIds);
@@ -259,7 +259,7 @@
       let groupExternalIds: string[] = [];
       if (groupIds.length > 0) {
         const { data: groupRows } = await supabase
-          .schema('vendors')
+          .schema('views')
           .from('m365_groups_view')
           .select('external_id')
           .in('id', groupIds);

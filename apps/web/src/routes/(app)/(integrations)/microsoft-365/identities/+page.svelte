@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { DataTable, type DataTableColumn, type RowAction, type TableView } from '$lib/components/data-table';
+  import {
+    DataTable,
+    type DataTableColumn,
+    type RowAction,
+    type TableView,
+  } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
   import { hasPermission } from '$lib/utils/permissions';
   import {
@@ -14,7 +19,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import IdentitySheet from './_identity-sheet.svelte';
 
-  type Identity = Tables<'vendors', 'm365_identities_view'>;
+  type Identity = Tables<'views', 'm365_identities_view'>;
 
   const { data } = $props();
 
@@ -83,16 +88,25 @@
   });
 
   const views: TableView[] = [
-    { id: 'disabled', label: 'Disabled', filters: [{ field: 'enabled', operator: 'eq', value: false }] },
-    { id: 'no-mfa', label: 'MFA Not Enforced', filters: [{ field: 'mfa_enforced', operator: 'eq', value: false }] },
+    {
+      id: 'disabled',
+      label: 'Disabled',
+      filters: [{ field: 'enabled', operator: 'eq', value: false }],
+    },
+    {
+      id: 'no-mfa',
+      label: 'MFA Not Enforced',
+      filters: [{ field: 'mfa_enforced', operator: 'eq', value: false }],
+    },
     {
       id: 'no-sign-in',
       label: 'No Recent Sign-In',
       filters: [{ field: 'enabled', operator: 'eq', value: true }],
       modifyQuery: (q: any) => {
         const cutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
-        q.or(`last_sign_in_at.is.null,last_sign_in_at.lt.${cutoff}`)
-         .or(`last_non_interactive_sign_in_at.is.null,last_non_interactive_sign_in_at.lt.${cutoff}`);
+        q.or(`last_sign_in_at.is.null,last_sign_in_at.lt.${cutoff}`).or(
+          `last_non_interactive_sign_in_at.is.null,last_non_interactive_sign_in_at.lt.${cutoff}`
+        );
       },
     },
   ];
@@ -119,7 +133,7 @@
   <h1 class="h-fit text-2xl font-bold">Identities</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="m365_identities_view"
     {columns}
     {modifyQuery}
@@ -132,7 +146,10 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
-    onrowclick={(row) => { selectedIdentity = row; sheetOpen = true; }}
+    onrowclick={(row) => {
+      selectedIdentity = row;
+      sheetOpen = true;
+    }}
   />
 </div>
 

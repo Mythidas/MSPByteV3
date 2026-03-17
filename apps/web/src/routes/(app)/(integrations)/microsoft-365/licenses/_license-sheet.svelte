@@ -11,7 +11,7 @@
   import SearchIcon from '@lucide/svelte/icons/search';
   import KeyIcon from '@lucide/svelte/icons/key';
 
-  type License = Tables<'vendors', 'm365_licenses_view'>;
+  type License = Tables<'views', 'm365_licenses_view'>;
 
   let {
     license = $bindable(null),

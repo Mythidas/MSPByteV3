@@ -11,7 +11,7 @@
   import SearchIcon from '@lucide/svelte/icons/search';
   import UsersIcon from '@lucide/svelte/icons/users';
 
-  type Group = Tables<'vendors', 'm365_groups_view'>;
+  type Group = Tables<'views', 'm365_groups_view'>;
 
   let { group = $bindable(null), open = $bindable(false) }: { group: Group | null; open: boolean } =
     $props();

@@ -6,7 +6,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import PolicySheet from './_policy-sheet.svelte';
 
-  type Policy = Tables<'vendors', 'm365_policies_view'>;
+  type Policy = Tables<'views', 'm365_policies_view'>;
 
   const { data } = $props();
 
@@ -43,9 +43,22 @@
   });
 
   const views: TableView[] = [
-    { id: 'enabled', label: 'Enabled', filters: [{ field: 'policy_state', operator: 'eq', value: 'enabled' }], isDefault: true },
-    { id: 'disabled', label: 'Disabled', filters: [{ field: 'policy_state', operator: 'eq', value: 'disabled' }] },
-    { id: 'mfa', label: 'MFA Required', filters: [{ field: 'requires_mfa', operator: 'eq', value: true }] },
+    {
+      id: 'enabled',
+      label: 'Enabled',
+      filters: [{ field: 'policy_state', operator: 'eq', value: 'enabled' }],
+      isDefault: true,
+    },
+    {
+      id: 'disabled',
+      label: 'Disabled',
+      filters: [{ field: 'policy_state', operator: 'eq', value: 'disabled' }],
+    },
+    {
+      id: 'mfa',
+      label: 'MFA Required',
+      filters: [{ field: 'requires_mfa', operator: 'eq', value: true }],
+    },
   ];
 
   const modifyQuery = $derived.by(() => {
@@ -62,7 +75,7 @@
   <h1 class="h-fit text-2xl font-bold">Policies</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="m365_policies_view"
     {columns}
     {modifyQuery}
@@ -75,7 +88,10 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
-    onrowclick={(row) => { selectedPolicy = row; sheetOpen = true; }}
+    onrowclick={(row) => {
+      selectedPolicy = row;
+      sheetOpen = true;
+    }}
   />
 </div>
 

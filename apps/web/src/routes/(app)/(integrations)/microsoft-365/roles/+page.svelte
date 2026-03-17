@@ -6,7 +6,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import RoleSheet from './_role-sheet.svelte';
 
-  type Role = Tables<'vendors', 'm365_roles_view'>;
+  type Role = Tables<'views', 'm365_roles_view'>;
 
   const { data } = $props();
 
@@ -41,7 +41,7 @@
   <h1 class="h-fit text-2xl font-bold">Roles</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="m365_roles_view"
     {columns}
     {modifyQuery}
@@ -53,7 +53,10 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
-    onrowclick={(row) => { selectedRole = row; sheetOpen = true; }}
+    onrowclick={(row) => {
+      selectedRole = row;
+      sheetOpen = true;
+    }}
   />
 </div>
 

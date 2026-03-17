@@ -11,7 +11,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import GroupSheet from './_group-sheet.svelte';
 
-  type Group = Tables<'vendors', 'm365_groups_view'>;
+  type Group = Tables<'views', 'm365_groups_view'>;
 
   const { data } = $props();
 
@@ -52,7 +52,7 @@
   <h1 class="h-fit text-2xl font-bold">Groups</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="m365_groups_view"
     {columns}
     {modifyQuery}

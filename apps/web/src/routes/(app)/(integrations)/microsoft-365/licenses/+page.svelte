@@ -6,7 +6,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import LicenseSheet from './_license-sheet.svelte';
 
-  type License = Tables<'vendors', 'm365_licenses_view'>;
+  type License = Tables<'views', 'm365_licenses_view'>;
 
   const { data } = $props();
 
@@ -45,7 +45,7 @@
   <h1 class="h-fit text-2xl font-bold">Licenses</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="m365_licenses_view"
     {columns}
     {modifyQuery}
@@ -57,7 +57,10 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
-    onrowclick={(row) => { selectedLicense = row; sheetOpen = true; }}
+    onrowclick={(row) => {
+      selectedLicense = row;
+      sheetOpen = true;
+    }}
   />
 </div>
 

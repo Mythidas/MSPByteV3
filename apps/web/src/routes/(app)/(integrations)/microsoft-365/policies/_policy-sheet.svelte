@@ -11,7 +11,7 @@
   import SearchIcon from '@lucide/svelte/icons/search';
   import ShieldIcon from '@lucide/svelte/icons/shield';
 
-  type Policy = Tables<'vendors', 'm365_policies_view'>;
+  type Policy = Tables<'views', 'm365_policies_view'>;
 
   let {
     policy = $bindable(null),
@@ -117,7 +117,7 @@
           : Promise.resolve({ data: [] }),
         groupIds.length > 0
           ? supabase
-              .schema('vendors')
+              .schema('views')
               .from('m365_groups_view')
               .select('id,name,description')
               .in('id', groupIds)
@@ -183,7 +183,7 @@
           : Promise.resolve({ data: [] }),
         groupIds.length > 0
           ? supabase
-              .schema('vendors')
+              .schema('views')
               .from('m365_groups_view')
               .select('id,name,description')
               .in('id', groupIds)

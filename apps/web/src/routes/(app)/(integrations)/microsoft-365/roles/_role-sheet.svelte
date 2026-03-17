@@ -11,7 +11,7 @@
   import SearchIcon from '@lucide/svelte/icons/search';
   import ShieldCheckIcon from '@lucide/svelte/icons/shield-check';
 
-  type Role = Tables<'vendors', 'm365_roles_view'>;
+  type Role = Tables<'views', 'm365_roles_view'>;
 
   let { role = $bindable(null), open = $bindable(false) }: { role: Role | null; open: boolean } =
     $props();

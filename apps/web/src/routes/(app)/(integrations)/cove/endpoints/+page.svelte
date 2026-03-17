@@ -10,7 +10,7 @@
   import { formatBytes } from '$lib/utils/format.js';
   import { Badge } from '$lib/components/ui/badge';
 
-  type Endpoint = Tables<'vendors', 'cove_endpoints_view'>;
+  type Endpoint = Tables<'views', 'cove_endpoints_view'>;
 
   const BACKUP_STATUS_COLORS: Record<string, string> = {
     '5': 'bg-green-500',
@@ -130,7 +130,7 @@
   <h1 class="h-fit text-2xl font-bold">Endpoints</h1>
 
   <DataTable
-    schema="vendors"
+    schema="views"
     table="cove_endpoints_view"
     {columns}
     {modifyQuery}
