@@ -304,6 +304,9 @@ function mapToDbRow(
         ip_address: d.intIpAddress,
         ext_address: d.extIpAddress || "",
         last_reboot_at: new Date(d.lastReboot || 0).toISOString(),
+        last_heartbeat_at: d.lastSeen
+          ? new Date(d.lastSeen).toISOString()
+          : null,
         udfs: d.udf,
       };
     }
@@ -336,6 +339,9 @@ function getHashableFields(entity: RawDattoEntity): Record<string, any> {
         ip_address: d.intIpAddress,
         ext_address: d.extIpAddress || "",
         last_reboot_at: new Date(d.lastReboot || 0).toISOString(),
+        last_heartbeat_at: d.lastSeen
+          ? new Date(d.lastSeen).toISOString()
+          : null,
         udfs: d.udf,
       };
     }

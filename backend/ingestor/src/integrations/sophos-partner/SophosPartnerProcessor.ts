@@ -314,6 +314,7 @@ function mapToDbRow(
         has_mdr: ep.mdrManaged ?? false,
         needs_upgrade: ep.packages?.protection?.status === "upgradable",
         tamper_protection_enabled: ep.tamperProtectionEnabled ?? false,
+        last_heartbeat_at: ep.lastSeenAt ?? null,
       };
     }
   }
@@ -349,6 +350,7 @@ function getHashableFields(entity: RawSophosEntity): Record<string, any> {
         has_mdr: ep.mdrManaged,
         needs_upgrade: ep.packages?.protection?.status === "upgradable",
         tamper_protection_enabled: ep.tamperProtectionEnabled,
+        last_heartbeat_at: ep.lastSeenAt ?? null,
       };
     }
   }

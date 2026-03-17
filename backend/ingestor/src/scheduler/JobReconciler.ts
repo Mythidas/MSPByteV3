@@ -32,7 +32,7 @@ export class JobReconciler {
 
       for (const def of definitions) {
         const config = INTEGRATIONS[def.integrationId];
-        if (config.id !== "cove") continue;
+        if (config.id !== "sophos-partner") continue;
 
         // Only reconcile types that aren't fan-out (those are created by fanOut)
         const types = config.supportedTypes

@@ -1462,6 +1462,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "datto_site_endpoints_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "datto_endpoints_view"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "datto_site_endpoints_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
@@ -2135,6 +2142,7 @@ export type Database = {
           hostname: string
           id: string
           ingest_id: string | null
+          last_heartbeat_at: string | null
           last_seen_at: string
           link_id: string
           lockdown: string
@@ -2157,6 +2165,7 @@ export type Database = {
           hostname: string
           id?: string
           ingest_id?: string | null
+          last_heartbeat_at?: string | null
           last_seen_at?: string
           link_id: string
           lockdown: string
@@ -2179,6 +2188,7 @@ export type Database = {
           hostname?: string
           id?: string
           ingest_id?: string | null
+          last_heartbeat_at?: string | null
           last_seen_at?: string
           link_id?: string
           lockdown?: string
@@ -2225,6 +2235,13 @@ export type Database = {
             columns: ["endpoint_id"]
             isOneToOne: false
             referencedRelation: "sophos_endpoints"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sophos_site_endpoints_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "sophos_endpoints_view"
             referencedColumns: ["id"]
           },
           {
@@ -2319,6 +2336,32 @@ export type Database = {
           type: string | null
           updated_at: string | null
           used_storage: number | null
+        }
+        Relationships: []
+      }
+      datto_endpoints_view: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          data_hash: string | null
+          ext_address: string | null
+          external_id: string | null
+          hostname: string | null
+          id: string | null
+          ingest_id: string | null
+          ip_address: string | null
+          last_reboot_at: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          online: boolean | null
+          os: string | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          tenant_id: string | null
+          udfs: Json | null
+          updated_at: string | null
         }
         Relationships: []
       }
@@ -2448,6 +2491,34 @@ export type Database = {
           name: string | null
           role_template_id: string | null
           tenant_id: string | null
+          updated_at: string | null
+        }
+        Relationships: []
+      }
+      sophos_endpoints_view: {
+        Row: {
+          created_at: string | null
+          data_hash: string | null
+          external_id: string | null
+          has_mdr: boolean | null
+          health: string | null
+          hostname: string | null
+          id: string | null
+          ingest_id: string | null
+          last_seen_at: string | null
+          link_id: string | null
+          link_name: string | null
+          lockdown: string | null
+          needs_upgrade: boolean | null
+          online: boolean | null
+          os_name: string | null
+          platform: string | null
+          site_id: string | null
+          site_name: string | null
+          state: string | null
+          tamper_protection_enabled: boolean | null
+          tenant_id: string | null
+          type: string | null
           updated_at: string | null
         }
         Relationships: []

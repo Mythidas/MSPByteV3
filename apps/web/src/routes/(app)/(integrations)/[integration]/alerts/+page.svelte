@@ -33,11 +33,6 @@
       filters: [{ field: 'status', operator: 'eq', value: 'active' }],
       isDefault: true,
     },
-    {
-      id: 'all',
-      label: 'All',
-      filters: [],
-    },
   ];
 
   const columns: DataTableColumn<Alert>[] = $derived.by(() => {
