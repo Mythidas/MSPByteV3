@@ -2,12 +2,12 @@ import { redirect } from '@sveltejs/kit';
 import { MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET } from '$env/static/private';
 import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
 import { Microsoft365RoleManager } from '@workspace/shared/lib/services/microsoft/RoleManager';
-import { TenantCapabilityService } from '@workspace/shared/lib/services/microsoft/TenantCapabilityService';
 import { REQUIRED_DIRECTORY_ROLES, CONSENT_VERSION } from '@workspace/shared/config/microsoft';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { writeAuditLog, writeDiagnosticLog } from '@workspace/shared/lib/utils/audit';
 import { safeErrorMessage } from '@workspace/shared/lib/utils/errors';
 import { withRetry } from '@workspace/shared/lib/utils/retry';
+import { probeCapabilities } from '../_capabilities';
 import type { RequestHandler } from './$types';
 import type { Tables } from '@workspace/shared/types/database';
 
@@ -148,25 +148,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       });
     }
 
-    try {
-      const capsResult = await withRetry(
-        async () => {
-          tenantConnector.clearTokenCache();
-          const r = await new TenantCapabilityService(tenantConnector).probe();
-          if (r.error) throw new Error(safeErrorMessage(r.error));
-          return r;
-        },
-        RETRY_OPTS.maxRetries,
-        { baseDelayMs: RETRY_OPTS.baseDelayMs, module: RETRY_OPTS.module, context: 'probe' }
-      );
-      capabilities = capsResult.data;
-    } catch (err) {
-      Logger.warn({
-        module: 'consent',
-        context: 'probe',
-        message: `Could not probe capabilities for ${gdapTenantId}: ${safeErrorMessage(err)}`,
-      });
-    }
+    capabilities = await probeCapabilities(tenantConnector, {
+      context: `probe:${gdapTenantId}`,
+    });
 
     let userCount = 0;
     try {

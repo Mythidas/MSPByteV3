@@ -27,12 +27,14 @@
     dbSites,
     deselect,
     onSaveMappings,
+    onRefreshed,
   }: {
     selectedLink: Tables<'public', 'integration_links'>;
     domainSiteMap: Map<string, string>;
     dbSites: Tables<'public', 'sites'>[];
     deselect?: () => void;
     onSaveMappings?: () => void;
+    onRefreshed?: () => void;
   } = $props();
 
   const mappings = $derived<Record<string, string | null>>(
@@ -41,6 +43,7 @@
 
   let saving = $state(false);
   let mappingsChanged = $state(false);
+  let refreshing = $state(false);
 
   const onMappingChange = (domain: string, v: string | null) => {
     mappings[domain] = v;
@@ -158,7 +161,6 @@
     <Tabs.Root value="domains" class="flex flex-col flex-1 overflow-hidden">
       <Tabs.List class="mx-4 mt-3 shrink-0">
         <Tabs.Trigger value="domains">Domains</Tabs.Trigger>
-        <Tabs.Trigger value="identities">Identities</Tabs.Trigger>
         <Tabs.Trigger value="capabilities">Capabilities</Tabs.Trigger>
       </Tabs.List>
 
@@ -197,38 +199,36 @@
         </div>
       </Tabs.Content>
 
-      <!-- Identities tab -->
-      <Tabs.Content value="identities" class="flex-1 overflow-y-auto px-4 pb-4 mt-3">
-        <div class="flex flex-col gap-4">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <span class="font-medium text-sm">Orphaned Identities</span>
-              <Badge variant="outline" class="text-xs">0</Badge>
-            </div>
-            <Button size="sm" variant="outline" disabled>Load</Button>
-          </div>
-          <div
-            class="flex flex-col items-center justify-center h-32 gap-2 text-muted-foreground border rounded"
-          >
-            <Users class="size-8 opacity-40" />
-            <span class="text-sm">Click Load to fetch identities</span>
-          </div>
-          <div class="flex gap-2">
-            <Button size="sm" variant="outline" disabled>Load More</Button>
-            <Button size="sm" disabled>Save Assignments</Button>
-          </div>
-        </div>
-      </Tabs.Content>
-
       <!-- Capabilities tab -->
       <Tabs.Content value="capabilities" class="flex-1 overflow-y-auto px-4 pb-4 mt-3">
         <div class="flex flex-col gap-4">
           <div class="flex items-center justify-between">
             <span class="font-medium text-sm">Tenant Capabilities</span>
-            <Button size="sm" variant="outline" disabled>
-              <Activity class="size-4 mr-1.5" />
-              Refresh Capabilities
-            </Button>
+            <form
+              method="POST"
+              action="?/refreshCapabilities"
+              use:enhance={() => {
+                refreshing = true;
+                return async ({ result, update }) => {
+                  refreshing = false;
+                  await update({ reset: false });
+                  if (result.type === 'failure') {
+                    toast.error((result.data as any)?.error ?? 'Failed to refresh capabilities');
+                  } else {
+                    toast.info('Capabilities refreshed');
+                    onRefreshed?.();
+                  }
+                };
+              }}
+            >
+              <input name="gdapTenantId" value={selectedLink.external_id} hidden />
+              <PermissionGaurd permission="Integrations.Write">
+                <Button size="sm" variant="outline" type="submit" disabled={refreshing}>
+                  <Activity class="size-4 mr-1.5" />
+                  {refreshing ? 'Refreshing...' : 'Refresh Capabilities'}
+                </Button>
+              </PermissionGaurd>
+            </form>
           </div>
           <div class="flex flex-col gap-2">
             {#each Object.entries(MS_CAPABILITIES) as [key, cap]}

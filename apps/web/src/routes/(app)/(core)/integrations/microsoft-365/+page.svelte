@@ -411,6 +411,7 @@
           {domainSiteMap}
           {dbSites}
           onSaveMappings={loadLinks}
+          onRefreshed={loadLinks}
           deselect={() => (selectedLinkId = null)}
         />
       {/if}
