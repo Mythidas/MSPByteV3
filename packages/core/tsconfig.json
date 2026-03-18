@@ -1,0 +1,16 @@
+{
+  "extends": "@workspace/ts-config/base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/core/types/*": ["./src/types/*"],
+      "@workspace/core/lib/*": ["./src/lib/*"],
+      "@workspace/core/config/*": ["./src/config/*"]
+    }
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
+}

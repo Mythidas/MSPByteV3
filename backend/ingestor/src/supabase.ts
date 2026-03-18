@@ -1,29 +1,15 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { SupabaseHelper } from '@workspace/shared/lib/utils/supabase-helper';
-import type { Database } from '@workspace/shared/types/schema';
+// Compatibility shim — canonical client is src/lib/supabase.ts
+// Integrations and compliance files will migrate to the new import in Session 2
+import { SupabaseHelper } from "@workspace/shared/lib/utils/supabase-helper";
+import { supabase } from "./lib/supabase";
 
-let client: SupabaseClient<Database> | null = null;
+let helper: SupabaseHelper | null = null;
 
-export function getSupabase(): SupabaseClient<Database> {
-  if (!client) {
-    const url = process.env.PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_KEY;
-
-    if (!url || !key) {
-      throw new Error('PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_KEY are required');
-    }
-
-    client = createClient<Database>(url, key, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-  }
-
-  return client;
+export function getSupabase() {
+  return supabase;
 }
 
-let supabaseHelper: SupabaseHelper | null = null;
-
 export function getSupabaseHelper(): SupabaseHelper {
-  if (!supabaseHelper) supabaseHelper = new SupabaseHelper(getSupabase());
-  return supabaseHelper;
+  if (!helper) helper = new SupabaseHelper(supabase);
+  return helper;
 }
