@@ -1,5 +1,6 @@
 import { INTEGRATIONS } from "@workspace/core/config/integrations";
 import { IngestType } from "@workspace/core/types/ingest";
+import { JobScopeLevel } from "@workspace/core/types/job";
 
 export type IntegrationId =
   | "sophos-partner"
@@ -25,7 +26,10 @@ export type IngestTypeConfig = {
   freshnessMinutes: number; // planner skips re-enqueue if data is newer than this
   priority: number; // BullMQ priority — lower number = higher priority
   workerConcurrency?: number; // max parallel workers for this type (default: 5)
+  scopeLevel: JobScopeLevel;
   db?: DbRoute; // present if this type has a queryable vendor table
+  hasLinker?: boolean; // true = enqueue a linking job after ingest completes
+  linkerDependencies?: IngestType[]; // ingest types that must have a sync state before linking runs
 };
 
 // ─── Navigation ──────────────────────────────────────────────────────────────

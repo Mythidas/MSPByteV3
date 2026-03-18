@@ -1,7 +1,7 @@
 import { QueueEvents, Queue, Job } from "bullmq";
 import { QueueNames } from "@workspace/core/config/queue-names";
 import { JobOptions } from "@workspace/core/config/job-options";
-import { Logger } from "@workspace/core/lib/utils/logger";
+import { Logger } from "@workspace/shared/lib/utils/logger";
 import type { DataReadyEvent } from "@workspace/core/types/event";
 import { redis } from "../redis";
 import { complianceEvalQueue } from "../queues";
@@ -15,7 +15,9 @@ export function startListener(): Listener {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const connection = redis as any;
 
-  const queueEvents = new QueueEvents(QueueNames.IngestRealtime, { connection });
+  const queueEvents = new QueueEvents(QueueNames.IngestRealtime, {
+    connection,
+  });
   const realtimeQueue = new Queue(QueueNames.IngestRealtime, { connection });
 
   queueEvents.on("added", async ({ jobId, name }) => {
@@ -44,11 +46,19 @@ export function startListener(): Listener {
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      Logger.error({ module: MODULE, context: CONTEXT, message: `failed to enqueue: ${message}` });
+      Logger.error({
+        module: MODULE,
+        context: CONTEXT,
+        message: `failed to enqueue: ${message}`,
+      });
     }
   });
 
-  Logger.info({ module: MODULE, context: CONTEXT, message: `listening on ${QueueNames.IngestRealtime}` });
+  Logger.info({
+    module: MODULE,
+    context: CONTEXT,
+    message: `listening on ${QueueNames.IngestRealtime}`,
+  });
 
   return {
     close: async () => {

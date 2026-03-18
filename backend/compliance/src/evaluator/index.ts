@@ -1,4 +1,4 @@
-import { Logger } from "@workspace/core/lib/utils/logger";
+import { Logger } from "@workspace/shared/lib/utils/logger";
 import { loadAssignmentsForLink, loadAssignmentsForTenant } from "./loader";
 import { runCheck } from "./runner";
 import { writeResults, type EvalRecord } from "./writer";
@@ -6,11 +6,18 @@ import { writeResults, type EvalRecord } from "./writer";
 const MODULE = "compliance";
 const CONTEXT = "evaluator";
 
-export async function evaluateLink(tenantId: string, linkId: string): Promise<void> {
+export async function evaluateLink(
+  tenantId: string,
+  linkId: string,
+): Promise<void> {
   const groups = await loadAssignmentsForLink(tenantId, linkId);
 
   if (groups.length === 0) {
-    Logger.trace({ module: MODULE, context: CONTEXT, message: `no assignments for link ${linkId}` });
+    Logger.trace({
+      module: MODULE,
+      context: CONTEXT,
+      message: `no assignments for link ${linkId}`,
+    });
     return;
   }
 

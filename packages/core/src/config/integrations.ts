@@ -14,6 +14,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         type: IngestType.SophosSites,
         freshnessMinutes: DAILY,
         priority: 5,
+        scopeLevel: "tenant",
         db: {
           schema: "vendors",
           table: "sophos_sites",
@@ -24,6 +25,9 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         freshnessMinutes: DAILY,
         priority: 3,
         workerConcurrency: 1,
+        scopeLevel: "link",
+        hasLinker: true,
+        linkerDependencies: [IngestType.SophosSites],
         db: {
           schema: "vendors",
           table: "sophos_endpoints",
@@ -39,12 +43,18 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     category: "rmm",
     scope: "site",
     supportedTypes: [
-      { type: IngestType.DattoSites, freshnessMinutes: DAILY, priority: 5 },
+      {
+        type: IngestType.DattoSites,
+        scopeLevel: "tenant",
+        freshnessMinutes: DAILY,
+        priority: 5,
+      },
       {
         type: IngestType.DattoEndpoints,
         freshnessMinutes: DAILY,
         priority: 3,
         workerConcurrency: 1,
+        scopeLevel: "link",
       },
     ],
     navigation: [{ label: "Endpoints", route: "/endpoints", isNullable: true }],
@@ -56,8 +66,14 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     category: "recovery",
     scope: "site",
     supportedTypes: [
-      { type: IngestType.CoveSites, freshnessMinutes: DAILY, priority: 5 },
       {
+        type: IngestType.CoveSites,
+        scopeLevel: "tenant",
+        freshnessMinutes: DAILY,
+        priority: 5,
+      },
+      {
+        scopeLevel: "link",
         type: IngestType.CoveEndpoints,
         freshnessMinutes: DAILY,
         priority: 3,
@@ -77,6 +93,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         type: IngestType.M365Identities,
         freshnessMinutes: DAILY,
         priority: 3,
+        scopeLevel: "link",
         db: {
           schema: "vendors",
           table: "m365_identities",
@@ -86,6 +103,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         type: IngestType.M365Groups,
         freshnessMinutes: DAILY,
         priority: 5,
+        scopeLevel: "link",
         db: {
           schema: "vendors",
           table: "m365_groups",
@@ -95,6 +113,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         type: IngestType.M365Licenses,
         freshnessMinutes: DAILY,
         priority: 7,
+        scopeLevel: "link",
         db: {
           schema: "vendors",
           table: "m365_licenses",
@@ -104,11 +123,17 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         type: IngestType.M365Roles,
         freshnessMinutes: DAILY,
         priority: 5,
+        scopeLevel: "link",
+        db: {
+          schema: "vendors",
+          table: "m365_roles",
+        },
       },
       {
-        type: IngestType.M365ConditionalAccess,
+        type: IngestType.M365Policies,
         freshnessMinutes: DAILY,
         priority: 5,
+        scopeLevel: "link",
         db: {
           schema: "vendors",
           table: "m365_policies",
@@ -118,6 +143,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         type: IngestType.M365ExchangeConfig,
         freshnessMinutes: DAILY,
         priority: 9,
+        scopeLevel: "link",
         db: {
           schema: "vendors",
           table: "m365_exchange_configs",

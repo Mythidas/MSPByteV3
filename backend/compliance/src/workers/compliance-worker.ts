@@ -1,6 +1,6 @@
 import { Worker, type Job } from "bullmq";
 import { QueueNames } from "@workspace/core/config/queue-names";
-import { Logger } from "@workspace/core/lib/utils/logger";
+import { Logger } from "@workspace/shared/lib/utils/logger";
 import { evaluateLink, evaluateTenant } from "../evaluator";
 import { redis } from "../redis";
 
@@ -14,10 +14,14 @@ export class ComplianceWorker {
 
   constructor() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.worker = new Worker(QueueNames.ComplianceEval, (job) => this.process(job), {
-      connection: redis as any,
-      concurrency: 5,
-    });
+    this.worker = new Worker(
+      QueueNames.ComplianceEval,
+      (job) => this.process(job),
+      {
+        connection: redis as any,
+        concurrency: 5,
+      },
+    );
 
     this.worker.on("failed", (job, err) => {
       Logger.error({
@@ -31,7 +35,11 @@ export class ComplianceWorker {
       Logger.error({ module: MODULE, context: CONTEXT, message: err.message });
     });
 
-    Logger.info({ module: MODULE, context: CONTEXT, message: `listening on ${QueueNames.ComplianceEval}` });
+    Logger.info({
+      module: MODULE,
+      context: CONTEXT,
+      message: `listening on ${QueueNames.ComplianceEval}`,
+    });
   }
 
   private async process(job: Job<ComplianceJobPayload>): Promise<void> {
@@ -44,7 +52,11 @@ export class ComplianceWorker {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      Logger.error({ module: MODULE, context: CONTEXT, message: `job ${job.id} error: ${message}` });
+      Logger.error({
+        module: MODULE,
+        context: CONTEXT,
+        message: `job ${job.id} error: ${message}`,
+      });
     }
   }
 

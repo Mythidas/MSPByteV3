@@ -1,11 +1,13 @@
 import type { TenantId, SiteId, LinkId } from "./tenant";
 import type { IngestType, IngestTrigger } from "./ingest";
 
+export type JobScopeLevel = "tenant" | "link";
 export type JobContext = {
   // Scope
   tenantId: TenantId;
   siteId?: SiteId;
   linkId?: LinkId;
+  scopeLevel: JobScopeLevel;
 
   // Job identity
   jobId: string; // ingest_jobs.id

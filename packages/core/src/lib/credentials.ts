@@ -1,6 +1,6 @@
 import { CREDENTIAL_FIELDS } from "@workspace/core/config/credential-fields";
-import Encryption from "@workspace/core/lib/utils/encryption";
 import { IntegrationId } from "@workspace/core/types/integrations";
+import Encryption from "@workspace/shared/lib/utils/encryption";
 
 export async function resolveCredentials(
   integrationId: IntegrationId,
@@ -16,5 +16,5 @@ export async function resolveCredentials(
       "";
   }
 
-  return resolved;
+  return { ...config, ...resolved };
 }

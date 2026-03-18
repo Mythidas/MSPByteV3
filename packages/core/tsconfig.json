@@ -8,7 +8,8 @@
     "paths": {
       "@workspace/core/types/*": ["./src/types/*"],
       "@workspace/core/lib/*": ["./src/lib/*"],
-      "@workspace/core/config/*": ["./src/config/*"]
+      "@workspace/core/config/*": ["./src/config/*"],
+      "@workspace/shared/lib/*": ["../shared/src/lib/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

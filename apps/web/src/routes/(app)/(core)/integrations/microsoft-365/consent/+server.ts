@@ -47,7 +47,6 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     tenantId: msTenantId,
     clientId: MICROSOFT_CLIENT_ID,
     clientSecret: MICROSOFT_CLIENT_SECRET,
-    mode: 'partner',
   });
   const tenantConnector = gdapTenantId
     ? partnerConnector.forTenant(gdapTenantId)
@@ -189,6 +188,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       domains,
       defaultDomain,
       userCount,
+      roles: assigned,
       ...(capabilities ? { capabilities, capabilitiesCheckedAt: new Date().toISOString() } : {}),
     };
 

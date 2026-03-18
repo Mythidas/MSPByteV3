@@ -1,3 +1,5 @@
+import type { IngestType } from "@workspace/core/types/ingest";
+
 // ============================================================================
 // JOB DATA (BullMQ queue payload — maps to ingest_jobs table)
 // ============================================================================
@@ -5,7 +7,7 @@
 export type IngestJobData = {
   tenantId: string;
   integrationId: string;
-  ingestType: string;
+  ingestType: IngestType;
   ingestId: string; // ingest_jobs.ingest_id (batch run UUID)
   jobId: string; // ingest_jobs.id
   linkId: string | null;
@@ -16,18 +18,19 @@ export type LinkJobData = {
   tenantId: string;
   integrationId: string;
   linkId: string;
-  linkOpType: string; // which op to run (key from linkOpDeps)
+  linkerType: string; // which LinkerContract to run
 };
 
 export type EnrichJobData = {
   tenantId: string;
   integrationId: string;
-  linkId: string;
-  enrichOpType: string;
+  linkId: string | null;
+  enrichmentType: string; // which EnrichmentContract to run
 };
 
-export type ComplianceJobData = {
+export type OrchestrationJobData = {
   tenantId: string;
+  linkId: string | null;
   integrationId: string;
-  linkId: string;
+  ingestType: string;
 };

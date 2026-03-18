@@ -2,43 +2,28 @@ import { registry } from '../../registry.js';
 import { getSupabase } from '../../supabase.js';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { DattoRMMAdapter } from './DattoRMMAdapter.js';
-import { DattoRMMProcessor } from './DattoRMMProcessor.js';
-import { DattoRMMLinker } from './DattoRMMLinker.js';
-import { DattoRMMEnricher } from './DattoRMMEnricher.js';
-import type { ProcessedRow } from '../../interfaces.js';
+import type { UpsertPayload } from '@workspace/core/types/contracts/adapter';
 import type { IngestJobData } from '../../types.js';
-
-const DAILY = 24 * 60 * 60 * 1000;
+import { IngestType as IT } from '@workspace/core/types/ingest';
 
 registry.register({
   integrationId: 'dattormm',
   adapter: new DattoRMMAdapter(),
-  processor: new DattoRMMProcessor(),
-  linker: new DattoRMMLinker(),
-  enricher: new DattoRMMEnricher(),
-
-  linkOpDeps: {
-    'link-site-endpoints': ['endpoints'],
-  },
-
-  enrichOpDeps: {},
-
-  staleThresholdMs: DAILY,
+  linkers: [],
+  enrichments: [],
 
   // Fan-out: after tenant-wide sites job, create one endpoints job per link
-  fanOut: async (rows: ProcessedRow[], job: IngestJobData): Promise<void> => {
-    if (job.ingestType !== 'sites') return;
+  fanOut: async (_payloads: UpsertPayload[], job: IngestJobData): Promise<void> => {
+    if (job.ingestType !== IT.DattoSites) return;
 
     const supabase = getSupabase();
-
-    const uniqueLinkIds = [...new Set(rows.map((r) => r.link_id).filter(Boolean) as string[])];
-    if (!uniqueLinkIds.length) return;
 
     const { data: links, error: linksError } = await supabase
       .from('integration_links')
       .select('id, site_id')
-      .in('id', uniqueLinkIds)
-      .eq('tenant_id', job.tenantId);
+      .eq('integration_id', 'dattormm')
+      .eq('tenant_id', job.tenantId)
+      .not('site_id', 'is', null);
 
     if (linksError) {
       Logger.error({
@@ -49,16 +34,17 @@ registry.register({
       return;
     }
 
-    const siteIdMap = new Map((links ?? []).map((l) => [l.id, l.site_id]));
+    if (!links || links.length === 0) return;
 
-    for (const linkId of uniqueLinkIds) {
-      const siteId = siteIdMap.get(linkId) ?? null;
+    for (const link of links) {
+      const linkId = link.id;
+      const siteId = link.site_id ?? null;
 
       const { count, error: countError } = await (supabase.from('ingest_jobs' as any) as any)
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', job.tenantId)
         .eq('link_id', linkId)
-        .eq('ingest_type', 'endpoints')
+        .eq('ingest_type', IT.DattoEndpoints)
         .in('status', ['pending', 'queued', 'running']);
 
       if (countError) {
@@ -77,7 +63,7 @@ registry.register({
         site_id: siteId,
         link_id: linkId,
         integration_id: 'dattormm',
-        ingest_type: 'endpoints',
+        ingest_type: IT.DattoEndpoints,
         status: 'pending',
         priority: 3,
         trigger: 'scheduled',

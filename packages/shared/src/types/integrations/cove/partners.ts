@@ -1,15 +1,15 @@
 import type { CoveDataResponse } from "./index.js";
 
 // Core partner/customer entity (the items you usually care about)
-export interface CoveChildPartner {
+export type CoveChildPartner = {
   ActualChildCount: number; // Number of direct children (0 = leaf/terminal)
   Children: CoveChildPartner[] | null; // Recursive children (null if not fetched recursively)
 
   Info: CovePartnerInfo;
-}
+};
 
 // Main info object inside each partner
-export interface CovePartnerInfo {
+export type CovePartnerInfo = {
   Id: number; // Unique numeric partner ID
   Uid: string; // UUID string
   Name: string; // Display/partner name
@@ -35,10 +35,10 @@ export interface CovePartnerInfo {
   // AdvancedPartnerProperties?: unknown | null;
   // Flags?: unknown | null;
   // PrivateFlags?: unknown | null;
-}
+};
 
 // Company details (very variable — many fields empty or null)
-export interface CoveCompanyInfo {
+export type CoveCompanyInfo = {
   LegalCompanyName: string; // Often empty even when Name is set
   PhoneNumber?: string;
   FaxNumber?: string;
@@ -51,22 +51,22 @@ export interface CoveCompanyInfo {
 
   // Billing-related (sometimes present at reseller level)
   BillingContactPersonId?: number;
-}
+};
 
 // Postal address (frequently incomplete or null)
-export interface CoveAddress {
+export type CoveAddress = {
   Address?: string;
   City?: string;
   State?: string;
   District?: string;
   ZipCode?: string;
   Country?: string; // Usually "US" when present
-}
+};
 
 // External properties (key-value pairs, usually null or small array)
-export interface CoveExternalProperties {
+export type CoveExternalProperties = {
   Properties: [string, string][]; // e.g. [["EulaAccepted", "1"], ["DefaultUserEmail", "..."]]
-}
+};
 
 // Enum-like string literal union for common levels
 export type CovePartnerLevel =

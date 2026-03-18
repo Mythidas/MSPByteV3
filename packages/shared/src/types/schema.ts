@@ -644,7 +644,7 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
-          ingest_id?: string
+          ingest_id: string
           ingest_type: string
           integration_id: string
           link_id?: string | null
@@ -1397,13 +1397,11 @@ export type Database = {
       cove_endpoints: {
         Row: {
           created_at: string
-          data_hash: string
           endpoint_name: string
           errors: number
           external_id: string
           hostname: string
           id: string
-          ingest_id: string | null
           last_28_days: string
           last_seen_at: string
           last_success_at: string | null
@@ -1421,13 +1419,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           endpoint_name: string
           errors: number
           external_id: string
           hostname: string
           id?: string
-          ingest_id?: string | null
           last_28_days: string
           last_seen_at?: string
           last_success_at?: string | null
@@ -1445,13 +1441,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           endpoint_name?: string
           errors?: number
           external_id?: string
           hostname?: string
           id?: string
-          ingest_id?: string | null
           last_28_days?: string
           last_seen_at?: string
           last_success_at?: string | null
@@ -1514,12 +1508,9 @@ export type Database = {
       cove_sites: {
         Row: {
           created_at: string
-          data_hash: string
           external_id: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
-          link_id: string
           name: string
           site_id: string | null
           tenant_id: string
@@ -1528,12 +1519,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
-          link_id: string
           name: string
           site_id?: string | null
           tenant_id: string
@@ -1542,12 +1530,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string
           name?: string
           site_id?: string | null
           tenant_id?: string
@@ -1560,12 +1545,10 @@ export type Database = {
         Row: {
           category: string
           created_at: string
-          data_hash: string
           ext_address: string
           external_id: string
           hostname: string
           id: string
-          ingest_id: string | null
           ip_address: string
           last_heartbeat_at: string | null
           last_reboot_at: string
@@ -1581,12 +1564,10 @@ export type Database = {
         Insert: {
           category: string
           created_at?: string
-          data_hash: string
           ext_address: string
           external_id: string
           hostname: string
           id?: string
-          ingest_id?: string | null
           ip_address: string
           last_heartbeat_at?: string | null
           last_reboot_at: string
@@ -1602,12 +1583,10 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
-          data_hash?: string
           ext_address?: string
           external_id?: string
           hostname?: string
           id?: string
-          ingest_id?: string | null
           ip_address?: string
           last_heartbeat_at?: string | null
           last_reboot_at?: string
@@ -1667,12 +1646,9 @@ export type Database = {
       datto_sites: {
         Row: {
           created_at: string
-          data_hash: string
           external_id: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
-          link_id: string
           name: string
           site_id: string | null
           site_variables: Json
@@ -1683,12 +1659,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
-          link_id: string
           name: string
           site_id?: string | null
           site_variables: Json
@@ -1699,12 +1672,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string
           name?: string
           site_id?: string | null
           site_variables?: Json
@@ -1718,10 +1688,8 @@ export type Database = {
       m365_exchange_configs: {
         Row: {
           created_at: string
-          data_hash: string
           external_id: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
           link_id: string
           reject_direct_send: boolean
@@ -1730,10 +1698,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id: string
           reject_direct_send: boolean
@@ -1742,10 +1708,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id?: string
           reject_direct_send?: boolean
@@ -1757,11 +1721,9 @@ export type Database = {
       m365_groups: {
         Row: {
           created_at: string
-          data_hash: string
           description: string | null
           external_id: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
           link_id: string
           mail_enabled: boolean
@@ -1772,11 +1734,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           description?: string | null
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id: string
           mail_enabled: boolean
@@ -1787,11 +1747,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           description?: string | null
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id?: string
           mail_enabled?: boolean
@@ -1806,12 +1764,10 @@ export type Database = {
         Row: {
           assigned_licenses: string[] | null
           created_at: string
-          data_hash: string
           email: string
           enabled: boolean
           external_id: string
           id: string
-          ingest_id: string | null
           last_non_interactive_sign_in_at: string | null
           last_seen_at: string
           last_sign_in_at: string | null
@@ -1826,12 +1782,10 @@ export type Database = {
         Insert: {
           assigned_licenses?: string[] | null
           created_at?: string
-          data_hash: string
           email: string
           enabled: boolean
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_non_interactive_sign_in_at?: string | null
           last_seen_at?: string
           last_sign_in_at?: string | null
@@ -1846,12 +1800,10 @@ export type Database = {
         Update: {
           assigned_licenses?: string[] | null
           created_at?: string
-          data_hash?: string
           email?: string
           enabled?: boolean
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_non_interactive_sign_in_at?: string | null
           last_seen_at?: string
           last_sign_in_at?: string | null
@@ -1953,12 +1905,10 @@ export type Database = {
         Row: {
           consumed_units: number
           created_at: string
-          data_hash: string
           enabled: boolean
           external_id: string
           friendly_name: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
           link_id: string
           locked_out_units: number
@@ -1974,12 +1924,10 @@ export type Database = {
         Insert: {
           consumed_units: number
           created_at?: string
-          data_hash: string
           enabled: boolean
           external_id: string
           friendly_name: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id: string
           locked_out_units: number
@@ -1995,12 +1943,10 @@ export type Database = {
         Update: {
           consumed_units?: number
           created_at?: string
-          data_hash?: string
           enabled?: boolean
           external_id?: string
           friendly_name?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id?: string
           locked_out_units?: number
@@ -2019,12 +1965,10 @@ export type Database = {
         Row: {
           conditions: Json | null
           created_at: string
-          data_hash: string
           description: string | null
           external_id: string
           grant_controls: Json | null
           id: string
-          ingest_id: string | null
           last_seen_at: string
           link_id: string
           name: string
@@ -2036,12 +1980,10 @@ export type Database = {
         Insert: {
           conditions?: Json | null
           created_at?: string
-          data_hash: string
           description?: string | null
           external_id: string
           grant_controls?: Json | null
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id: string
           name: string
@@ -2053,12 +1995,10 @@ export type Database = {
         Update: {
           conditions?: Json | null
           created_at?: string
-          data_hash?: string
           description?: string | null
           external_id?: string
           grant_controls?: Json | null
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id?: string
           name?: string
@@ -2207,11 +2147,9 @@ export type Database = {
       m365_roles: {
         Row: {
           created_at: string
-          data_hash: string
           description: string | null
           external_id: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
           link_id: string
           name: string
@@ -2221,11 +2159,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           description?: string | null
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id: string
           name: string
@@ -2235,11 +2171,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           description?: string | null
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
           link_id?: string
           name?: string
@@ -2252,13 +2186,11 @@ export type Database = {
       sophos_endpoints: {
         Row: {
           created_at: string
-          data_hash: string
           external_id: string
           has_mdr: boolean
           health: string
           hostname: string
           id: string
-          ingest_id: string | null
           last_heartbeat_at: string | null
           last_seen_at: string
           link_id: string
@@ -2275,13 +2207,11 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          data_hash: string
           external_id: string
           has_mdr: boolean
           health: string
           hostname: string
           id?: string
-          ingest_id?: string | null
           last_heartbeat_at?: string | null
           last_seen_at?: string
           link_id: string
@@ -2298,13 +2228,11 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          data_hash?: string
           external_id?: string
           has_mdr?: boolean
           health?: string
           hostname?: string
           id?: string
-          ingest_id?: string | null
           last_heartbeat_at?: string | null
           last_seen_at?: string
           link_id?: string
@@ -2367,16 +2295,12 @@ export type Database = {
         Row: {
           api_host: string
           created_at: string
-          data_hash: string
           external_id: string
           id: string
-          ingest_id: string | null
           last_seen_at: string
-          link_id: string
           name: string
           products: string[]
           show_as_name: string
-          site_id: string | null
           status: string
           tenant_id: string
           updated_at: string
@@ -2384,16 +2308,12 @@ export type Database = {
         Insert: {
           api_host: string
           created_at?: string
-          data_hash: string
           external_id: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
-          link_id: string
           name: string
           products: string[]
           show_as_name: string
-          site_id?: string | null
           status: string
           tenant_id: string
           updated_at?: string
@@ -2401,16 +2321,12 @@ export type Database = {
         Update: {
           api_host?: string
           created_at?: string
-          data_hash?: string
           external_id?: string
           id?: string
-          ingest_id?: string | null
           last_seen_at?: string
-          link_id?: string
           name?: string
           products?: string[]
           show_as_name?: string
-          site_id?: string | null
           status?: string
           tenant_id?: string
           updated_at?: string
@@ -2439,13 +2355,11 @@ export type Database = {
       cove_endpoints_view: {
         Row: {
           created_at: string | null
-          data_hash: string | null
           endpoint_name: string | null
           errors: number | null
           external_id: string | null
           hostname: string | null
           id: string | null
-          ingest_id: string | null
           last_28_days: string | null
           last_seen_at: string | null
           last_success_at: string | null
@@ -2620,12 +2534,10 @@ export type Database = {
         Row: {
           category: string | null
           created_at: string | null
-          data_hash: string | null
           ext_address: string | null
           external_id: string | null
           hostname: string | null
           id: string | null
-          ingest_id: string | null
           ip_address: string | null
           last_heartbeat_at: string | null
           last_reboot_at: string | null
@@ -2654,10 +2566,8 @@ export type Database = {
       m365_exchange_configs_view: {
         Row: {
           created_at: string | null
-          data_hash: string | null
           external_id: string | null
           id: string | null
-          ingest_id: string | null
           last_seen_at: string | null
           link_id: string | null
           link_name: string | null
@@ -2670,11 +2580,9 @@ export type Database = {
       m365_groups_view: {
         Row: {
           created_at: string | null
-          data_hash: string | null
           description: string | null
           external_id: string | null
           id: string | null
-          ingest_id: string | null
           last_seen_at: string | null
           link_id: string | null
           link_name: string | null
@@ -2692,13 +2600,11 @@ export type Database = {
           alert_count: number | null
           assigned_licenses: string[] | null
           created_at: string | null
-          data_hash: string | null
           email: string | null
           enabled: boolean | null
           external_id: string | null
           group_count: number | null
           id: string | null
-          ingest_id: string | null
           last_non_interactive_sign_in_at: string | null
           last_seen_at: string | null
           last_sign_in_at: string | null
@@ -2728,12 +2634,10 @@ export type Database = {
           available_units: number | null
           consumed_units: number | null
           created_at: string | null
-          data_hash: string | null
           enabled: boolean | null
           external_id: string | null
           friendly_name: string | null
           id: string | null
-          ingest_id: string | null
           last_seen_at: string | null
           link_id: string | null
           link_name: string | null
@@ -2753,12 +2657,10 @@ export type Database = {
         Row: {
           conditions: Json | null
           created_at: string | null
-          data_hash: string | null
           description: string | null
           external_id: string | null
           grant_controls: Json | null
           id: string | null
-          ingest_id: string | null
           last_seen_at: string | null
           link_id: string | null
           link_name: string | null
@@ -2773,11 +2675,9 @@ export type Database = {
       m365_roles_view: {
         Row: {
           created_at: string | null
-          data_hash: string | null
           description: string | null
           external_id: string | null
           id: string | null
-          ingest_id: string | null
           last_seen_at: string | null
           link_id: string | null
           link_name: string | null
@@ -2792,13 +2692,11 @@ export type Database = {
       sophos_endpoints_view: {
         Row: {
           created_at: string | null
-          data_hash: string | null
           external_id: string | null
           has_mdr: boolean | null
           health: string | null
           hostname: string | null
           id: string | null
-          ingest_id: string | null
           last_heartbeat_at: string | null
           last_seen_at: string | null
           link_id: string | null

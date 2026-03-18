@@ -1,76 +1,45 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { PipelineTracker } from "../../lib/tracker.js";
 import { Microsoft365Connector } from "@workspace/shared/lib/connectors/Microsoft365Connector";
 import { SkuCatalog } from "@workspace/shared/lib/services/microsoft/SkuCatalog";
 import { PowerShellRunner } from "@workspace/shared/lib/utils/PowerShellRunner";
-import Encryption from "@workspace/shared/lib/utils/encryption.js";
-import type { IngestJobData } from "../../types.js";
-import type { RawM365Entity } from "./types.js";
-import type { IAdapter } from "../../interfaces.js";
+import type {
+  AdapterContract,
+  UpsertPayload,
+} from "@workspace/core/types/contracts/adapter";
+import type { JobContext } from "@workspace/core/types/job";
 import type { MSCapabilities } from "@workspace/shared/types/integrations/microsoft/capabilities.js";
 import type { MSGraphIdentity } from "@workspace/shared/types/integrations/microsoft/identity.js";
+import { IngestType as IT } from "@workspace/core/types/ingest";
 
-export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
-  async fetch(
-    jobData: IngestJobData,
-    tracker: PipelineTracker,
-  ): Promise<RawM365Entity[]> {
-    if (!jobData.linkId)
+export class Microsoft365Adapter implements AdapterContract {
+  readonly integrationId = "microsoft-365";
+
+  async fetch(ctx: JobContext): Promise<UpsertPayload[]> {
+    if (!ctx.linkId) {
       throw new Error(
         "M365 Adapter requires Job to include link_id to tenant information",
       );
-
-    const supabase = getSupabase();
-
-    // Load integration config (refresh token, tenantId, mode)
-    tracker.trackQuery();
-    const { data: integration } = await supabase
-      .from("integrations")
-      .select("config")
-      .eq("id", "microsoft-365")
-      .eq("tenant_id", jobData.tenantId)
-      .single();
-
-    const config = (integration?.config as any) ?? {};
-
-    // Load integration_links for this M365 integration + tenant
-    tracker.trackQuery();
-    const { data: link, error: linksError } = await supabase
-      .from("integration_links")
-      .select("id, external_id, meta")
-      .eq("id", jobData.linkId)
-      .eq("tenant_id", jobData.tenantId)
-      .single();
-
-    if (linksError) {
-      throw new Error(
-        `Failed to load integration_links: ${(linksError as any).message}`,
-      );
     }
 
-    // Site-mapping rows (site_id IS NOT NULL) — for domain → site_id resolution
-    tracker.trackQuery();
+    const supabase = getSupabase();
+    const now = new Date().toISOString();
+    const { tenantId, linkId, ingestType } = ctx;
+
+    // Load domain map (domain → site_id) from site-scoped links
     const { data: siteLinks } = await supabase
       .from("integration_links")
       .select("site_id, meta")
       .eq("integration_id", "microsoft-365")
-      .eq("tenant_id", jobData.tenantId)
+      .eq("tenant_id", tenantId)
       .not("site_id", "is", null);
 
-    // Build lookup maps from integration_links
-    const domainMap = new Map<string, string | null>(); // domain → site_id
+    const domainMap = new Map<string, string | null>();
     for (const l of siteLinks ?? []) {
       for (const domain of (l.meta as any)?.domains ?? []) {
         domainMap.set((domain as string).toLowerCase(), l.site_id!);
       }
     }
-
-    // Decrypt refresh token
-    const encKey = process.env.ENCRYPTION_KEY!;
-    const refreshToken = config?.refreshToken
-      ? await Encryption.decrypt(config.refreshToken, encKey)
-      : undefined;
 
     const clientId = process.env.MICROSOFT_CLIENT_ID;
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
@@ -84,91 +53,75 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       );
     }
 
-    const mspTenantId = config?.tenantId ?? "";
+    const mspTenantId = ctx.credentials?.tenantId ?? "";
+    const gdapTenantId = (ctx.metadata?.externalId as string) ?? "";
+    const capabilities = (ctx.metadata?.capabilities as MSCapabilities) ?? {};
+    const defaultDomain = (ctx.metadata?.defaultDomain as string) ?? "";
+
     const baseConnector = new Microsoft365Connector({
       tenantId: mspTenantId,
       clientId,
       clientSecret,
-      mode: "partner",
-      refreshToken: refreshToken ?? undefined,
-      onRefreshToken: refreshToken
-        ? async (newToken: string) => {
-            const encryptedToken = await Encryption.encrypt(newToken, encKey);
-            await supabase
-              .from("integrations")
-              .update({
-                config: { ...config, refreshToken: encryptedToken },
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", "microsoft-365")
-              .eq("tenant_id", jobData.tenantId);
-          }
-        : undefined,
     });
 
-    const allEntities: RawM365Entity[] = [];
-    const { ingestType } = jobData;
+    const connector = baseConnector.forTenant(gdapTenantId);
 
-    const connector = baseConnector.forTenant(link.external_id);
-    tracker.trackApiCall();
+    switch (ingestType) {
+      case IT.M365Identities:
+        return this.fetchIdentities(
+          connector,
+          gdapTenantId,
+          linkId,
+          domainMap,
+          capabilities,
+          tenantId,
+          now,
+        );
 
-    const capabilities: MSCapabilities = (link.meta as any)
-      .capabilities as MSCapabilities;
+      case IT.M365Groups:
+        return this.fetchGroups(connector, linkId, tenantId, now);
 
-    if (ingestType === "identities") {
-      const entities = await this.fetchIdentities(
-        connector,
-        link.external_id,
-        link.id,
-        domainMap,
-        tracker,
-        capabilities,
-      );
-      allEntities.push(...entities);
-    } else if (ingestType === "groups") {
-      const entities = await this.fetchGroups(connector, link.id, tracker);
-      allEntities.push(...entities);
-    } else if (ingestType === "roles") {
-      const entities = await this.fetchRoles(connector, link.id, tracker);
-      allEntities.push(...entities);
-    } else if (ingestType === "policies") {
-      const entities = await this.fetchPolicies(
-        connector,
-        link.id,
-        tracker,
-        capabilities,
-      );
-      allEntities.push(...entities);
-    } else if (ingestType === "licenses") {
-      const entities = await this.fetchLicenses(connector, link.id, tracker);
-      allEntities.push(...entities);
-    } else if (ingestType === "exchange-config") {
-      const defaultDomain = (link?.meta as any)?.defaultDomain ?? "";
-      const entities = await this.fetchExchangeConfig(
-        certPem,
-        link.external_id,
-        defaultDomain,
-        link.id,
-        tracker,
-      );
-      allEntities.push(...entities);
-    } else {
-      throw new Error(
-        `Microsoft365Adapter: unknown ingestType "${ingestType}"`,
-      );
+      case IT.M365Roles:
+        return this.fetchRoles(connector, linkId, tenantId, now);
+
+      case IT.M365Policies:
+        return this.fetchPolicies(
+          connector,
+          linkId,
+          capabilities,
+          tenantId,
+          now,
+        );
+
+      case IT.M365Licenses:
+        return this.fetchLicenses(connector, linkId, tenantId, now);
+
+      case IT.M365ExchangeConfig:
+        return this.fetchExchangeConfig(
+          certPem,
+          gdapTenantId,
+          defaultDomain,
+          linkId,
+          tenantId,
+          now,
+        );
+
+      default:
+        throw new Error(
+          `Microsoft365Adapter: unknown ingestType "${ingestType}"`,
+        );
     }
-
-    return allEntities;
   }
 
   private async fetchIdentities(
     connector: Microsoft365Connector,
     gdapTenantId: string,
-    linkId: string | null,
-    domainMap: Map<string, string | null>, // domain → site_id
-    tracker: PipelineTracker,
+    linkId: string,
+    domainMap: Map<string, string | null>,
     capabilities: MSCapabilities,
-  ): Promise<RawM365Entity[]> {
+    tenantId: string,
+    now: string,
+  ): Promise<UpsertPayload[]> {
     const select: (keyof MSGraphIdentity)[] = [
       "id",
       "displayName",
@@ -192,54 +145,59 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       });
     }
 
-    const { data, error } = await tracker.trackSpan(
-      "adapter:api:getIdentities",
-      () => connector.getIdentities({ select: select as any }, true),
+    const { data, error } = await connector.getIdentities(
+      { select: select as any },
+      true,
     );
-
-    if (error || !data) {
+    if (error || !data)
       throw new Error(`Microsoft365 getIdentities failed: ${error?.message}`);
-    }
-
-    const entities: RawM365Entity[] = [];
-    let mappedCount = 0;
-
-    for (const u of data.identities) {
-      const domain = u.userPrincipalName?.split("@")[1]?.toLowerCase();
-      const siteId = domain ? (domainMap.get(domain) ?? null) : null;
-      if (siteId) mappedCount++;
-
-      entities.push({
-        type: "identities",
-        externalId: u.id,
-        linkId,
-        siteId,
-        data: u as MSGraphIdentity,
-      });
-    }
 
     Logger.info({
       module: "Microsoft365Adapter",
       context: "fetchIdentities",
-      message: `Fetched ${data.identities.length} identities, matched ${mappedCount} via domain map`,
+      message: `Fetched ${data.identities.length} identities`,
     });
 
-    return entities;
+    const rows = data.identities.map((u: MSGraphIdentity) => {
+      const domain = u.userPrincipalName?.split("@")[1]?.toLowerCase();
+      const siteId = domain ? (domainMap.get(domain) ?? null) : null;
+      return {
+        tenant_id: tenantId,
+        external_id: u.id,
+        link_id: linkId,
+        last_seen_at: now,
+        created_at: now,
+        updated_at: now,
+        site_id: siteId,
+        enabled: u.accountEnabled ?? false,
+        name: u.displayName ?? null,
+        email: u.userPrincipalName ?? null,
+        type: u.userType ?? "Member",
+        last_sign_in_at: u.signInActivity?.lastSignInDateTime ?? null,
+        last_non_interactive_sign_in_at:
+          u.signInActivity?.lastNonInteractiveSignInDateTime ?? null,
+        assigned_licenses: (u.assignedLicenses ?? []).map((l) => l.skuId),
+      };
+    });
+
+    return [
+      {
+        table: "m365_identities",
+        rows,
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
   }
 
   private async fetchGroups(
     connector: Microsoft365Connector,
-    linkId: string | null,
-    tracker: PipelineTracker,
-  ): Promise<RawM365Entity[]> {
-    const { data, error } = await tracker.trackSpan(
-      "adapter:api:getGroups",
-      () => connector.getGroups(undefined, true),
-    );
-
-    if (error || !data) {
+    linkId: string,
+    tenantId: string,
+    now: string,
+  ): Promise<UpsertPayload[]> {
+    const { data, error } = await connector.getGroups(undefined, true);
+    if (error || !data)
       throw new Error(`Microsoft365 getGroups failed: ${error?.message}`);
-    }
 
     Logger.info({
       module: "Microsoft365Adapter",
@@ -247,27 +205,37 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       message: `Fetched ${data.groups.length} groups`,
     });
 
-    return data.groups.map((g: any) => ({
-      type: "groups" as const,
-      externalId: g.id,
-      linkId,
-      data: g,
+    const rows = data.groups.map((g: any) => ({
+      tenant_id: tenantId,
+      external_id: g.id,
+      link_id: linkId,
+      last_seen_at: now,
+      created_at: now,
+      updated_at: now,
+      name: g.displayName ?? null,
+      description: g.description ?? null,
+      mail_enabled: g.mailEnabled ?? null,
+      security_enabled: g.securityEnabled ?? null,
     }));
+
+    return [
+      {
+        table: "m365_groups",
+        rows,
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
   }
 
   private async fetchRoles(
     connector: Microsoft365Connector,
-    linkId: string | null,
-    tracker: PipelineTracker,
-  ): Promise<RawM365Entity[]> {
-    const { data, error } = await tracker.trackSpan(
-      "adapter:api:getRoles",
-      () => connector.getRoles(undefined, true),
-    );
-
-    if (error || !data) {
+    linkId: string,
+    tenantId: string,
+    now: string,
+  ): Promise<UpsertPayload[]> {
+    const { data, error } = await connector.getRoles(undefined, true);
+    if (error || !data)
       throw new Error(`Microsoft365 getRoles failed: ${error?.message}`);
-    }
 
     Logger.info({
       module: "Microsoft365Adapter",
@@ -275,20 +243,34 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       message: `Fetched ${data.roles.length} directory roles`,
     });
 
-    return data.roles.map((r) => ({
-      type: "roles" as const,
-      externalId: r.id,
-      linkId,
-      data: r,
+    const rows = data.roles.map((r: any) => ({
+      tenant_id: tenantId,
+      external_id: r.id,
+      link_id: linkId,
+      last_seen_at: now,
+      created_at: now,
+      updated_at: now,
+      name: r.displayName ?? null,
+      description: r.description ?? null,
+      role_template_id: r.roleTemplateId ?? null,
     }));
+
+    return [
+      {
+        table: "m365_roles",
+        rows,
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
   }
 
   private async fetchPolicies(
     connector: Microsoft365Connector,
-    linkId: string | null,
-    tracker: PipelineTracker,
+    linkId: string,
     capabilities: MSCapabilities,
-  ): Promise<RawM365Entity[]> {
+    tenantId: string,
+    now: string,
+  ): Promise<UpsertPayload[]> {
     if (!capabilities.conditionalAccess) {
       Logger.warn({
         module: "Microsoft365Adapter",
@@ -298,16 +280,14 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       return [];
     }
 
-    const { data, error } = await tracker.trackSpan(
-      "adapter:api:getConditionalAccessPolicies",
-      () => connector.getConditionalAccessPolicies(undefined, true),
+    const { data, error } = await connector.getConditionalAccessPolicies(
+      undefined,
+      true,
     );
-
-    if (error || !data) {
+    if (error || !data)
       throw new Error(
         `Microsoft365 getConditionalAccessPolicies failed: ${error?.message}`,
       );
-    }
 
     Logger.info({
       module: "Microsoft365Adapter",
@@ -315,29 +295,47 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       message: `Fetched ${data.policies.length} conditional access policies`,
     });
 
-    return data.policies.map((p: any) => ({
-      type: "policies" as const,
-      externalId: p.id,
-      linkId,
-      data: p,
-    }));
+    const rows = data.policies.map((p: any) => {
+      const requiresMfa =
+        (p.grantControls?.builtInControls ?? []).includes("mfa") ||
+        (p.grantControls?.builtInControls ?? []).includes(
+          "multiFactorAuthentication",
+        );
+      return {
+        tenant_id: tenantId,
+        external_id: p.id,
+        link_id: linkId,
+        last_seen_at: now,
+        created_at: now,
+        updated_at: now,
+        name: p.displayName ?? null,
+        policy_state: p.state ?? null,
+        requires_mfa: requiresMfa,
+        grant_controls: p.grantControls ?? null,
+        conditions: p.conditions ?? null,
+      };
+    });
+
+    return [
+      {
+        table: "m365_policies",
+        rows,
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
   }
 
   private async fetchLicenses(
     connector: Microsoft365Connector,
-    linkId: string | null,
-    tracker: PipelineTracker,
-  ): Promise<RawM365Entity[]> {
-    const { data, error } = await tracker.trackSpan(
-      "adapter:api:getSubscribedSkus",
-      () => connector.getSubscribedSkus(undefined, true),
-    );
-
-    if (error || !data) {
+    linkId: string,
+    tenantId: string,
+    now: string,
+  ): Promise<UpsertPayload[]> {
+    const { data, error } = await connector.getSubscribedSkus(undefined, true);
+    if (error || !data)
       throw new Error(
         `Microsoft365 getSubscribedSkus failed: ${error?.message}`,
       );
-    }
 
     const skuNames = await SkuCatalog.resolve();
 
@@ -347,25 +345,48 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       message: `Fetched ${data.skus.length} subscribed SKUs`,
     });
 
-    return data.skus.map((sku) => ({
-      type: "licenses" as const,
-      externalId: sku.skuId,
-      linkId,
-      data: {
-        ...sku,
-        friendlyName:
-          skuNames.get(sku.skuPartNumber) || sku.skuPartNumber || sku.skuId,
+    const rows = data.skus.map((sku: any) => {
+      const friendlyName =
+        skuNames.get(sku.skuPartNumber) || sku.skuPartNumber || sku.skuId;
+      return {
+        tenant_id: tenantId,
+        external_id: sku.skuId,
+        link_id: linkId,
+        last_seen_at: now,
+        created_at: now,
+        updated_at: now,
+        enabled: sku.capabilityStatus === "Enabled",
+        friendly_name: friendlyName,
+        sku_id: sku.skuId,
+        sku_part_number: sku.skuPartNumber ?? "",
+        total_units: sku.prepaidUnits?.enabled ?? 0,
+        consumed_units: sku.consumedUnits ?? 0,
+        suspended_units: sku.prepaidUnits?.suspended ?? 0,
+        warning_units: sku.prepaidUnits?.warning ?? 0,
+        locked_out_units: sku.prepaidUnits?.lockedOut ?? 0,
+        service_plan_names: (sku.servicePlans ?? []).map(
+          (s: any) => s.servicePlanName,
+        ),
+      };
+    });
+
+    return [
+      {
+        table: "m365_licenses",
+        rows,
+        onConflict: "tenant_id,link_id,external_id",
       },
-    }));
+    ];
   }
 
   private async fetchExchangeConfig(
     certPem: string | undefined,
     gdapTenantId: string,
     defaultDomain: string,
-    linkId: string | null,
-    tracker: PipelineTracker,
-  ): Promise<RawM365Entity[]> {
+    linkId: string,
+    tenantId: string,
+    now: string,
+  ): Promise<UpsertPayload[]> {
     if (!certPem) {
       Logger.warn({
         module: "Microsoft365Adapter",
@@ -382,15 +403,11 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       );
     }
 
-    const orgConfig = await tracker.trackSpan(
-      "adapter:api:getOrganizationConfig",
-      () =>
-        PowerShellRunner.runExchangeOnline(
-          clientId,
-          certPem,
-          defaultDomain || gdapTenantId,
-          "Get-OrganizationConfig",
-        ),
+    const orgConfig = await PowerShellRunner.runExchangeOnline(
+      clientId,
+      certPem,
+      defaultDomain || gdapTenantId,
+      "Get-OrganizationConfig",
     );
 
     Logger.info({
@@ -403,12 +420,23 @@ export class Microsoft365Adapter implements IAdapter<RawM365Entity> {
       (orgConfig as any)?.RejectDirectSend === true ||
       (orgConfig as any)?.RejectDirectSend === "True";
 
+    const externalId = `org-config-${linkId ?? gdapTenantId}`;
+
     return [
       {
-        type: "exchange-config",
-        externalId: `org-config-${linkId ?? gdapTenantId}`,
-        linkId,
-        data: { rejectDirectSend },
+        table: "m365_exchange_configs",
+        rows: [
+          {
+            tenant_id: tenantId,
+            external_id: externalId,
+            link_id: linkId,
+            last_seen_at: now,
+            created_at: now,
+            updated_at: now,
+            reject_direct_send: rejectDirectSend,
+          },
+        ],
+        onConflict: "tenant_id,link_id,external_id",
       },
     ];
   }

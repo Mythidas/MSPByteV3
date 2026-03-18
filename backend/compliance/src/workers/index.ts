@@ -1,4 +1,4 @@
-import { Logger } from "@workspace/core/lib/utils/logger";
+import { Logger } from "@workspace/shared/lib/utils/logger";
 import { ComplianceWorker } from "./compliance-worker";
 import { startListener, type Listener } from "../events/listener";
 
@@ -15,10 +15,11 @@ export function startWorkers(): void {
 }
 
 export async function stopWorkers(): Promise<void> {
-  Logger.info({ module: MODULE, context: CONTEXT, message: "stopping workers..." });
-  await Promise.all([
-    worker?.close(),
-    listener?.close(),
-  ]);
+  Logger.info({
+    module: MODULE,
+    context: CONTEXT,
+    message: "stopping workers...",
+  });
+  await Promise.all([worker?.close(), listener?.close()]);
   Logger.info({ module: MODULE, context: CONTEXT, message: "workers stopped" });
 }

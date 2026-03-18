@@ -193,7 +193,7 @@
             external_id: pending,
             name: sophostenant?.name ?? pending,
             status: 'active',
-            meta: sophostenant ? { tenantName: sophostenant.name } : {},
+            meta: sophostenant ? { apiHost: sophostenant.apiHost } : {},
           });
         } else if (committed) {
           const link = dbLinks.find((l) => l.site_id === site.id);
