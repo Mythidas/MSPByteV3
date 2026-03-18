@@ -1,10 +1,10 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { registerNode } from "../../registry.js";
 import type { RunContext } from "../../../types.js";
-import { ENTITY_TABLE_MAP } from "../../../lib/entity-map.js";
 import { ExecutorError } from "../../../errors.js";
 import { TablesInsert } from "@workspace/shared/types/database.js";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
+import { getTypeMap } from "@workspace/core/types/integrations.js";
 
 registerNode({
   ref: "Generic.ApplyTag",
@@ -39,7 +39,7 @@ registerNode({
       throw new ExecutorError(`Generic.ApplyTag: missing tag_definition_id`);
     }
 
-    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
+    if (!entityType || !(entityType in getTypeMap())) {
       throw new ExecutorError(
         `Generic.ApplyTag: unknown or missing _entityType "${entityType}"`,
       );

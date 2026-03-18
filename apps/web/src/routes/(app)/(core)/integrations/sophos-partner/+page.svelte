@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
   import IntegrationHeader from '../_helpers/integration-header.svelte';
   import type { PageProps } from './$types';
   import type { Tables, TablesInsert } from '@workspace/shared/types/database';

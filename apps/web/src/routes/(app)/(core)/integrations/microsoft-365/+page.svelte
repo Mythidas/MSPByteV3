@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
   import { CONSENT_VERSION, MS_CAPABILITIES } from '@workspace/shared/config/microsoft';
   import IntegrationHeader from '../_helpers/integration-header.svelte';
   import type { PageProps } from './$types';
@@ -273,179 +273,179 @@
       </Tabs.List>
 
       <Tabs.Content value="connections" class="flex flex-col flex-1 overflow-hidden gap-4 mt-0">
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 shrink-0">
+          <Card.Root class="p-4">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Total Tenants</span>
+              <span class="text-2xl font-bold">{loading ? '—' : metrics.total}</span>
+            </div>
+          </Card.Root>
+          <Card.Root class="p-4">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Active</span>
+              <span class="text-2xl font-bold text-primary">{loading ? '—' : metrics.active}</span>
+            </div>
+          </Card.Root>
+          <Card.Root class="p-4">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Needs Action</span>
+              <span class="text-2xl font-bold text-warning"
+                >{loading ? '—' : metrics.withIssues}</span
+              >
+            </div>
+          </Card.Root>
+          <Card.Root class="p-4">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Unmapped</span>
+              <span class="text-2xl font-bold text-destructive"
+                >{loading ? '—' : metrics.totalUnmapped}</span
+              >
+            </div>
+          </Card.Root>
+          <Card.Root class="p-4">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Orphaned</span>
+              <span class="text-2xl font-bold text-destructive"
+                >{loading ? '—' : metrics.totalOrphaned}</span
+              >
+            </div>
+          </Card.Root>
+          <Card.Root class="p-4">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs text-muted-foreground">Config Health</span>
+              {#if loading}
+                <span class="text-2xl font-bold">—</span>
+              {:else if metrics.isConfigured}
+                <span class="text-sm font-medium text-primary flex items-center gap-1">
+                  <CircleCheck class="size-4" /> Healthy
+                </span>
+              {:else}
+                <span class="text-sm font-medium text-destructive flex items-center gap-1">
+                  <CircleX class="size-4" /> Not set up
+                </span>
+              {/if}
+            </div>
+          </Card.Root>
+        </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 shrink-0">
-      <Card.Root class="p-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Total Tenants</span>
-          <span class="text-2xl font-bold">{loading ? '—' : metrics.total}</span>
-        </div>
-      </Card.Root>
-      <Card.Root class="p-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Active</span>
-          <span class="text-2xl font-bold text-primary">{loading ? '—' : metrics.active}</span>
-        </div>
-      </Card.Root>
-      <Card.Root class="p-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Needs Action</span>
-          <span class="text-2xl font-bold text-warning">{loading ? '—' : metrics.withIssues}</span>
-        </div>
-      </Card.Root>
-      <Card.Root class="p-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Unmapped</span>
-          <span class="text-2xl font-bold text-destructive"
-            >{loading ? '—' : metrics.totalUnmapped}</span
-          >
-        </div>
-      </Card.Root>
-      <Card.Root class="p-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Orphaned</span>
-          <span class="text-2xl font-bold text-destructive"
-            >{loading ? '—' : metrics.totalOrphaned}</span
-          >
-        </div>
-      </Card.Root>
-      <Card.Root class="p-4">
-        <div class="flex flex-col gap-1">
-          <span class="text-xs text-muted-foreground">Config Health</span>
-          {#if loading}
-            <span class="text-2xl font-bold">—</span>
-          {:else if metrics.isConfigured}
-            <span class="text-sm font-medium text-primary flex items-center gap-1">
-              <CircleCheck class="size-4" /> Healthy
-            </span>
-          {:else}
-            <span class="text-sm font-medium text-destructive flex items-center gap-1">
-              <CircleX class="size-4" /> Not set up
-            </span>
-          {/if}
-        </div>
-      </Card.Root>
-    </div>
+        {#if !loading && !metrics.isConfigured}
+          <FadeIn>
+            <div
+              class="flex items-center gap-3 px-4 py-3 rounded bg-warning/10 text-warning border border-warning/30 shrink-0"
+            >
+              <TriangleAlert class="size-4 shrink-0" />
+              <span class="text-sm">
+                Microsoft 365 is not configured yet. Click <strong>Configure</strong> to set up your credentials.
+              </span>
+            </div>
+          </FadeIn>
+        {/if}
 
-    {#if !loading && !metrics.isConfigured}
-      <FadeIn>
-        <div
-          class="flex items-center gap-3 px-4 py-3 rounded bg-warning/10 text-warning border border-warning/30 shrink-0"
-        >
-          <TriangleAlert class="size-4 shrink-0" />
-          <span class="text-sm">
-            Microsoft 365 is not configured yet. Click <strong>Configure</strong> to set up your credentials.
-          </span>
-        </div>
-      </FadeIn>
-    {/if}
-
-    <!-- Search -->
-    <div class="flex gap-2 items-center shrink-0 w-full">
-      <div class="flex w-96!">
-        <SearchBar bind:value={connectionSearch} placeholder="Search tenants..." />
-      </div>
-      <div class="flex gap-1.5 shrink-0">
-        {#each ['All', 'Active', 'Needs Consent', 'Has Unmapped', 'Has Orphans', 'Missing Capabilities'] as filter}
-          <button
-            class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
+        <!-- Search -->
+        <div class="flex gap-2 items-center shrink-0 w-full">
+          <div class="flex w-96!">
+            <SearchBar bind:value={connectionSearch} placeholder="Search tenants..." />
+          </div>
+          <div class="flex gap-1.5 shrink-0">
+            {#each ['All', 'Active', 'Needs Consent', 'Has Unmapped', 'Has Orphans', 'Missing Capabilities'] as filter}
+              <button
+                class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
               {activeFilter === filter
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background text-muted-foreground border-border hover:border-foreground/30'}"
-            onclick={() => (activeFilter = filter as typeof activeFilter)}
-          >
-            {filter}
-          </button>
-        {/each}
-      </div>
-    </div>
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-background text-muted-foreground border-border hover:border-foreground/30'}"
+                onclick={() => (activeFilter = filter as typeof activeFilter)}
+              >
+                {filter}
+              </button>
+            {/each}
+          </div>
+        </div>
 
-    <div class="flex-1 overflow-hidden flex gap-4 min-h-0">
-      <div
-        class="flex flex-col overflow-hidden gap-4 transition-all duration-200 {selectedLinkId
-          ? 'w-96'
-          : 'flex-1'}"
-      >
-        <!-- Tenant cards -->
-        <div class="flex-1 overflow-y-auto pr-1">
-          {#if loading}
-            <Loader />
-          {:else if filteredLinks.length === 0}
-            <FadeIn
-              class="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground"
-            >
-              <Globe class="size-8 opacity-40" />
-              <span class="text-sm">No tenants found</span>
-            </FadeIn>
-          {:else}
-            <FadeIn
-              class="grid gap-3 {selectedLinkId
-                ? 'grid-cols-1'
-                : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}"
-            >
-              {#each filteredLinks as link (link.id)}
-                {@const missing = missingCapsCount(link)}
-                <button
-                  class="text-left w-full"
-                  onclick={() => (selectedLinkId = selectedLinkId === link.id ? null : link.id)}
+        <div class="flex-1 overflow-hidden flex gap-4 min-h-0">
+          <div
+            class="flex flex-col overflow-hidden gap-4 transition-all duration-200 {selectedLinkId
+              ? 'w-96'
+              : 'flex-1'}"
+          >
+            <!-- Tenant cards -->
+            <div class="flex-1 overflow-y-auto pr-1">
+              {#if loading}
+                <Loader />
+              {:else if filteredLinks.length === 0}
+                <FadeIn
+                  class="flex flex-col items-center justify-center h-full gap-2 text-muted-foreground"
                 >
-                  <Card.Root
-                    class="p-3 cursor-pointer hover:border-primary/50 transition-colors h-24 {selectedLinkId ===
-                    link.id
-                      ? 'border-primary bg-primary/10'
-                      : 'bg-card/70'}"
-                  >
-                    <div class="flex flex-col h-full gap-2 justify-between">
-                      <div class="flex items-start justify-between gap-2">
-                        <span class="font-medium text-sm leading-tight">
-                          {link.name ?? link.external_id}
-                        </span>
-                        <Badge
-                          class="text-xs shrink-0 {link.status === 'active'
-                            ? 'bg-primary/15 text-primary border-primary/30'
-                            : 'bg-muted-foreground/15 text-muted-foreground border-muted-foreground/30'}"
-                          variant="outline"
-                        >
-                          {link.status?.toUpperCase() ?? 'unknown'}
-                        </Badge>
-                      </div>
-                      <div class="flex items-center gap-3 text-xs text-muted-foreground">
-                        <span class="flex items-center gap-1">
-                          <Globe class="size-3" />
-                          {(link.meta as any)?.domains?.length ?? 0} domains
-                        </span>
-                        <span class="flex items-center gap-1">
-                          <Users class="size-3" />
-                          {(link.meta as any)?.userCount ?? 0} users
-                        </span>
-                        {#if missing > 0}
-                          <span class="flex items-center gap-1 text-warning">
-                            <TriangleAlert class="size-3 text-amber-500" />
-                            {missing} missing
-                          </span>
-                        {/if}
-                      </div>
-                    </div>
-                  </Card.Root>
-                </button>
-              {/each}
-            </FadeIn>
+                  <Globe class="size-8 opacity-40" />
+                  <span class="text-sm">No tenants found</span>
+                </FadeIn>
+              {:else}
+                <FadeIn
+                  class="grid gap-3 {selectedLinkId
+                    ? 'grid-cols-1'
+                    : 'grid-cols-1 sm:grid-cols-2 xl:grid-cols-4'}"
+                >
+                  {#each filteredLinks as link (link.id)}
+                    {@const missing = missingCapsCount(link)}
+                    <button
+                      class="text-left w-full"
+                      onclick={() => (selectedLinkId = selectedLinkId === link.id ? null : link.id)}
+                    >
+                      <Card.Root
+                        class="p-3 cursor-pointer hover:border-primary/50 transition-colors h-24 {selectedLinkId ===
+                        link.id
+                          ? 'border-primary bg-primary/10'
+                          : 'bg-card/70'}"
+                      >
+                        <div class="flex flex-col h-full gap-2 justify-between">
+                          <div class="flex items-start justify-between gap-2">
+                            <span class="font-medium text-sm leading-tight">
+                              {link.name ?? link.external_id}
+                            </span>
+                            <Badge
+                              class="text-xs shrink-0 {link.status === 'active'
+                                ? 'bg-primary/15 text-primary border-primary/30'
+                                : 'bg-muted-foreground/15 text-muted-foreground border-muted-foreground/30'}"
+                              variant="outline"
+                            >
+                              {link.status?.toUpperCase() ?? 'unknown'}
+                            </Badge>
+                          </div>
+                          <div class="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span class="flex items-center gap-1">
+                              <Globe class="size-3" />
+                              {(link.meta as any)?.domains?.length ?? 0} domains
+                            </span>
+                            <span class="flex items-center gap-1">
+                              <Users class="size-3" />
+                              {(link.meta as any)?.userCount ?? 0} users
+                            </span>
+                            {#if missing > 0}
+                              <span class="flex items-center gap-1 text-warning">
+                                <TriangleAlert class="size-3 text-amber-500" />
+                                {missing} missing
+                              </span>
+                            {/if}
+                          </div>
+                        </div>
+                      </Card.Root>
+                    </button>
+                  {/each}
+                </FadeIn>
+              {/if}
+            </div>
+          </div>
+
+          {#if selectedLink}
+            <SelectedLink
+              {selectedLink}
+              {domainSiteMap}
+              {dbSites}
+              onSaveMappings={loadLinks}
+              onRefreshed={loadLinks}
+              deselect={() => (selectedLinkId = null)}
+            />
           {/if}
         </div>
-      </div>
-
-      {#if selectedLink}
-        <SelectedLink
-          {selectedLink}
-          {domainSiteMap}
-          {dbSites}
-          onSaveMappings={loadLinks}
-          onRefreshed={loadLinks}
-          deselect={() => (selectedLinkId = null)}
-        />
-      {/if}
-    </div>
-
       </Tabs.Content>
 
       <Tabs.Content value="compliance" class="flex-1 overflow-hidden mt-0">

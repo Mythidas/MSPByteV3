@@ -98,3 +98,28 @@ export function getAllDbRoutedTypes(): {
       })),
   );
 }
+
+export function getTypeMap() {
+  const map = new Map<
+    IngestType,
+    {
+      integration: string;
+      schema: string;
+      table: string;
+      ingestType: IngestType;
+    }
+  >();
+  for (const integration of Object.values(INTEGRATIONS)) {
+    for (const t of integration.supportedTypes) {
+      if (t.type && t.db?.schema && t.db.table) {
+        map.set(t.type, {
+          integration: integration.id,
+          schema: t.db.schema,
+          table: t.db.table,
+          ingestType: t.type,
+        });
+      }
+    }
+  }
+  return map;
+}

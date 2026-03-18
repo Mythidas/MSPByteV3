@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
   import IntegrationHeader from '../_helpers/integration-header.svelte';
   import type { PageProps } from './$types';
   import type { Tables } from '@workspace/shared/types/database';
@@ -87,7 +87,9 @@
       }));
   }
 
-  const linkedSiteIds = $derived(new Set(dattoLinks.filter((l) => l.site_id).map((l) => l.site_id!)));
+  const linkedSiteIds = $derived(
+    new Set(dattoLinks.filter((l) => l.site_id).map((l) => l.site_id!))
+  );
 
   const filteredSites = $derived(
     dbSites
@@ -97,7 +99,7 @@
         if (activeFilter === 'Unlinked') return !linkedSiteIds.has(s.id);
         return true;
       })
-      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase())),
+      .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()))
   );
 
   const allLinkedSiteIds = $derived([...linkedSiteIds]);
@@ -152,7 +154,9 @@
                   options={psaOptions}
                   selected={existingConfig?.primaryPsa}
                   onchange={(v) => {
-                    const input = document.getElementById('mspagent-psa-hidden') as HTMLInputElement;
+                    const input = document.getElementById(
+                      'mspagent-psa-hidden'
+                    ) as HTMLInputElement;
                     if (input) input.value = v ?? '';
                   }}
                   placeholder="Select a PSA integration..."
@@ -321,9 +325,18 @@
                   {#if isLinked && dattoLink}
                     <span class="text-sm text-muted-foreground truncate">{dattoLink.name}</span>
                     <PermissionGaurd permission="Integrations.Write">
-                      <form method="POST" action="?/pushVars" use:enhance={makePushEnhance(site.id)}>
+                      <form
+                        method="POST"
+                        action="?/pushVars"
+                        use:enhance={makePushEnhance(site.id)}
+                      >
                         <input type="hidden" name="siteId" value={site.id} />
-                        <Button type="submit" size="sm" variant="outline" disabled={isPushing || pushingAll}>
+                        <Button
+                          type="submit"
+                          size="sm"
+                          variant="outline"
+                          disabled={isPushing || pushingAll}
+                        >
                           {isPushing ? 'Pushing...' : 'Push'}
                         </Button>
                       </form>

@@ -1,27 +1,37 @@
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { registerNode } from '../../registry.js';
-import type { RunContext } from '../../../types.js';
-import { ExecutorError } from '../../../errors.js';
-import { supabaseHelper } from '../../../lib/supabase-helper.js';
-import { ENTITY_TABLE_MAP } from '../../../lib/entity-map.js';
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { registerNode } from "../../registry.js";
+import type { RunContext } from "../../../types.js";
+import { ExecutorError } from "../../../errors.js";
+import { supabaseHelper } from "../../../lib/supabase-helper.js";
+import { getTypeMap } from "@workspace/core/types/integrations.js";
 
 registerNode({
-  ref: 'Generic.ResolveAlert',
-  label: 'Resolve Alert',
-  description: 'Resolves open alerts for each entity in the input set.',
-  category: 'sink',
+  ref: "Generic.ResolveAlert",
+  label: "Resolve Alert",
+  description: "Resolves open alerts for each entity in the input set.",
+  category: "sink",
   integration: null,
   isGeneric: true,
   pins: [
-    { key: 'entities', kind: 'input', dataType: 'string', cardinality: 'array' },
-    { key: 'affectedEntitiesPin', kind: 'output', dataType: 'entities', cardinality: 'array' },
+    {
+      key: "entities",
+      kind: "input",
+      dataType: "string",
+      cardinality: "array",
+    },
+    {
+      key: "affectedEntitiesPin",
+      kind: "output",
+      dataType: "entities",
+      cardinality: "array",
+    },
   ],
   paramSchema: [
     {
-      key: 'alert_definition_id',
-      label: 'Alert Definition',
-      dataType: 'string',
-      cardinality: 'single',
+      key: "alert_definition_id",
+      label: "Alert Definition",
+      dataType: "string",
+      cardinality: "single",
       required: true,
     },
   ],
@@ -30,7 +40,7 @@ registerNode({
     const alertDefinitionId = input.alert_definition_id as string;
     const entityType = (entities[0] as any)?._entityType as string | undefined;
 
-    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
+    if (!entityType || !(entityType in getTypeMap())) {
       throw new ExecutorError(
         `Generic.ResolveAlert: unknown or missing _entityType "${entityType}"`,
       );
@@ -41,14 +51,19 @@ registerNode({
 
     try {
       // 1. Fetch open alerts for these entities
-      const { data: openAlerts, error: fetchError } = await supabaseHelper.batchSelect(
-        'public',
-        'alerts' as any,
-        entityIds,
-        'entity_id' as never,
-        500,
-        (q: any) => q.eq('definition_id', alertDefinitionId).eq('entity_type', entityType).is('resolved_at', null),
-      );
+      const { data: openAlerts, error: fetchError } =
+        await supabaseHelper.batchSelect(
+          "public",
+          "alerts" as any,
+          entityIds,
+          "entity_id" as never,
+          500,
+          (q: any) =>
+            q
+              .eq("definition_id", alertDefinitionId)
+              .eq("entity_type", entityType)
+              .is("resolved_at", null),
+        );
 
       if (fetchError || !openAlerts) {
         throw new ExecutorError(
@@ -61,19 +76,21 @@ registerNode({
 
       if (resolvedIds.length > 0) {
         const { error: updateError } = await supabaseHelper.batchUpdate(
-          'public',
-          'alerts' as any,
+          "public",
+          "alerts" as any,
           resolvedIds,
           { resolved_at: new Date().toISOString() } as any,
         );
         if (updateError)
-          throw new ExecutorError(`Generic.ResolveAlert: update failed: ${updateError}`);
+          throw new ExecutorError(
+            `Generic.ResolveAlert: update failed: ${updateError}`,
+          );
         recordsResolved = resolvedIds.length;
       }
 
       Logger.info({
-        module: 'workflows',
-        context: 'Generic.ResolveAlert',
+        module: "workflows",
+        context: "Generic.ResolveAlert",
         message: `Processed ${entityIds.length} entities: ${recordsResolved} resolved, ${entityIds.length - recordsResolved} skipped`,
       });
     } catch (err) {

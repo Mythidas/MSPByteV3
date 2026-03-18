@@ -2,7 +2,7 @@
   import Button from '$lib/components/ui/button/button.svelte';
   import { scopeStore } from '$lib/stores/scope.svelte';
   import { cn } from '$lib/utils';
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
   import { page } from '$app/state';
   import Separator from '$lib/components/ui/separator/separator.svelte';
   import Loader from '$lib/components/transition/loader.svelte';

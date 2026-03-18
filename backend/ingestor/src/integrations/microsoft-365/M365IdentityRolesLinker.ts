@@ -1,7 +1,10 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { Microsoft365Connector } from "@workspace/shared/lib/connectors/Microsoft365Connector";
-import type { LinkerContract, LinkerDependency } from "@workspace/core/types/contracts/linker";
+import type {
+  LinkerContract,
+  LinkerDependency,
+} from "@workspace/core/types/contracts/linker";
 import { IngestType } from "@workspace/core/types/ingest";
 
 export class M365IdentityRolesLinker implements LinkerContract {
@@ -11,7 +14,11 @@ export class M365IdentityRolesLinker implements LinkerContract {
     { integrationId: "microsoft-365", ingestType: IngestType.M365Roles },
   ];
 
-  async run(scope: { tenantId: string; siteId?: string; linkId: string }): Promise<void> {
+  async run(scope: {
+    tenantId: string;
+    siteId?: string;
+    linkId: string;
+  }): Promise<void> {
     const { tenantId, linkId } = scope;
     const supabase = getSupabase();
 
@@ -33,7 +40,8 @@ export class M365IdentityRolesLinker implements LinkerContract {
       Logger.warn({
         module: "M365IdentityRolesLinker",
         context: "run",
-        message: "MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET not set — skipping linking",
+        message:
+          "MICROSOFT_CLIENT_ID / MICROSOFT_CLIENT_SECRET not set — skipping linking",
       });
       return;
     }
@@ -58,7 +66,6 @@ export class M365IdentityRolesLinker implements LinkerContract {
       tenantId: mspTenantId,
       clientId,
       clientSecret,
-      mode: "partner",
     }).forTenant(gdapTenantId);
 
     const syncStartTime = new Date().toISOString();
@@ -85,7 +92,11 @@ export class M365IdentityRolesLinker implements LinkerContract {
 
     const rows: any[] = [];
     for (const role of roleRows ?? []) {
-      const { data, error } = await connector.getRoleMembers(role.external_id, undefined, true);
+      const { data, error } = await connector.getRoleMembers(
+        role.external_id,
+        undefined,
+        true,
+      );
 
       if (error) {
         Logger.warn({

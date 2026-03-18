@@ -1,5 +1,5 @@
 import { PersistedState } from 'runed';
-import { type IntegrationId } from '@workspace/shared/config/integrations';
+import { type IntegrationId } from '@workspace/core/config/integrations';
 
 function createScopeStore() {
   const currentSiteId = new PersistedState<string | null>('current_site_id', null, {

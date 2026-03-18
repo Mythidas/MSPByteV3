@@ -4,8 +4,8 @@ import type { RunContext } from "../../../types.js";
 import { ExecutorError } from "../../../errors.js";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { getSupabase } from "../../../supabase.js";
-import { ENTITY_TABLE_MAP } from "../../../lib/entity-map.js";
 import { TablesInsert } from "@workspace/shared/types/database.js";
+import { getTypeMap } from "@workspace/core/types/integrations.js";
 
 registerNode({
   ref: "Generic.CreateAlert",
@@ -54,7 +54,7 @@ registerNode({
       );
     }
 
-    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
+    if (!entityType || !(entityType in getTypeMap())) {
       throw new ExecutorError(
         `Generic.CreateAlert: unknown or missing _entityType "${entityType}"`,
       );

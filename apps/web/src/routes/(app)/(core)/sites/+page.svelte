@@ -5,7 +5,7 @@
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '$lib/utils/permissions';
   import { goto } from '$app/navigation';
-  import { INTEGRATIONS, type IntegrationId } from '@workspace/shared/config/integrations.js';
+  import { INTEGRATIONS, type IntegrationId } from '@workspace/core/config/integrations.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { formatDate } from '$lib/utils/format';
 

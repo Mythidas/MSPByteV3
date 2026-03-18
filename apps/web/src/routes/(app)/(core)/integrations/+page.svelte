@@ -1,7 +1,7 @@
 <script lang="ts">
   import FadeIn from '$lib/components/transition/fade-in.svelte';
   import Loader from '$lib/components/transition/loader.svelte';
-  import { INTEGRATIONS, type IntegrationId } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS, type IntegrationId } from '@workspace/core/config/integrations';
   import type { PageProps } from './$types';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import SearchBar from '$lib/components/search-bar.svelte';

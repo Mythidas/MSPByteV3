@@ -5,7 +5,7 @@
   import { relativeDateColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
   import { formatStringProper } from '$lib/utils/format.js';
   import { severityClass, alertStatusClass } from './_alert-config.js';
   import AlertSheet from './_alert-sheet.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Integration } from '@workspace/shared/config/integrations';
+  import type { Integration } from '@workspace/core/config/integrations';
   import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
   import FadeIn from '$lib/components/transition/fade-in.svelte';
   import Badge from '$lib/components/ui/badge/badge.svelte';

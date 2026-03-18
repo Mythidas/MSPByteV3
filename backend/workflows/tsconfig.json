@@ -12,7 +12,8 @@
     "sourceMap": true,
     "types": ["node"],
     "paths": {
-      "@workspace/shared/*": ["../../packages/shared/src/*"]
+      "@workspace/shared/*": ["../../packages/shared/src/*"],
+      "@workspace/core/*": ["../../packages/core/src/*"]
     }
   },
   "include": ["src/**/*.ts"],

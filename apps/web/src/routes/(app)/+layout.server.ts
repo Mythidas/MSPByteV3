@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import type { IntegrationId } from '@workspace/shared/config/integrations';
+import type { IntegrationId } from '@workspace/core/config/integrations';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
   if (!locals.user || !locals.role || !locals.tenant) {

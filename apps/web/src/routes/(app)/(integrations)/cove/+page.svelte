@@ -5,7 +5,7 @@
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { formatBytes } from '$lib/utils/format.js';
-  import { INTEGRATIONS } from '@workspace/shared/config/integrations';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
 
   let loading = $state(true);
 

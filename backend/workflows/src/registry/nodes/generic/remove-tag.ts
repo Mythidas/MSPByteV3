@@ -1,24 +1,31 @@
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { registerNode } from '../../registry.js';
-import type { RunContext } from '../../../types.js';
-import { ExecutorError } from '../../../errors.js';
-import { ENTITY_TABLE_MAP } from '../../../lib/entity-map.js';
-import { getSupabase } from '../../../supabase.js';
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { registerNode } from "../../registry.js";
+import type { RunContext } from "../../../types.js";
+import { ExecutorError } from "../../../errors.js";
+import { getSupabase } from "../../../supabase.js";
+import { getTypeMap } from "@workspace/core/types/integrations.js";
 
 registerNode({
-  ref: 'Generic.RemoveTag',
-  label: 'Remove Tag',
-  description: 'Removes a tag from each entity in the input set.',
-  category: 'sink',
+  ref: "Generic.RemoveTag",
+  label: "Remove Tag",
+  description: "Removes a tag from each entity in the input set.",
+  category: "sink",
   integration: null,
   isGeneric: true,
-  pins: [{ key: 'entities', kind: 'input', dataType: 'string', cardinality: 'array' }],
+  pins: [
+    {
+      key: "entities",
+      kind: "input",
+      dataType: "string",
+      cardinality: "array",
+    },
+  ],
   paramSchema: [
     {
-      key: 'tag_definition_id',
-      label: 'Tag Definition',
-      dataType: 'string',
-      cardinality: 'single',
+      key: "tag_definition_id",
+      label: "Tag Definition",
+      dataType: "string",
+      cardinality: "single",
       required: true,
     },
   ],
@@ -31,13 +38,15 @@ registerNode({
       throw new ExecutorError(`Generic.RemoveTag: missing tag_definition_id`);
     }
 
-    if (!entityType || !(entityType in ENTITY_TABLE_MAP)) {
-      throw new ExecutorError(`Generic.RemoveTag: unknown or missing _entityType "${entityType}"`);
+    if (!entityType || !(entityType in getTypeMap())) {
+      throw new ExecutorError(
+        `Generic.RemoveTag: unknown or missing _entityType "${entityType}"`,
+      );
     }
 
     Logger.info({
-      module: 'workflows',
-      context: 'Generic.RemoveTag',
+      module: "workflows",
+      context: "Generic.RemoveTag",
       message: `Would remove tag ${tag_definition_id} from ${entities.length} entities`,
     });
 
@@ -46,14 +55,17 @@ registerNode({
     try {
       if (entityIds.length > 0) {
         const { error } = await getSupabase()
-          .schema('public')
-          .from('tags')
+          .schema("public")
+          .from("tags")
           .delete()
-          .in('entity_id', entityIds)
-          .eq('definition_id', tag_definition_id)
-          .eq('entity_type', entityType)
-          .eq('tenant_id', ctx.tenant_id);
-        if (error) throw new ExecutorError(`Generic.RemoveTags: delete failed: ${error}`);
+          .in("entity_id", entityIds)
+          .eq("definition_id", tag_definition_id)
+          .eq("entity_type", entityType)
+          .eq("tenant_id", ctx.tenant_id);
+        if (error)
+          throw new ExecutorError(
+            `Generic.RemoveTags: delete failed: ${error}`,
+          );
       }
     } catch (err) {
       throw err instanceof ExecutorError ? err : new ExecutorError(String(err));
