@@ -1,10 +1,6 @@
+import type { CheckConfig } from '@workspace/core/types/contracts/compliance';
 import type { CheckEvaluator, EvalContext, EvalResult } from '../checkTypeRegistry';
-
-interface PolicyCountGteConfig {
-  table: string;
-  match?: Record<string, unknown>;
-  threshold: number;
-}
+import { applyFilter } from '../utils/applyFilter';
 
 function parseTable(table: string): { schema: string; name: string } {
   const parts = table.split('.');
@@ -14,30 +10,37 @@ function parseTable(table: string): { schema: string; name: string } {
 
 export class PolicyCountGteEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
-    const { table, match = {}, threshold } = config as PolicyCountGteConfig;
-    const { schema, name } = parseTable(table);
+    try {
+      const { table, filter, threshold = 1 } = config as CheckConfig;
+      const { schema, name } = parseTable(table);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = ctx.supabase as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any =
-      schema === 'public'
-        ? db.from(name)
-        : db.schema(schema).from(name);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = ctx.supabase as any;
 
-    query = query.select('*', { count: 'exact', head: true }).eq('link_id', ctx.linkId);
+      const { jsFilter } = applyFilter(null, filter);
 
-    for (const [key, value] of Object.entries(match)) {
-      query = query.eq(key, value);
+      if (jsFilter) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let query: any = schema === 'public' ? db.from(name) : db.schema(schema).from(name);
+        query = query.select('*').eq('link_id', ctx.linkId);
+        const { query: filtered } = applyFilter(query, filter);
+        const { data, error } = await filtered;
+        if (error) return { passed: false, detail: { error: error.message } };
+        const rows = jsFilter(data ?? []);
+        const passed = rows.length >= threshold;
+        return { passed, detail: { count: rows.length, threshold } };
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query: any = schema === 'public' ? db.from(name) : db.schema(schema).from(name);
+      query = query.select('*', { count: 'exact', head: true }).eq('link_id', ctx.linkId);
+      const { query: filtered } = applyFilter(query, filter);
+      const { count, error } = await filtered;
+      if (error) return { passed: false, detail: { error: error.message } };
+      const passed = (count ?? 0) >= threshold;
+      return { passed, detail: { count: count ?? 0, threshold } };
+    } catch (err) {
+      return { passed: false, detail: { error: String(err) } };
     }
-
-    const { count, error } = await query;
-
-    if (error) {
-      return { passed: false, detail: { error: error.message } };
-    }
-
-    const passed = (count ?? 0) >= threshold;
-    return { passed, detail: { count: count ?? 0, threshold } };
   }
 }

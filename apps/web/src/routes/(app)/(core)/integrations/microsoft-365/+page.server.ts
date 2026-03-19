@@ -96,7 +96,6 @@ export const actions = {
       tenantId: mspTenantId,
       clientId: MICROSOFT_CLIENT_ID,
       clientSecret: MICROSOFT_CLIENT_SECRET,
-      mode: 'partner',
     }).forTenant(gdapTenantId);
 
     const capabilities = await probeCapabilities(tenantConnector, {

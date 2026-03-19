@@ -1,4 +1,5 @@
 import { INTEGRATIONS } from "@workspace/core/config/integrations";
+import { SchemaFields } from "@workspace/core/types/contracts/schema-registry";
 import { IngestType } from "@workspace/core/types/ingest";
 import { JobScopeLevel } from "@workspace/core/types/job";
 
@@ -17,6 +18,7 @@ export type IntegrationId =
 export type DbRoute = {
   schema: string; // postgres schema              e.g. "vendors"
   table: string; // table name                   e.g. "m365_identities"
+  shape: SchemaFields;
 };
 
 // ─── Ingest Type Config ───────────────────────────────────────────────────────

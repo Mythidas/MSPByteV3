@@ -1,11 +1,6 @@
+import type { CheckConfig } from '@workspace/core/types/contracts/compliance';
 import type { CheckEvaluator, EvalContext, EvalResult } from '../checkTypeRegistry';
-
-interface FieldEqualsConfig {
-  table: string;
-  match?: Record<string, unknown>;
-  field: string;
-  value: unknown;
-}
+import { applyFilter, getNestedValue } from '../utils/applyFilter';
 
 function parseTable(table: string): { schema: string; name: string } {
   const parts = table.split('.');
@@ -15,34 +10,28 @@ function parseTable(table: string): { schema: string; name: string } {
 
 export class FieldEqualsEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
-    const { table, match = {}, field, value } = config as FieldEqualsConfig;
-    const { schema, name } = parseTable(table);
+    try {
+      const { table, filter, field, value } = config as CheckConfig;
+      if (!field) return { passed: false, detail: { error: 'check_config.field is required' } };
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const db = ctx.supabase as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any =
-      schema === 'public'
-        ? db.from(name)
-        : db.schema(schema).from(name);
+      const { schema, name } = parseTable(table);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const db = ctx.supabase as any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query: any = schema === 'public' ? db.from(name) : db.schema(schema).from(name);
+      query = query.select('*').eq('link_id', ctx.linkId);
 
-    query = query.select('*').eq('link_id', ctx.linkId);
+      const { query: filtered } = applyFilter(query, filter);
+      const { data, error } = await filtered.limit(1).maybeSingle();
+      if (error) return { passed: false, detail: { error: error.message } };
+      if (!data) return { passed: false, detail: { reason: 'no row found' } };
 
-    for (const [key, val] of Object.entries(match)) {
-      query = query.eq(key, val);
+      const actual = getNestedValue(data as Record<string, unknown>, field);
+      // eslint-disable-next-line eqeqeq
+      const passed = actual == value;
+      return { passed, detail: { field, expected: value, actual } };
+    } catch (err) {
+      return { passed: false, detail: { error: String(err) } };
     }
-
-    const { data, error } = await query.limit(1).maybeSingle();
-
-    if (error) {
-      return { passed: false, detail: { error: error.message } };
-    }
-
-    if (!data) {
-      return { passed: false, detail: { reason: 'no row found' } };
-    }
-
-    const passed = data[field] === value;
-    return { passed, detail: { field, expected: value, actual: data[field] } };
   }
 }

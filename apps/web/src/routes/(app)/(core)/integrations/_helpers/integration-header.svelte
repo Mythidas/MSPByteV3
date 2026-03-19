@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { Integration } from '@workspace/core/config/integrations';
   import * as Breadcrumb from '$lib/components/ui/breadcrumb/index.js';
   import FadeIn from '$lib/components/transition/fade-in.svelte';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { cn } from '$lib/utils';
+    import type { Integration } from "@workspace/core/types/integrations";
 
   const {
     integration,
@@ -32,7 +32,7 @@
           {active ? 'Active' : 'Available'}
         </Badge>
         <Badge variant="outline">
-          {integration.type.toUpperCase()}
+          {integration.category.toUpperCase()}
         </Badge>
       </FadeIn>
     {/if}

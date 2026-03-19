@@ -7,8 +7,10 @@
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { Tables } from '@workspace/shared/types/database';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
   import FrameworkSheet from './_framework-sheet.svelte';
   import CheckDialog from './_check-dialog.svelte';
+  import Switch from '$lib/components/ui/switch/switch.svelte';
 
   type Framework = Tables<'public', 'compliance_frameworks'> & {
     compliance_framework_checks: Tables<'public', 'compliance_framework_checks'>[];
@@ -166,6 +168,7 @@
     mode={checkDialogMode}
     check={editingCheck}
     frameworkId={selectedFramework.id}
+    integration={INTEGRATIONS['microsoft-365']}
     onsuccess={onmutated}
   />
 {/if}
@@ -319,20 +322,10 @@
                 <span class="text-sm font-medium">Integration Default</span>
                 <span class="text-xs text-muted-foreground">Apply to all tenants by default</span>
               </div>
-              <button
-                class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors {isDefaultAssigned(selectedFramework.id)
-                  ? 'bg-primary'
-                  : 'bg-muted-foreground/30'}"
-                onclick={() => toggleDefaultAssignment(selectedFramework.id)}
-                role="switch"
-                aria-checked={isDefaultAssigned(selectedFramework.id)}
-              >
-                <span
-                  class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform {isDefaultAssigned(selectedFramework.id)
-                    ? 'translate-x-4'
-                    : 'translate-x-0.5'}"
-                ></span>
-              </button>
+              <Switch
+                checked={isDefaultAssigned(selectedFramework.id)}
+                onCheckedChange={() => toggleDefaultAssignment(selectedFramework.id)}
+              />
             </div>
 
             {#if tenantLinks.length > 0}
@@ -344,20 +337,10 @@
                     <Globe class="size-3.5 text-muted-foreground" />
                     <span class="text-sm">{link.name ?? link.external_id}</span>
                   </div>
-                  <button
-                    class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors {isLinkAssigned(selectedFramework.id, link.id)
-                      ? 'bg-primary'
-                      : 'bg-muted-foreground/30'}"
-                    onclick={() => toggleLinkAssignment(selectedFramework.id, link.id)}
-                    role="switch"
-                    aria-checked={isLinkAssigned(selectedFramework.id, link.id)}
-                  >
-                    <span
-                      class="inline-block h-3.5 w-3.5 rounded-full bg-white transition-transform {isLinkAssigned(selectedFramework.id, link.id)
-                        ? 'translate-x-4'
-                        : 'translate-x-0.5'}"
-                    ></span>
-                  </button>
+                  <Switch
+                    checked={isLinkAssigned(selectedFramework.id, link.id)}
+                    onCheckedChange={() => toggleLinkAssignment(selectedFramework.id, link.id)}
+                  />
                 </div>
               {/each}
             {/if}

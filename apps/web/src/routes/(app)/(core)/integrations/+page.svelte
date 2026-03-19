@@ -1,12 +1,13 @@
 <script lang="ts">
   import FadeIn from '$lib/components/transition/fade-in.svelte';
   import Loader from '$lib/components/transition/loader.svelte';
-  import { INTEGRATIONS, type IntegrationId } from '@workspace/core/config/integrations';
   import type { PageProps } from './$types';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import SearchBar from '$lib/components/search-bar.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
   import { SquareArrowRight } from 'lucide-svelte';
+    import { INTEGRATIONS } from "@workspace/core/config/integrations";
+    import type { IntegrationId } from "@workspace/core/types/integrations";
 
   const { data }: PageProps = $props();
 
@@ -37,7 +38,7 @@
           <div class="flex w-full justify-between">
             <span>{INTEGRATIONS[key].name}</span>
             <span class="text-sm text-muted-foreground">
-              {INTEGRATIONS[key].type.toUpperCase()}
+              {INTEGRATIONS[key].category.toUpperCase()}
             </span>
           </div>
           <div class="flex w-full justify-between items-end">
