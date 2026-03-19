@@ -32,8 +32,6 @@ export class JobReconciler {
 
       for (const def of definitions) {
         const config = INTEGRATIONS[def.integrationId];
-        if (config.id !== "microsoft-365") continue;
-
         // Exclude fan-out-owned types (e.g. SophosEndpoints requires prior sites DB data)
         const types = config.supportedTypes.filter(
           (t) => !t.linkerDependencies || t.linkerDependencies.length === 0,

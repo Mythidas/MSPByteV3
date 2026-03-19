@@ -131,7 +131,6 @@ export class DattoRMMAdapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    console.log(siteUid);
     const { data, error } = await connector.getDevices(siteUid);
 
     if (error || !data) {

@@ -2,6 +2,8 @@ import "./queues";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { startWorkers, stopWorkers } from "./workers";
 
+Logger.level = (process.env.LOG_LEVEL as any) ?? "info";
+
 startWorkers();
 Logger.info({ module: "compliance", context: "index", message: "started" });
 

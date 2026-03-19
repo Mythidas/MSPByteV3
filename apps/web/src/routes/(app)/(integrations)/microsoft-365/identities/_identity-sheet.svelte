@@ -115,7 +115,6 @@
     alertsLoading = true;
     alertsError = null;
     try {
-      console.log(identity.id);
       const { data, error } = await supabase
         .schema('views')
         .from('d_alerts_view')

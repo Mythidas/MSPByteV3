@@ -102,14 +102,9 @@
         .eq('tenant_id', selectedLink.tenant_id)
         .not('site_id', 'is', null);
 
-      if (deleteError) {
-        console.log(deleteError.message);
-      }
-
       onSaveMappings?.();
       toast.info('Successfully saved mappings!');
     } catch (err) {
-      console.log(err);
       toast.error(`Failed to process mappings changes`);
     } finally {
       saving = false;
