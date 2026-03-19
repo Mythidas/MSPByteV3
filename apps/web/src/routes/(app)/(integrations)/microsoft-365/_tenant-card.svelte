@@ -24,12 +24,14 @@
   }
 
   function licenseBarColor(pct: number): string {
-    if (pct >= 75) return 'bg-amber-500';
-    return 'bg-success';
+    if (pct >= 75) return 'bg-warning';
+    if (pct >= 100) return 'bg-destructive';
+    return 'bg-primary';
   }
 
   function licenseTextColor(pct: number): string {
-    if (pct >= 75) return 'text-amber-500';
+    if (pct >= 75) return 'text-warning';
+    if (pct >= 100) return 'text-destructive';
     return '';
   }
 
@@ -37,7 +39,7 @@
     if (total === 0) return 'bg-muted-foreground';
     if (pct === 100) return 'bg-success';
     if (pct >= 80) return 'bg-warning';
-    return 'bg-destructive';
+    return 'bg-emerald-500';
   }
 
   function complianceTextColor(pct: number, total: number): string {
