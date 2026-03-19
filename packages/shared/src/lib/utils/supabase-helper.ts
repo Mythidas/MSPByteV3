@@ -33,13 +33,19 @@ type QueryBuilder<
   RowType<S, T>
 >;
 
-function toPostgrestColumn(key: string): string {
+export function toPostgrestColumn(key: string): string {
   const parts = key.split(".");
   if (parts.length <= 1) return key;
   const [col, ...jsonParts] = parts;
   if (jsonParts.length === 1) return `${col}->>${jsonParts[0]}`;
   const intermediate = jsonParts.slice(0, -1).join("->");
   return `${col}->${intermediate}->>${jsonParts.at(-1)}`;
+}
+
+export function toPostgrestJsonColumn(key: string): string {
+  const parts = key.split(".");
+  if (parts.length <= 1) return key;
+  return parts.join("->");
 }
 
 export class SupabaseHelper {

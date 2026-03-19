@@ -1,6 +1,7 @@
 <script lang="ts">
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
+  import SingleSelect from '$lib/components/single-select.svelte';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
@@ -11,6 +12,7 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { Integration } from '@workspace/core/types/integrations';
+  import type { FieldReference } from '@workspace/core/types/contracts/schema-registry';
   import type {
     CheckCondition,
     ConditionLogic,
@@ -116,6 +118,8 @@
   // ─── Reference options ────────────────────────────────────────────────────
 
   let referenceOptions = $state<Record<string, { value: string; label: string }[]>>({});
+  let referenceLoading = $state<Record<string, boolean>>({});
+  const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
   $effect(() => {
     if (!selectedSource) {
@@ -123,48 +127,45 @@
       return;
     }
 
-    // Build initial map synchronously (special values only) — no reads of referenceOptions
-    // to avoid registering it as a dependency and causing an infinite loop.
-    type RefEntry = {
-      path: string;
-      table: string;
-      valueColumn: string;
-      labelColumn: string;
-      specialValues: { value: string; label: string }[];
-    };
+    // Populate with special values only — DB rows fetched on search
     const initial: Record<string, { value: string; label: string }[]> = {};
-    const toFetch: RefEntry[] = [];
     for (const f of trackableFields) {
       if (!f.field.reference) continue;
-      const { table, valueColumn, labelColumn, specialValues = [] } = f.field.reference;
-      initial[f.ingestPath] = [...specialValues];
-      toFetch.push({ path: f.ingestPath, table, valueColumn, labelColumn, specialValues });
+      initial[f.ingestPath] = [...(f.field.reference.specialValues ?? [])];
     }
-    referenceOptions = initial; // single write, no spread-read
-
-    // Fetch DB rows asynchronously — runs outside effect tracking context
-    for (const item of toFetch) {
-      (async () => {
-        const parts = item.table.includes('.') ? item.table.split('.') : ['public', item.table];
-        const [schema, tableName] = parts;
-        const db = supabase as any;
-        const q =
-          schema === 'public' ? db.from(tableName) : db.schema(schema).from(tableName);
-        const { data } = await q
-          .select(`${item.valueColumn},${item.labelColumn}`)
-          .eq('tenant_id', authStore.currentTenant?.id)
-          .limit(500);
-        if (data) {
-          const loaded = (data as Record<string, unknown>[]).map((row) => ({
-            value: String(row[item.valueColumn] ?? ''),
-            label: String(row[item.labelColumn] ?? row[item.valueColumn] ?? ''),
-          }));
-          // Direct property write — async, so outside effect dependency tracking
-          referenceOptions[item.path] = [...item.specialValues, ...loaded];
-        }
-      })();
-    }
+    referenceOptions = initial;
   });
+
+  function handleReferenceSearch(fieldPath: string, ref: FieldReference, query: string) {
+    clearTimeout(debounceTimers.get(fieldPath));
+    const timer = setTimeout(async () => {
+      referenceLoading = { ...referenceLoading, [fieldPath]: true };
+      const parts = ref.table.includes('.') ? ref.table.split('.') : ['public', ref.table];
+      const [schema, tableName] = parts;
+      const db = supabase as any;
+      const q = schema === 'public' ? db.from(tableName) : db.schema(schema).from(tableName);
+      let dbQuery = q
+        .select(`${ref.valueColumn},${ref.labelColumn}`)
+        .eq('tenant_id', authStore.currentTenant?.id)
+        .limit(30);
+      if (query.trim()) {
+        dbQuery = dbQuery.ilike(ref.labelColumn, `%${query.trim()}%`);
+      }
+      const { data } = await dbQuery;
+      if (data) {
+        const loaded = (data as Record<string, unknown>[]).map((row) => ({
+          value: String(row[ref.valueColumn] ?? ''),
+          label: String(row[ref.labelColumn] ?? row[ref.valueColumn] ?? ''),
+        }));
+        referenceOptions = {
+          ...referenceOptions,
+          [fieldPath]: [...(ref.specialValues ?? []), ...loaded],
+        };
+      }
+      referenceLoading = { ...referenceLoading, [fieldPath]: false };
+    }, 300);
+    debounceTimers.set(fieldPath, timer);
+  }
 
   // ─── Hydration ────────────────────────────────────────────────────────────
 
@@ -494,17 +495,15 @@
                       </Select.Content>
                     </Select.Root>
                   {:else if selectedEvalField.field.reference && (fieldOp === 'contains' || fieldOp === 'not_contains')}
-                    {@const opts = referenceOptions[selectedEvalField.ingestPath] ?? []}
-                    <Select.Root type="single" bind:value={fieldValue}>
-                      <Select.Trigger class="flex-1 min-w-28">
-                        {opts.find((o: { value: string; label: string }) => o.value === fieldValue)?.label ?? (fieldValue || (opts.length === 0 ? 'Loading...' : 'Select...'))}
-                      </Select.Trigger>
-                      <Select.Content>
-                        {#each opts as opt}
-                          <Select.Item value={opt.value}>{opt.label}</Select.Item>
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
+                    <SingleSelect
+                      options={referenceOptions[selectedEvalField.ingestPath] ?? (selectedEvalField.field.reference.specialValues ?? [])}
+                      bind:selected={fieldValue}
+                      loading={referenceLoading[selectedEvalField.ingestPath]}
+                      onsearch={(q) => handleReferenceSearch(selectedEvalField.ingestPath, selectedEvalField.field.reference!, q)}
+                      onchange={(v) => { fieldValue = v; }}
+                      placeholder="Select..."
+                      class="flex-1 min-w-28"
+                    />
                   {:else}
                     <Input
                       bind:value={fieldValue}
@@ -636,22 +635,16 @@
                       </Select.Content>
                     </Select.Root>
                   {:else if condField.field.reference && (cond.op === 'contains' || cond.op === 'not_contains')}
-                    {@const opts = referenceOptions[condField.ingestPath] ?? []}
-                    <Select.Root
-                      type="single"
-                      value={String(cond.value ?? '')}
-                      onValueChange={(v) => updateConditionValue(i, v)}
-                    >
-                      <Select.Trigger class="flex-1 min-w-0 truncate">
-                        {opts.find((o) => o.value === cond.value)?.label ??
-                          String(cond.value || (opts.length === 0 ? 'Loading...' : 'Select...'))}
-                      </Select.Trigger>
-                      <Select.Content>
-                        {#each opts as opt}
-                          <Select.Item value={opt.value}>{opt.label}</Select.Item>
-                        {/each}
-                      </Select.Content>
-                    </Select.Root>
+                    {@const condSelected = String(cond.value ?? '')}
+                    <SingleSelect
+                      options={referenceOptions[condField.ingestPath] ?? (condField.field.reference.specialValues ?? [])}
+                      selected={condSelected}
+                      loading={referenceLoading[condField.ingestPath]}
+                      onsearch={(q) => handleReferenceSearch(condField.ingestPath, condField.field.reference!, q)}
+                      onchange={(v) => updateConditionValue(i, v)}
+                      placeholder="Select..."
+                      class="flex-1 min-w-0"
+                    />
                   {:else}
                     <Input
                       value={String(cond.value ?? '')}

@@ -19,6 +19,8 @@
     class: className = '',
     disabled = false,
     onchange = (_selected: string) => {},
+    onsearch,
+    loading = false,
   }: {
     options: Option[];
     selected?: string;
@@ -27,6 +29,8 @@
     class?: string;
     disabled?: boolean;
     onchange?: (selected: string) => void;
+    onsearch?: (query: string) => void;
+    loading?: boolean;
   } = $props();
 
   let open = $state(false);
@@ -38,7 +42,21 @@
     }
   });
 
+  $effect(() => {
+    if (onsearch) {
+      onsearch(search);
+    }
+  });
+
   const filteredOptions = $derived.by(() => {
+    if (onsearch) {
+      // Server-side filtering — prepend selected item if not in results
+      const current = options.find((o) => o.value === selected);
+      if (current && !options.some((o) => o.value === selected)) {
+        return [current, ...options];
+      }
+      return options;
+    }
     const current = options.find((o) => o.value === selected);
     return current
       ? [
@@ -87,8 +105,11 @@
   <Popover.Content class="w-full p-0" align="start">
     <Command.Root shouldFilter={false}>
       <Command.Input placeholder={searchPlaceholder} bind:value={search} />
-      <Command.Empty>No results found.</Command.Empty>
+      <Command.Empty>{loading ? 'Loading...' : 'No results found.'}</Command.Empty>
       <Command.Group class="max-h-64 overflow-auto">
+        {#if loading}
+          <Command.Item disabled class="opacity-50 cursor-default">Loading...</Command.Item>
+        {/if}
         {#each filteredOptions as option}
           <Command.Item
             value={option.value}

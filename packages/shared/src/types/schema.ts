@@ -430,6 +430,9 @@ export type Database = {
           framework_id: string
           id: string
           name: string
+          on_change_workflow_id: string | null
+          on_fail_workflow_id: string | null
+          on_pass_workflow_id: string | null
           severity: string
           sort_order: number
           tenant_id: string
@@ -441,6 +444,9 @@ export type Database = {
           framework_id: string
           id?: string
           name: string
+          on_change_workflow_id?: string | null
+          on_fail_workflow_id?: string | null
+          on_pass_workflow_id?: string | null
           severity?: string
           sort_order?: number
           tenant_id: string
@@ -452,6 +458,9 @@ export type Database = {
           framework_id?: string
           id?: string
           name?: string
+          on_change_workflow_id?: string | null
+          on_fail_workflow_id?: string | null
+          on_pass_workflow_id?: string | null
           severity?: string
           sort_order?: number
           tenant_id?: string
@@ -462,6 +471,27 @@ export type Database = {
             columns: ["framework_id"]
             isOneToOne: false
             referencedRelation: "compliance_frameworks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_framework_checks_on_change_workflow_id_fkey"
+            columns: ["on_change_workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_framework_checks_on_fail_workflow_id_fkey"
+            columns: ["on_fail_workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_framework_checks_on_pass_workflow_id_fkey"
+            columns: ["on_pass_workflow_id"]
+            isOneToOne: false
+            referencedRelation: "workflows"
             referencedColumns: ["id"]
           },
           {
@@ -624,7 +654,6 @@ export type Database = {
           created_at: string
           error: string | null
           id: string
-          ingest_id: string
           ingest_type: string
           integration_id: string
           link_id: string | null
@@ -644,7 +673,6 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
-          ingest_id: string
           ingest_type: string
           integration_id: string
           link_id?: string | null
@@ -664,7 +692,6 @@ export type Database = {
           created_at?: string
           error?: string | null
           id?: string
-          ingest_id?: string
           ingest_type?: string
           integration_id?: string
           link_id?: string | null

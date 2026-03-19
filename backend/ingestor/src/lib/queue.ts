@@ -1,6 +1,7 @@
 import { Queue, Worker, Job, type QueueOptions, type WorkerOptions } from 'bullmq';
 import { getRedisConnection } from './redis.js';
 import { Logger } from '@workspace/shared/lib/utils/logger.js';
+import { QueueNames as CoreQueueNames } from '@workspace/core/config/queue-names';
 
 export const QueueNames = {
   ingest: (integrationId: string, entityType: string) => `ingest.${integrationId}.${entityType}`,
@@ -164,3 +165,15 @@ class QueueManager {
 }
 
 export const queueManager = new QueueManager();
+
+// Lazy singleton for publishing data_ready events to downstream consumers (compliance, workflows)
+let _realtimeQueue: Queue | null = null;
+export function getRealtimeQueue(): Queue {
+  if (!_realtimeQueue) {
+    _realtimeQueue = new Queue(CoreQueueNames.IngestRealtime, {
+      connection: getRedisConnection(),
+      defaultJobOptions: { removeOnComplete: { age: 60 * 60 * 24 } },
+    });
+  }
+  return _realtimeQueue;
+}

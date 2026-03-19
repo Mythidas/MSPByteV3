@@ -1,5 +1,7 @@
 import type { Job } from "bullmq";
-import { queueManager, QueueNames } from "../lib/queue.js";
+import { queueManager, QueueNames, getRealtimeQueue } from "../lib/queue.js";
+import { publishEvent } from "@workspace/core/lib/event-bus";
+import type { DataReadyEvent } from "@workspace/core/types/event";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { JobScheduler } from "../scheduler/JobScheduler.js";
 import {
@@ -151,6 +153,16 @@ export class SyncWorker {
 
       // 9. Write sync state
       await completeIngestJob(jobId, {});
+
+      // 9b. Notify downstream consumers (compliance, workflows)
+      await publishEvent(getRealtimeQueue(), {
+        event: "data_ready",
+        tenantId,
+        linkId: linkId ?? undefined,
+        siteId: siteId ?? undefined,
+        ingestType,
+        completedAt: new Date().toISOString(),
+      } satisfies DataReadyEvent);
 
       // 10. Fire orchestration event — OrchestrationWorker decides what runs next
       await queueManager.addJob(

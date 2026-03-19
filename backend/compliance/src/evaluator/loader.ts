@@ -10,6 +10,9 @@ export type ComplianceCheckRow = {
   check_config: Record<string, unknown>;
   sort_order: number;
   tenant_id: string;
+  on_pass_workflow_id: string | null;
+  on_fail_workflow_id: string | null;
+  on_change_workflow_id: string | null;
 };
 
 export type AssignmentGroup = {
@@ -63,7 +66,7 @@ export async function loadAssignmentsForLink(
   // 3. Fetch checks
   const { data: checks, error: checkError } = await (supabase as any)
     .from("compliance_framework_checks")
-    .select("id, framework_id, check_type_id, name, description, severity, check_config, sort_order, tenant_id")
+    .select("id, framework_id, check_type_id, name, description, severity, check_config, sort_order, tenant_id, on_pass_workflow_id, on_fail_workflow_id, on_change_workflow_id")
     .in("framework_id", frameworkIds)
     .eq("tenant_id", tenantId)
     .order("sort_order");

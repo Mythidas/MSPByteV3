@@ -260,7 +260,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       reference: {
                         table: "vendors.m365_identities",
                         valueColumn: "external_id",
-                        labelColumn: "name",
+                        labelColumn: "email",
                         specialValues: [{ value: "All", label: "All Users" }],
                       },
                     },
@@ -525,6 +525,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
       { label: "Licenses", route: "/licenses", isNullable: true },
       { label: "Policies", route: "/policies", isNullable: true },
       { label: "Exchange", route: "/exchange", isNullable: true },
+      { label: "Compliance", route: "/compliance", isNullable: true },
     ],
   },
 

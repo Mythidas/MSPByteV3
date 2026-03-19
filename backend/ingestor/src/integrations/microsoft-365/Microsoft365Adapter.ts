@@ -96,7 +96,21 @@ export class Microsoft365Adapter implements AdapterContract {
       case IT.M365Licenses:
         return this.fetchLicenses(connector, linkId, tenantId, now);
 
-      case IT.M365ExchangeConfig:
+      case IT.M365ExchangeConfig: {
+        if (
+          !((ctx.metadata?.roles as string[]) ?? []).includes(
+            "Exchange Administrator",
+          )
+        ) {
+          Logger.warn({
+            module: "Microsoft365Adapter",
+            context: "fetchExchangeConfig",
+            message:
+              "Skipping m365-exchange-config: Exchange Administor rights required to run",
+          });
+          return [];
+        }
+
         return this.fetchExchangeConfig(
           certPem,
           gdapTenantId,
@@ -105,7 +119,7 @@ export class Microsoft365Adapter implements AdapterContract {
           tenantId,
           now,
         );
-
+      }
       default:
         throw new Error(
           `Microsoft365Adapter: unknown ingestType "${ingestType}"`,
