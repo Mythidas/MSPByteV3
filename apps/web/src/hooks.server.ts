@@ -32,7 +32,7 @@ export const handle: Handle = async ({ event, resolve }) => {
     const { data: profile, error } = await event.locals.supabase
       .from('users')
       .select('*')
-      .eq('email', session.user.email)
+      .eq('email', session.user.email ?? '')
       .single();
 
     if (!error && profile) {

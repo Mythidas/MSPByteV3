@@ -17,6 +17,7 @@ export function createM365TenantGrid(getTenantId: () => string | null) {
       .select('id, name')
       .eq('tenant_id', tenantId)
       .eq('integration_id', 'microsoft-365')
+      .eq('status', 'active')
       .then((res: any) => {
         links = (res.data ?? []) as { id: string; name: string }[];
       })
@@ -29,8 +30,14 @@ export function createM365TenantGrid(getTenantId: () => string | null) {
   });
 
   return {
-    get links() { return links; },
-    get loading() { return loading; },
-    get error() { return error; },
+    get links() {
+      return links;
+    },
+    get loading() {
+      return loading;
+    },
+    get error() {
+      return error;
+    },
   };
 }
