@@ -49,6 +49,7 @@
           {@render navLink({ href: '/users', label: 'Users' })}
           {@render navLink({ href: '/roles', label: 'Roles' })}
           {@render navLink({ href: '/integrations', label: 'Integrations' })}
+          {@render navLink({ href: '/automation', label: 'Automation' })}
         </NavigationMenu.List>
       </NavigationMenu.Root>
     </div>
