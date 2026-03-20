@@ -194,7 +194,7 @@
   const linkSelected = $derived(!!scopeStore.currentLink);
 </script>
 
-<div class="flex flex-col gap-6 p-1">
+<div class="flex flex-col size-full gap-4 overflow-hidden">
   <h1 class="text-2xl font-bold">Compliance</h1>
 
   <!-- Summary cards -->
@@ -254,13 +254,13 @@
 
   <!-- Two-panel layout -->
   {#if !loading}
-    <FadeIn>
+    <FadeIn class="flex size-full overflow-hidden">
       {#if frameworks.length === 0}
         <div class="text-sm text-muted-foreground">
           No compliance frameworks found for this integration.
         </div>
       {:else}
-        <div class="flex gap-4 items-start">
+        <div class="flex size-full gap-4 items-start">
           <!-- Left: framework selector -->
           <div class="flex flex-col gap-2 w-52 shrink-0">
             {#each frameworks as fw (fw.id)}
@@ -297,7 +297,7 @@
           </div>
 
           <!-- Right: checks + results -->
-          <div class="flex-1 min-w-0 flex flex-col gap-3">
+          <div class="min-w-0 flex flex-col size-full gap-3">
             {#if selectedFrameworkId}
               {@const fw = frameworkMap.get(selectedFrameworkId)}
               <!-- Framework header -->

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { cn } from '$lib/utils';
   import { ChevronDown, ChevronRight, ExternalLink } from '@lucide/svelte';
 
   type Check = {
@@ -107,10 +108,10 @@
       ? 'bg-destructive/15 text-destructive border border-destructive/30'
       : passCount > 0
         ? 'bg-success/15 text-success border border-success/30'
-        : 'bg-muted text-muted-foreground border border-border',
+        : 'bg-muted text-muted-foreground border border-border'
   );
   const checkStatusLabel = $derived(
-    failCount > 0 ? `${failCount} failing` : passCount > 0 ? 'passing' : 'unknown',
+    failCount > 0 ? `${failCount} failing` : passCount > 0 ? 'passing' : 'unknown'
   );
   const filteredResults = $derived(
     results.filter((r) => {
@@ -134,10 +135,15 @@
   );
 </script>
 
-<div class="rounded-lg border bg-card overflow-hidden">
+<div
+  class={cn(
+    'rounded-lg border bg-card overflow-hidden',
+    !collapsed && 'flex flex-col flex-1 min-h-0'
+  )}
+>
   <!-- Check header (clickable to collapse/expand) -->
   <button
-    class="w-full flex items-center justify-between gap-2 px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+    class="w-full flex items-center justify-between gap-2 h-fit px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
     onclick={() => (collapsed = !collapsed)}
   >
     <div class="flex items-center gap-2 flex-1 min-w-0">
@@ -174,74 +180,74 @@
     {#if results.length === 0}
       <div class="px-4 py-3 text-xs text-muted-foreground">No results for this check.</div>
     {:else}
-      <div class="divide-y border-t">
-      {#each filteredResults as result (result.id)}
-        {@const failedConditions = Array.isArray(result.detail?.failed_conditions)
-          ? (result.detail!.failed_conditions as {
-              field: string;
-              op: string;
-              value: unknown;
-              matched_count: number;
-            }[])
-          : null}
-        {@const hasExpand =
-          result.status === 'fail' && failedConditions && failedConditions.length > 0}
-        {@const isExpanded = expandedRows.has(result.id)}
+      <div class="flex flex-col flex-1 min-h-0 divide-y border-t overflow-auto">
+        {#each filteredResults as result (result.id)}
+          {@const failedConditions = Array.isArray(result.detail?.failed_conditions)
+            ? (result.detail!.failed_conditions as {
+                field: string;
+                op: string;
+                value: unknown;
+                matched_count: number;
+              }[])
+            : null}
+          {@const hasExpand =
+            result.status === 'fail' && failedConditions && failedConditions.length > 0}
+          {@const isExpanded = expandedRows.has(result.id)}
 
-        <div>
-          <div class="flex items-center gap-3 px-4 py-2 text-sm">
-            {#if hasExpand}
-              <button
-                class="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                onclick={() => toggleExpanded(result.id)}
+          <div>
+            <div class="flex items-center gap-3 px-4 py-2 text-sm">
+              {#if hasExpand}
+                <button
+                  class="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                  onclick={() => toggleExpanded(result.id)}
+                >
+                  {#if isExpanded}
+                    <ChevronDown class="size-3.5" />
+                  {:else}
+                    <ChevronRight class="size-3.5" />
+                  {/if}
+                </button>
+              {:else}
+                <span class="size-3.5 shrink-0"></span>
+              {/if}
+
+              {#if !linkSelected}
+                <span class="flex-1 min-w-0 truncate text-muted-foreground text-xs">
+                  {linkMap.get(result.link_id) ?? result.link_id}
+                </span>
+              {/if}
+
+              <span
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium uppercase shrink-0 {STATUS_CLASSES[
+                  result.status
+                ] ?? STATUS_CLASSES['unknown']}"
               >
-                {#if isExpanded}
-                  <ChevronDown class="size-3.5" />
-                {:else}
-                  <ChevronRight class="size-3.5" />
-                {/if}
-              </button>
-            {:else}
-              <span class="size-3.5 shrink-0"></span>
-            {/if}
-
-            {#if !linkSelected}
-              <span class="flex-1 min-w-0 truncate text-muted-foreground text-xs">
-                {linkMap.get(result.link_id) ?? result.link_id}
+                {result.status}
               </span>
-            {/if}
 
-            <span
-              class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium uppercase shrink-0 {STATUS_CLASSES[
-                result.status
-              ] ?? STATUS_CLASSES['unknown']}"
-            >
-              {result.status}
-            </span>
+              <span class="text-xs text-muted-foreground flex-1 min-w-0 truncate">
+                {renderDetail(result.detail)}
+              </span>
 
-            <span class="text-xs text-muted-foreground flex-1 min-w-0 truncate">
-              {renderDetail(result.detail)}
-            </span>
-
-            <span class="text-xs text-muted-foreground shrink-0">
-              {relativeTime(result.evaluated_at)}
-            </span>
-          </div>
-
-          {#if isExpanded && failedConditions}
-            <div class="px-4 py-2 flex flex-col gap-1">
-              {#each failedConditions as cond}
-                <div class="text-xs text-muted-foreground flex items-center gap-1">
-                  <span class="font-mono bg-muted px-1 py-0.5 rounded">{cond.field}</span>
-                  <span>{cond.op}</span>
-                  <span class="font-mono bg-muted px-1 py-0.5 rounded">{String(cond.value)}</span>
-                  <span class="text-muted-foreground/60">— {cond.matched_count} matched</span>
-                </div>
-              {/each}
+              <span class="text-xs text-muted-foreground shrink-0">
+                {relativeTime(result.evaluated_at)}
+              </span>
             </div>
-          {/if}
-        </div>
-      {/each}
+
+            {#if isExpanded && failedConditions}
+              <div class="px-4 py-2 flex flex-col gap-1">
+                {#each failedConditions as cond}
+                  <div class="text-xs text-muted-foreground flex items-center gap-1">
+                    <span class="font-mono bg-muted px-1 py-0.5 rounded">{cond.field}</span>
+                    <span>{cond.op}</span>
+                    <span class="font-mono bg-muted px-1 py-0.5 rounded">{String(cond.value)}</span>
+                    <span class="text-muted-foreground/60">— {cond.matched_count} matched</span>
+                  </div>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/each}
       </div>
     {/if}
   {/if}
