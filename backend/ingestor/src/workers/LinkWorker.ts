@@ -1,6 +1,7 @@
 import type { Job } from "bullmq";
 import { queueManager, QueueNames } from "../lib/queue.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
+import { PipelineTracker } from "../lib/tracker.js";
 import {
   startIngestJob,
   completeIngestJob,
@@ -52,11 +53,14 @@ export class LinkWorker {
       ingest_type: linkerType,
     });
 
+    const tracker = new PipelineTracker();
+
     try {
-      await linker.run({ tenantId, linkId });
-      await completeIngestJob(dbJob.id, {});
+      await tracker.trackSpan("linker_run", () => linker.run({ tenantId, linkId }));
+      await completeIngestJob(dbJob.id, { metrics: tracker.toJSON() });
     } catch (err) {
-      await failIngestJob(dbJob.id, { error: String(err) });
+      tracker.trackError(err as Error);
+      await failIngestJob(dbJob.id, { error: String(err), metrics: tracker.toJSON() });
       throw err;
     }
 

@@ -85,7 +85,7 @@
     return (q: any) => {
       q.in(
         'entity_type',
-        integration.supportedTypes.filter((t) => t.entityKey).map((t) => t.entityKey!)
+        integration.supportedTypes.filter((t) => t.type).map((t) => t.type!)
       );
       if (scope) {
         q.eq(linked ? 'link_id' : 'site_id', scope as string);

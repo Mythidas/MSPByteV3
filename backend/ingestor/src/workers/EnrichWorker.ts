@@ -2,6 +2,7 @@ import type { Job } from "bullmq";
 import { queueManager, QueueNames } from "../lib/queue.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { startIngestJob, completeIngestJob, failIngestJob } from "../lib/ingest-state.js";
+import { PipelineTracker } from "../lib/tracker.js";
 import type { EnrichJobData } from "../types.js";
 import type { IngestorDefinition } from "../interfaces.js";
 
@@ -48,11 +49,16 @@ export class EnrichWorker {
       ingest_type: enrichmentType,
     });
 
+    const tracker = new PipelineTracker();
+
     try {
-      await enrichment.run({ tenantId, linkId: linkId ?? undefined });
-      await completeIngestJob(dbJob.id, {});
+      await tracker.trackSpan("enrichment_run", () =>
+        enrichment.run({ tenantId, linkId: linkId ?? undefined })
+      );
+      await completeIngestJob(dbJob.id, { metrics: tracker.toJSON() });
     } catch (err) {
-      await failIngestJob(dbJob.id, { error: String(err) });
+      tracker.trackError(err as Error);
+      await failIngestJob(dbJob.id, { error: String(err), metrics: tracker.toJSON() });
       throw err;
     }
   }

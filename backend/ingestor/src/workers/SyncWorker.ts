@@ -8,6 +8,7 @@ import {
   completeIngestJob,
   failIngestJob,
 } from "../lib/ingest-state.js";
+import { PipelineTracker } from "../lib/tracker.js";
 import { getSupabase } from "../supabase.js";
 import { resolveCredentials } from "@workspace/core/lib/credentials";
 import { INTEGRATIONS } from "@workspace/core/config/integrations";
@@ -50,6 +51,7 @@ export class SyncWorker {
   private async handleJob(job: Job<IngestJobData>): Promise<void> {
     const { tenantId, ingestType, jobId, linkId, siteId, integrationId } = job.data;
     const supabase = getSupabase();
+    const tracker = new PipelineTracker();
 
     Logger.info({
       module: "SyncWorker",
@@ -64,17 +66,21 @@ export class SyncWorker {
 
     try {
       // 1. Load integration config
-      const { data: integrationRow } = await supabase
-        .from("integrations")
-        .select("config")
-        .eq("id", integrationId)
-        .eq("tenant_id", tenantId)
-        .single();
+      const { data: integrationRow } = await tracker.trackSpan("load_config", () =>
+        supabase
+          .from("integrations")
+          .select("config")
+          .eq("id", integrationId)
+          .eq("tenant_id", tenantId)
+          .single()
+      );
 
       const config = ((integrationRow?.config as Record<string, string>) ?? {});
 
       // 2. Resolve credentials (decrypt sensitive fields)
-      const credentials = await resolveCredentials(integrationId as IntegrationId, config);
+      const credentials = await tracker.trackSpan("resolve_credentials", () =>
+        resolveCredentials(integrationId as IntegrationId, config)
+      );
 
       // 3. Load link record if linkId is present
       let linkMeta: Record<string, unknown> = {};
@@ -82,11 +88,13 @@ export class SyncWorker {
       const scopeLevel: "tenant" | "link" = linkId ? "link" : "tenant";
 
       if (linkId) {
-        const { data: link } = await supabase
-          .from("integration_links")
-          .select("id, external_id, meta")
-          .eq("id", linkId)
-          .single();
+        const { data: link } = await tracker.trackSpan("load_link", () =>
+          supabase
+            .from("integration_links")
+            .select("id, external_id, meta")
+            .eq("id", linkId)
+            .single()
+        );
 
         if (link) {
           linkMeta = (link.meta as Record<string, unknown>) ?? {};
@@ -109,7 +117,8 @@ export class SyncWorker {
       };
 
       // 5. Fetch via adapter — returns UpsertPayload[]
-      const payloads = await this.adapter.fetch(ctx);
+      const payloads = await tracker.trackSpan("adapter_fetch", () => this.adapter.fetch(ctx));
+      tracker.trackApiCall();
 
       Logger.info({
         module: "SyncWorker",
@@ -122,20 +131,24 @@ export class SyncWorker {
         ?.supportedTypes.find((t) => t.type === ingestType);
       const dbSchema = typeConfig?.db?.schema ?? "vendors";
 
-      for (const payload of payloads) {
-        if (payload.rows.length === 0) continue;
+      await tracker.trackSpan("db_upsert", async () => {
+        for (const payload of payloads) {
+          if (payload.rows.length === 0) continue;
 
-        for (let i = 0; i < payload.rows.length; i += 200) {
-          const chunk = payload.rows.slice(i, i + 200);
-          const { error } = await (
-            (supabase.schema as any)(dbSchema).from(payload.table) as any
-          ).upsert(chunk, { onConflict: payload.onConflict });
+          for (let i = 0; i < payload.rows.length; i += 200) {
+            const chunk = payload.rows.slice(i, i + 200);
+            const { error } = await (
+              (supabase.schema as any)(dbSchema).from(payload.table) as any
+            ).upsert(chunk, { onConflict: payload.onConflict });
 
-          if (error) {
-            throw new Error(`Upsert ${payload.table} failed: ${error.message}`);
+            if (error) {
+              throw new Error(`Upsert ${payload.table} failed: ${error.message}`);
+            }
+
+            tracker.trackUpsert();
           }
         }
-      }
+      });
 
       // 7. Stale pruning (only for types with a DB route)
       if (typeConfig?.db) {
@@ -143,16 +156,18 @@ export class SyncWorker {
         const allExternalIds = payloads
           .flatMap((p) => p.rows.map((r) => r.external_id as string))
           .filter(Boolean);
-        await this.pruneStale(schema, table, tenantId, linkId, allExternalIds);
+        await tracker.trackSpan("prune_stale", () =>
+          this.pruneStale(schema, table, tenantId, linkId, allExternalIds)
+        );
       }
 
       // 8. Fan-out (optional — e.g. sophos sites → endpoints jobs)
       if (this.def.fanOut) {
-        await this.def.fanOut(payloads, job.data);
+        await tracker.trackSpan("fan_out", () => this.def.fanOut!(payloads, job.data));
       }
 
       // 9. Write sync state
-      await completeIngestJob(jobId, {});
+      await completeIngestJob(jobId, { metrics: tracker.toJSON() });
 
       // 9b. Notify downstream consumers (compliance, workflows)
       await publishEvent(getRealtimeQueue(), {
@@ -187,9 +202,11 @@ export class SyncWorker {
         message: `[${jobId}] Ingest completed for ${integrationId}:${ingestType}`,
       });
     } catch (error) {
+      tracker.trackError(error as Error);
       try {
         await failIngestJob(jobId, {
           error: (error as Error).message,
+          metrics: tracker.toJSON(),
         });
       } catch (updateError) {
         Logger.error({
