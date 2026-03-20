@@ -11,13 +11,13 @@
   const utilPct = $derived(
     d && d.totalConsumed + d.totalAvailable > 0
       ? Math.round((d.totalConsumed / (d.totalConsumed + d.totalAvailable)) * 100)
-      : 0,
+      : 0
   );
   const barColor = $derived(
-    utilPct >= 90 ? 'bg-destructive' : utilPct >= 75 ? 'bg-amber-500' : 'bg-success',
+    utilPct > 100 ? 'bg-destructive' : utilPct < 80 ? 'bg-warning' : 'bg-success'
   );
   const textColor = $derived(
-    utilPct >= 90 ? 'text-destructive' : utilPct >= 75 ? 'text-amber-500' : '',
+    utilPct > 100 ? 'text-destructive' : utilPct < 80 ? 'text-warning' : 'text-success'
   );
 </script>
 
@@ -59,7 +59,9 @@
             </div>
           </div>
           <div class="w-full h-2 rounded-full bg-muted overflow-hidden">
-            <div class="h-full rounded-full transition-all {barColor}" style="width: {utilPct}%"
+            <div
+              class="h-full rounded-full transition-all {barColor}"
+              style="width: {utilPct}%"
             ></div>
           </div>
         </div>

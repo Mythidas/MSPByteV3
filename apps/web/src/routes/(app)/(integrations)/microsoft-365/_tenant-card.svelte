@@ -20,15 +20,15 @@
   }
 
   function licenseBarColor(pct: number): string {
-    if (pct >= 100) return 'bg-destructive';
-    if (pct >= 75) return 'bg-warning';
-    return 'bg-primary';
+    if (pct > 100) return 'bg-destructive';
+    if (pct < 80) return 'bg-warning';
+    return 'bg-success';
   }
 
   function licenseTextColor(pct: number): string {
-    if (pct >= 100) return 'text-destructive';
-    if (pct >= 75) return 'text-warning';
-    return '';
+    if (pct > 100) return 'text-destructive';
+    if (pct < 80) return 'text-warning';
+    return 'text-success';
   }
 
   function complianceBarColor(pct: number, total: number): string {
@@ -112,7 +112,9 @@
             >{d.licenses.consumed} / {d.licenses.total} seats</span
           >
           <div class="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-            <div class={cn('h-full rounded-full', licenseBarColor(pct))} style="width: {pct}%"
+            <div
+              class={cn('h-full rounded-full', licenseBarColor(pct))}
+              style="width: {pct}%"
             ></div>
           </div>
           <span class="text-xs text-muted-foreground w-8 text-right">{pct}%</span>
