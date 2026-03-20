@@ -1,29 +1,10 @@
 <script lang="ts">
   import * as Card from '$lib/components/ui/card/index.js';
   import FadeIn from '$lib/components/transition/fade-in.svelte';
-  import { supabase } from '$lib/utils/supabase.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import CheckResults from './_check-results.svelte';
-
-  type Framework = { id: string; name: string };
-  type Check = {
-    id: string;
-    name: string;
-    severity: string;
-    description: string | null;
-    check_config: Record<string, unknown>;
-    framework_id: string;
-  };
-  type Result = {
-    id: string;
-    framework_check_id: string;
-    link_id: string;
-    status: string;
-    detail: Record<string, unknown> | null;
-    evaluated_at: string;
-  };
-  type Link = { id: string; name: string };
+  import { createM365ComplianceData } from '$lib/hooks/m365/useM365ComplianceData.svelte.js';
 
   const SEVERITY_ORDER: Record<string, number> = {
     critical: 0,
@@ -33,69 +14,28 @@
     info: 4,
   };
 
-  let loading = $state(true);
-  let frameworks = $state<Framework[]>([]);
-  let checks = $state<Check[]>([]);
-  let results = $state<Result[]>([]);
-  let links = $state<Link[]>([]);
+  const hook = createM365ComplianceData(() => authStore.currentTenant?.id ?? null);
+
   let selectedFrameworkId = $state<string | null>(null);
   let statusFilter = $state<'fail' | 'pass' | 'all'>('fail');
 
+  // Auto-select first framework when data loads
   $effect(() => {
-    const tenantId = authStore.currentTenant?.id ?? '';
-    if (!tenantId) return;
-
-    const load = async () => {
-      loading = true;
-
-      const [fwRes, checkRes, resultRes, linkRes] = await Promise.all([
-        (supabase as any)
-          .from('compliance_frameworks' as any)
-          .select('id, name')
-          .eq('tenant_id', tenantId)
-          .eq('integration_id', 'microsoft-365'),
-        (supabase as any)
-          .from('compliance_framework_checks' as any)
-          .select('id, name, description, severity, check_config, framework_id')
-          .eq('tenant_id', tenantId),
-        (supabase as any)
-          .from('compliance_results' as any)
-          .select('id, framework_check_id, link_id, status, detail, evaluated_at')
-          .eq('tenant_id', tenantId)
-          .order('evaluated_at', { ascending: false }),
-        (supabase as any)
-          .from('integration_links' as any)
-          .select('id, name')
-          .eq('tenant_id', tenantId)
-          .eq('integration_id', 'microsoft-365'),
-      ]);
-
-      frameworks = (fwRes.data ?? []) as Framework[];
-      checks = (checkRes.data ?? []) as Check[];
-      results = (resultRes.data ?? []) as Result[];
-      links = (linkRes.data ?? []) as Link[];
-
-      // Auto-select first framework
-      if (frameworks.length > 0 && !selectedFrameworkId) {
-        selectedFrameworkId = frameworks[0].id;
-      }
-
-      loading = false;
-    };
-
-    load();
+    if (hook.frameworks.length > 0 && !selectedFrameworkId) {
+      selectedFrameworkId = hook.frameworks[0].id;
+    }
   });
 
   // Build lookup maps
-  const checkMap = $derived(new Map(checks.map((c) => [c.id, c])));
-  const linkMap = $derived(new Map(links.map((l) => [l.id, l.name])));
-  const frameworkMap = $derived(new Map(frameworks.map((f) => [f.id, f])));
+  const checkMap = $derived(new Map(hook.checks.map((c) => [c.id, c])));
+  const linkMap = $derived(new Map(hook.links.map((l) => [l.id, l.name])));
+  const frameworkMap = $derived(new Map(hook.frameworks.map((f) => [f.id, f])));
 
   // Dedup results: latest per (linkId, checkId)
   const latestResults = $derived.by(() => {
     const link = scopeStore.currentLink;
-    const map = new Map<string, Result>();
-    for (const r of results) {
+    const map = new Map<string, typeof hook.results[0]>();
+    for (const r of hook.results) {
       const key = `${r.link_id}::${r.framework_check_id}`;
       if (!map.has(key)) {
         map.set(key, r);
@@ -117,11 +57,11 @@
   const summaryPass = $derived(visibleResults.filter((r) => r.status === 'pass').length);
   const summaryFail = $derived(visibleResults.filter((r) => r.status === 'fail').length);
   const summaryUnknown = $derived(
-    visibleResults.filter((r) => r.status !== 'pass' && r.status !== 'fail').length
+    visibleResults.filter((r) => r.status !== 'pass' && r.status !== 'fail').length,
   );
   const summaryTotal = $derived(visibleResults.length);
   const summaryPassRate = $derived(
-    summaryTotal > 0 ? Math.round((summaryPass / summaryTotal) * 100) : 0
+    summaryTotal > 0 ? Math.round((summaryPass / summaryTotal) * 100) : 0,
   );
 
   // Per-framework summary for selector cards
@@ -130,7 +70,7 @@
       string,
       { passCount: number; failCount: number; unknownCount: number }
     >();
-    for (const fw of frameworks) {
+    for (const fw of hook.frameworks) {
       summaries.set(fw.id, { passCount: 0, failCount: 0, unknownCount: 0 });
     }
     for (const r of visibleResults) {
@@ -148,14 +88,14 @@
   // Checks for selected framework, sorted by severity
   const selectedFrameworkChecks = $derived.by(() => {
     if (!selectedFrameworkId) return [];
-    return checks
+    return hook.checks
       .filter((c) => c.framework_id === selectedFrameworkId)
       .sort((a, b) => (SEVERITY_ORDER[a.severity] ?? 99) - (SEVERITY_ORDER[b.severity] ?? 99));
   });
 
   // Results for the selected framework, grouped by check
   const resultsByCheck = $derived.by(() => {
-    const map = new Map<string, Result[]>();
+    const map = new Map<string, typeof hook.results>();
     for (const r of visibleResults) {
       const check = checkMap.get(r.framework_check_id);
       if (!check || check.framework_id !== selectedFrameworkId) continue;
@@ -180,7 +120,7 @@
 
   // Selected framework pass rate
   const selectedFrameworkSummary = $derived(
-    selectedFrameworkId ? (frameworkSummaries.get(selectedFrameworkId) ?? null) : null
+    selectedFrameworkId ? (frameworkSummaries.get(selectedFrameworkId) ?? null) : null,
   );
   const selectedFrameworkPassRate = $derived.by(() => {
     if (!selectedFrameworkSummary) return 0;
@@ -198,7 +138,7 @@
   <h1 class="text-2xl font-bold">Compliance</h1>
 
   <!-- Summary cards -->
-  {#if !loading}
+  {#if !hook.loading}
     <FadeIn>
       <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card.Root class="p-4">
@@ -253,9 +193,9 @@
   {/if}
 
   <!-- Two-panel layout -->
-  {#if !loading}
+  {#if !hook.loading}
     <FadeIn class="flex size-full overflow-hidden">
-      {#if frameworks.length === 0}
+      {#if hook.frameworks.length === 0}
         <div class="text-sm text-muted-foreground">
           No compliance frameworks found for this integration.
         </div>
@@ -263,7 +203,7 @@
         <div class="flex size-full gap-4 items-start">
           <!-- Left: framework selector -->
           <div class="flex flex-col gap-2 w-52 shrink-0">
-            {#each frameworks as fw (fw.id)}
+            {#each hook.frameworks as fw (fw.id)}
               {@const summary = frameworkSummaries.get(fw.id)}
               {@const isActive = selectedFrameworkId === fw.id}
               <button

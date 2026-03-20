@@ -1,98 +1,18 @@
 <script lang="ts">
   import * as Card from '$lib/components/ui/card/index.js';
   import FadeIn from '$lib/components/transition/fade-in.svelte';
-  import { supabase } from '$lib/utils/supabase.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { formatBytes } from '$lib/utils/format.js';
-  import { INTEGRATIONS } from '@workspace/core/config/integrations';
+  import { createCoveOverview } from '$lib/hooks/cove/useCoveOverview.svelte.js';
 
-  let loading = $state(true);
-
-  let totalEndpoints = $state(0);
-  let activeEndpoints = $state(0);
-  let failedEndpoints = $state(0);
-  let noRecentBackup = $state(0);
-  let totalSelectedSize = $state(0);
-  let totalUsedStorage = $state(0);
-  let activeAlerts = $state(0);
-
-  $effect(() => {
-    const site = scopeStore.currentSite;
-    const tenantId = authStore.currentTenant?.id ?? '';
-    const integration = INTEGRATIONS['cove'];
-
-    const load = async () => {
-      loading = true;
-
-      const applyScope = (q: any) => {
-        q.eq('tenant_id', tenantId);
-        if (site) q.eq('site_id', site as string);
-        return q;
-      };
-
-      const [endpointsTotal, endpointsFailed, endpointsNoBackup, storageData, alertsActive] =
-        await Promise.all([
-          applyScope(
-            supabase
-              .schema('vendors')
-              .from('cove_endpoints' as any)
-              .select('*', { count: 'exact', head: true })
-          ),
-          applyScope(
-            supabase
-              .schema('vendors')
-              .from('cove_endpoints' as any)
-              .select('*', { count: 'exact', head: true })
-              .neq('status', 'Completed')
-              .neq('status', 'In Process')
-          ),
-          applyScope(
-            supabase
-              .schema('vendors')
-              .from('cove_endpoints' as any)
-              .select('*', { count: 'exact', head: true })
-              .or(
-                `last_success_at.is.null,last_success_at.lt.${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`
-              )
-          ),
-          applyScope(
-            supabase
-              .schema('vendors')
-              .from('cove_endpoints' as any)
-              .select('selected_size,used_storage')
-          ),
-          (() => {
-            const q = supabase
-              .schema('views')
-              .from('d_alerts_view' as any)
-              .select('*', { count: 'exact', head: true })
-              .eq('tenant_id', tenantId)
-              .eq('status', 'active')
-              .in(
-                'entity_type',
-                integration.supportedTypes.filter((t) => t.entityKey).map((t) => t.entityKey!)
-              );
-            if (site) q.eq('site_id', site as string);
-            return q;
-          })(),
-        ]);
-
-      totalEndpoints = endpointsTotal.count ?? 0;
-      failedEndpoints = endpointsFailed.count ?? 0;
-      noRecentBackup = endpointsNoBackup.count ?? 0;
-
-      const storage = (storageData.data ?? []) as { selected_size: number; used_storage: number }[];
-      totalSelectedSize = storage.reduce((acc, s) => acc + (s.selected_size ?? 0), 0);
-      totalUsedStorage = storage.reduce((acc, s) => acc + (s.used_storage ?? 0), 0);
-
-      activeAlerts = alertsActive.count ?? 0;
-
-      loading = false;
-    };
-
-    load();
+  const hook = createCoveOverview(() => {
+    const tenantId = authStore.currentTenant?.id;
+    if (!tenantId) return null;
+    return { tenantId, siteId: scopeStore.currentSite };
   });
+
+  const d = $derived(hook.data);
 </script>
 
 <div class="flex flex-col gap-6 p-1">
@@ -101,14 +21,14 @@
   <!-- Endpoints -->
   <section class="flex flex-col gap-3">
     <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Endpoints</h2>
-    {#if !loading}
+    {#if !hook.loading}
       <FadeIn>
         <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <a href="/cove/endpoints">
             <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors">
               <div class="flex flex-col gap-1">
                 <span class="text-xs text-muted-foreground">Total Endpoints</span>
-                <span class="text-2xl font-bold">{totalEndpoints}</span>
+                <span class="text-2xl font-bold">{d?.totalEndpoints ?? 0}</span>
               </div>
             </Card.Root>
           </a>
@@ -116,8 +36,8 @@
             <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors">
               <div class="flex flex-col gap-1">
                 <span class="text-xs text-muted-foreground">Most Recent Backup Failed</span>
-                <span class="text-2xl font-bold {failedEndpoints > 0 ? 'text-destructive' : ''}"
-                  >{failedEndpoints}</span
+                <span class="text-2xl font-bold {(d?.failedEndpoints ?? 0) > 0 ? 'text-destructive' : ''}"
+                  >{d?.failedEndpoints ?? 0}</span
                 >
               </div>
             </Card.Root>
@@ -126,8 +46,8 @@
             <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors">
               <div class="flex flex-col gap-1">
                 <span class="text-xs text-muted-foreground">No Recent Backup (7 Days)</span>
-                <span class="text-2xl font-bold {noRecentBackup > 0 ? 'text-amber-500' : ''}"
-                  >{noRecentBackup}</span
+                <span class="text-2xl font-bold {(d?.noRecentBackup ?? 0) > 0 ? 'text-amber-500' : ''}"
+                  >{d?.noRecentBackup ?? 0}</span
                 >
               </div>
             </Card.Root>
@@ -151,19 +71,19 @@
   <!-- Storage -->
   <section class="flex flex-col gap-3">
     <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Storage</h2>
-    {#if !loading}
+    {#if !hook.loading}
       <FadeIn>
         <div class="grid grid-cols-2 gap-3">
           <Card.Root class="p-4">
             <div class="flex flex-col gap-1">
               <span class="text-xs text-muted-foreground">Total Selected Size</span>
-              <span class="text-2xl font-bold">{formatBytes(totalSelectedSize)}</span>
+              <span class="text-2xl font-bold">{formatBytes(d?.totalSelectedSize ?? 0)}</span>
             </div>
           </Card.Root>
           <Card.Root class="p-4">
             <div class="flex flex-col gap-1">
               <span class="text-xs text-muted-foreground">Total Used Storage</span>
-              <span class="text-2xl font-bold">{formatBytes(totalUsedStorage)}</span>
+              <span class="text-2xl font-bold">{formatBytes(d?.totalUsedStorage ?? 0)}</span>
             </div>
           </Card.Root>
         </div>
@@ -185,15 +105,15 @@
   <!-- Alerts -->
   <section class="flex flex-col gap-3">
     <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Alerts</h2>
-    {#if !loading}
+    {#if !hook.loading}
       <FadeIn>
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <a href="/cove/alerts">
             <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors">
               <div class="flex flex-col gap-1">
                 <span class="text-xs text-muted-foreground">Active Alerts</span>
-                <span class="text-2xl font-bold {activeAlerts > 0 ? 'text-destructive' : ''}"
-                  >{activeAlerts}</span
+                <span class="text-2xl font-bold {(d?.activeAlerts ?? 0) > 0 ? 'text-destructive' : ''}"
+                  >{d?.activeAlerts ?? 0}</span
                 >
               </div>
             </Card.Root>

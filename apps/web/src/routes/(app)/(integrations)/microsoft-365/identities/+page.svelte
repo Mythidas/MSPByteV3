@@ -14,10 +14,10 @@
     textColumn,
   } from '$lib/components/data-table/column-defs.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
-  import { supabase } from '$lib/utils/supabase.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import IdentitySheet from './_identity-sheet.svelte';
+  import { createM365LicenseOptions } from '$lib/hooks/m365/useM365LicenseOptions.svelte.js';
 
   type Identity = Tables<'views', 'm365_identities_view'>;
 
@@ -29,10 +29,10 @@
   let canWrite = $derived(
     hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
   );
-  let licenseOptions = $state<{ label: string; value: string }[]>([]);
+  const licenseHook = createM365LicenseOptions(() => authStore.currentTenant?.id ?? null);
 
   const licenseMap = $derived<Record<string, string>>(
-    Object.fromEntries(licenseOptions.map((l) => [l.value, l.label]))
+    Object.fromEntries(licenseHook.options.map((l) => [l.value, l.label]))
   );
 
   const columns: DataTableColumn<Identity>[] = $derived.by(() => {
@@ -55,7 +55,7 @@
           type: 'select',
           operators: ['cs'],
           defaultOperator: 'cs',
-          options: licenseOptions,
+          options: licenseHook.options,
         },
         exportValue: ({ value }) => {
           if (!Array.isArray(value) || value.length === 0) return '';
@@ -67,24 +67,6 @@
       relativeDateColumn<Identity>('last_sign_in_at', 'Last Login'),
       relativeDateColumn<Identity>('last_non_interactive_sign_in_at', 'Last Non-Interactive Login'),
     ];
-  });
-
-  $effect(() => {
-    const load = async () => {
-      const { data: licenses } = await supabase
-        .schema('vendors')
-        .from('m365_licenses')
-        .select('external_id,friendly_name')
-        .eq('tenant_id', authStore.currentTenant?.id ?? '')
-        .order('friendly_name');
-
-      licenseOptions = (licenses ?? []).map((l) => ({
-        label: l.friendly_name,
-        value: l.external_id,
-      }));
-    };
-
-    load();
   });
 
   const views: TableView[] = [

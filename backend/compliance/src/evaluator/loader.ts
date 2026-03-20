@@ -25,6 +25,16 @@ export async function loadAssignmentsForLink(
   tenantId: string,
   linkId: string,
 ): Promise<AssignmentGroup[]> {
+  // 0. Resolve integration_id for this link
+  const { data: linkRow, error: linkError } = await (supabase as any)
+    .from("integration_links")
+    .select("integration_id")
+    .eq("id", linkId)
+    .single();
+
+  if (linkError || !linkRow) throw new Error(`loadAssignmentsForLink: could not resolve integration for link ${linkId}`);
+  const integrationId = linkRow.integration_id;
+
   // 1. Query assignments for this tenant/link
   const { data: assignments, error: assignError } = await (supabase as any)
     .from("compliance_assignments")
@@ -55,7 +65,8 @@ export async function loadAssignmentsForLink(
     .from("compliance_frameworks")
     .select("id, name")
     .in("id", frameworkIds)
-    .eq("tenant_id", tenantId);
+    .eq("tenant_id", tenantId)
+    .eq("integration_id", integrationId);
 
   if (fwError) throw new Error(`loadAssignmentsForLink frameworks failed: ${fwError.message}`);
 
