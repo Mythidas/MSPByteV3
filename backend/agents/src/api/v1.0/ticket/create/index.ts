@@ -324,7 +324,7 @@ export default async function (fastify: FastifyInstance) {
         details: body.description || "",
         user: {
           id: contact?.id,
-          name: contact?.name ? contact.name : body.name,
+          name: body.name,
           email: body.email,
           phone: body.phone,
         },
