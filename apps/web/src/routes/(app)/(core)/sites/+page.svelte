@@ -5,9 +5,10 @@
   import { toast } from 'svelte-sonner';
   import { hasPermission } from '$lib/utils/permissions';
   import { goto } from '$app/navigation';
-  import { INTEGRATIONS, type IntegrationId } from '@workspace/core/config/integrations.js';
+  import { INTEGRATIONS } from '@workspace/core/config/integrations.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { formatDate } from '$lib/utils/format';
+  import type { IntegrationId } from "@workspace/core/types/integrations.js";
 
   type Site = Tables<'views', 'd_sites_view'>;
 
@@ -50,7 +51,6 @@
       key: 'mapped_integrations',
       title: 'Integrations',
       sortable: true,
-      searchable: true,
       filter: {
         type: 'select',
         operators: ['cs', 'not.cs'],
@@ -97,6 +97,7 @@
                 );
 
               if (error) {
+                console.log(error)
                 toast.error('Failed to delete sites. Please try again.', { id: toastId });
               } else {
                 await fetchData();

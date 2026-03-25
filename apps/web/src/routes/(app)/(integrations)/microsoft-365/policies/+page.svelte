@@ -37,7 +37,6 @@
           ],
         },
       },
-      boolBadgeColumn<Policy>('requires_mfa', 'Requires MFA'),
       textColumn<Policy>('link_name', 'Tenant', undefined, { hidden: linkSelected }),
     ];
   });
@@ -57,7 +56,7 @@
     {
       id: 'mfa',
       label: 'MFA Required',
-      filters: [{ field: 'requires_mfa', operator: 'eq', value: true }],
+      filters: [{ field: 'grant_controls.builtInControls', operator: 'cs', value: "mfa" }],
     },
   ];
 

@@ -2000,7 +2000,7 @@ export type Database = {
           link_id: string
           name: string
           policy_state: string
-          requires_mfa: boolean
+          session_controls: Json | null
           tenant_id: string
           updated_at: string
         }
@@ -2015,7 +2015,7 @@ export type Database = {
           link_id: string
           name: string
           policy_state: string
-          requires_mfa: boolean
+          session_controls?: Json | null
           tenant_id: string
           updated_at?: string
         }
@@ -2030,7 +2030,7 @@ export type Database = {
           link_id?: string
           name?: string
           policy_state?: string
-          requires_mfa?: boolean
+          session_controls?: Json | null
           tenant_id?: string
           updated_at?: string
         }
@@ -2693,7 +2693,7 @@ export type Database = {
           link_name: string | null
           name: string | null
           policy_state: string | null
-          requires_mfa: boolean | null
+          session_controls: Json | null
           tenant_id: string | null
           updated_at: string | null
         }

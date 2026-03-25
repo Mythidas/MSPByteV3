@@ -75,7 +75,6 @@ async function main() {
   });
 
   const reconciler = new JobReconciler();
-  reconciler.reconcile();
   reconciler.start();
 
   const scheduler = new JobScheduler();

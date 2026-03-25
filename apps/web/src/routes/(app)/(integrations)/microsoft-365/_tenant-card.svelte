@@ -35,11 +35,11 @@
     if (total === 0) return 'bg-muted-foreground';
     if (pct === 100) return 'bg-success';
     if (pct >= 80) return 'bg-warning';
-    return 'bg-emerald-500';
+    return 'bg-destructive';
   }
 
   function complianceTextColor(pct: number, total: number): string {
-    if (total === 0) return '';
+    if (total === 0) return 'text-muted';
     if (pct === 100) return 'text-success';
     if (pct >= 80) return 'text-warning';
     return 'text-destructive';

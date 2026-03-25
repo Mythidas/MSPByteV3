@@ -16,7 +16,6 @@ export interface LicenseStats {
 export interface PolicyStats {
   enabled: number;
   disabled: number;
-  mfa: number;
 }
 
 export interface DirectoryStats {

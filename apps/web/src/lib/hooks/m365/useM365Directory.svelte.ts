@@ -26,34 +26,28 @@ export function createM365Directory(getParams: () => { tenantId: string; linkId:
         supabase
           .schema('vendors')
           .from('m365_groups' as any)
-          .select('*', { count: 'exact', head: true }),
+          .select('*', { count: 'exact', head: true })
       ),
       applyScope(
         supabase
           .schema('vendors')
           .from('m365_roles' as any)
-          .select('*', { count: 'exact', head: true }),
+          .select('*', { count: 'exact', head: true })
       ),
       applyScope(
         supabase
           .schema('vendors')
           .from('m365_policies' as any)
-          .select('*', { count: 'exact', head: true }),
+          .select('*', { count: 'exact', head: true })
       ).eq('policy_state', 'enabled'),
       applyScope(
         supabase
           .schema('vendors')
           .from('m365_policies' as any)
-          .select('*', { count: 'exact', head: true }),
+          .select('*', { count: 'exact', head: true })
       ).eq('policy_state', 'disabled'),
-      applyScope(
-        supabase
-          .schema('vendors')
-          .from('m365_policies' as any)
-          .select('*', { count: 'exact', head: true }),
-      ).eq('requires_mfa', true),
     ])
-      .then(([groups, roles, policiesEnabled, policiesDisabled, policiesMfa]) => {
+      .then(([groups, roles, policiesEnabled, policiesDisabled]) => {
         data = {
           directory: {
             groups: groups.count ?? 0,
@@ -62,7 +56,6 @@ export function createM365Directory(getParams: () => { tenantId: string; linkId:
           policies: {
             enabled: policiesEnabled.count ?? 0,
             disabled: policiesDisabled.count ?? 0,
-            mfa: policiesMfa.count ?? 0,
           },
         };
       })
@@ -75,8 +68,14 @@ export function createM365Directory(getParams: () => { tenantId: string; linkId:
   });
 
   return {
-    get data() { return data; },
-    get loading() { return loading; },
-    get error() { return error; },
+    get data() {
+      return data;
+    },
+    get loading() {
+      return loading;
+    },
+    get error() {
+      return error;
+    },
   };
 }

@@ -269,7 +269,7 @@
       const { data, error } = await supabase
         .schema('vendors')
         .from('m365_policies')
-        .select('id,name,policy_state,conditions,requires_mfa,external_id')
+        .select('id,name,policy_state,conditions,external_id')
         .eq('link_id', identity.link_id);
       if (error) throw error;
 

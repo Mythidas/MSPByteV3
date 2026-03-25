@@ -310,11 +310,6 @@ export class Microsoft365Adapter implements AdapterContract {
     });
 
     const rows = data.policies.map((p: any) => {
-      const requiresMfa =
-        (p.grantControls?.builtInControls ?? []).includes("mfa") ||
-        (p.grantControls?.builtInControls ?? []).includes(
-          "multiFactorAuthentication",
-        );
       return {
         tenant_id: tenantId,
         external_id: p.id,
@@ -324,8 +319,8 @@ export class Microsoft365Adapter implements AdapterContract {
         updated_at: now,
         name: p.displayName ?? null,
         policy_state: p.state ?? null,
-        requires_mfa: requiresMfa,
         grant_controls: p.grantControls ?? null,
+        session_controls: p.sessionControls ?? null,
         conditions: p.conditions ?? null,
       };
     });

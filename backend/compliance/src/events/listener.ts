@@ -38,7 +38,7 @@ export function startListener(): Listener {
         { ...JobOptions.complianceEval, jobId: dedupKey },
       );
 
-      Logger.info({
+      Logger.trace({
         module: MODULE,
         context: CONTEXT,
         message: `enqueued compliance:eval for tenant ${tenantId} link ${linkId ?? "(tenant)"}`,

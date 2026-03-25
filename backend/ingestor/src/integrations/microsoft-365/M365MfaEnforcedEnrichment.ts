@@ -29,7 +29,7 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
     const { data: policyRows } = await supabase
       .schema("vendors")
       .from("m365_policies")
-      .select("id, policy_state, requires_mfa, conditions")
+      .select("id, policy_state, conditions, grant_controls")
       .eq("tenant_id", tenantId)
       .eq("link_id", linkId);
 
@@ -73,7 +73,8 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
     const mfaPolicies = (policyRows ?? [])
       .filter((r) => {
         if (r.policy_state !== "enabled") return false;
-        if (!r.requires_mfa) return false;
+        if (!(r.grant_controls as any)?.builtInControls?.includes("mfa"))
+          return false;
         const cond = r.conditions as unknown as PolicyConditions | null;
         return (
           cond?.applications?.includeApplications?.includes("All") ?? false

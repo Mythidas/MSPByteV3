@@ -176,14 +176,6 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                 },
               ],
             },
-            requires_mfa: {
-              label: "Requires MFA",
-              type: "boolean",
-              modality: "single",
-              trackable: true,
-              ingestPath: "requires_mfa",
-              required: true,
-            },
             grant_controls: {
               label: "Grant Controls",
               type: "object",
@@ -231,6 +223,99 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       label: "Require Password Change",
                     },
                   ],
+                },
+              },
+            },
+            session_controls: {
+              label: "Session Controls",
+              type: "object",
+              modality: "single",
+              trackable: false,
+              ingestPath: "session_controls",
+              required: false,
+              fields: {
+                signInFrequency: {
+                  label: "Sign In Frequency",
+                  type: "object",
+                  modality: "single",
+                  trackable: false,
+                  ingestPath: "session_controls.signInFrequency",
+                  required: false,
+                  fields: {
+                    isEnabled: {
+                      label: "Enabled",
+                      type: "boolean",
+                      modality: "single",
+                      trackable: true,
+                      ingestPath:
+                        "session_controls.persistentBrowser.isEnabled",
+                      required: true,
+                    },
+                    type: {
+                      label: "Type",
+                      type: "string",
+                      modality: "single",
+                      trackable: true,
+                      ingestPath: "session_controls.signInFrequency.type",
+                      required: true,
+                      options: [
+                        { label: "Days", value: "days" },
+                        { label: "Hours", value: "hours" },
+                      ],
+                    },
+                    value: {
+                      label: "Value",
+                      type: "number",
+                      modality: "single",
+                      trackable: true,
+                      ingestPath: "session_controls.signInFrequency.value",
+                      required: true,
+                    },
+                    frequencyInterval: {
+                      label: "Interval",
+                      type: "string",
+                      modality: "single",
+                      trackable: true,
+                      ingestPath:
+                        "session_controls.signInFrequency.frequencyInterval",
+                      required: true,
+                      options: [
+                        { label: "Time Based", value: "timeBased" },
+                        { label: "Every Time", value: "everyTime" },
+                      ],
+                    },
+                  },
+                },
+                persistentBrowser: {
+                  label: "Persistent Browser",
+                  type: "object",
+                  modality: "single",
+                  trackable: false,
+                  ingestPath: "session_controls.persistentBrowser",
+                  required: false,
+                  fields: {
+                    mode: {
+                      label: "Mode",
+                      type: "string",
+                      modality: "array",
+                      trackable: true,
+                      ingestPath: "session_controls.persistentBrowser.mode",
+                      required: false,
+                      options: [
+                        { label: "Always", value: "always" },
+                        { label: "Never", value: "never" },
+                      ],
+                    },
+                    isEnabled: {
+                      label: "Enabled",
+                      type: "boolean",
+                      modality: "single",
+                      trackable: true,
+                      ingestPath:
+                        "session_controls.persistentBrowser.isEnabled",
+                      required: true,
+                    },
+                  },
                 },
               },
             },
@@ -387,6 +472,12 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       trackable: false,
                       ingestPath: "conditions.applications.includeUserActions",
                       required: false,
+                      options: [
+                        {
+                          label: "Register Device",
+                          value: "urn:user:registerdevice",
+                        },
+                      ],
                     },
                     includeAuthenticationContextClassReferences: {
                       label: "Auth Context References",
@@ -415,6 +506,18 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                   trackable: true,
                   ingestPath: "conditions.clientAppTypes",
                   required: false,
+                  options: [
+                    {
+                      label: "Mobile Apps and Desktop Clients",
+                      value: "mobileAppsAndDesktopClients",
+                    },
+                    {
+                      label: "Exchange Active Sync",
+                      value: "exchangeActiveSync",
+                    },
+                    { label: "Browser", value: "browser" },
+                    { label: "Other", value: "other" },
+                  ],
                 },
 
                 userRiskLevels: {
@@ -462,7 +565,24 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                   trackable: false,
                   ingestPath: "conditions.locations",
                   required: false,
-                  fields: {},
+                  fields: {
+                    includeLocations: {
+                      label: "Include Locations",
+                      type: "string",
+                      modality: "array",
+                      trackable: true,
+                      ingestPath: "conditions.locations.includeLocations",
+                      required: true,
+                    },
+                    excludeLocations: {
+                      label: "Exclude Locations",
+                      type: "string",
+                      modality: "array",
+                      trackable: true,
+                      ingestPath: "conditions.locations.excludeLocations",
+                      required: false,
+                    },
+                  },
                 },
 
                 platforms: {
@@ -472,7 +592,40 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                   trackable: false,
                   ingestPath: "conditions.platforms",
                   required: false,
-                  fields: {},
+                  fields: {
+                    includePlatforms: {
+                      label: "Include Locations",
+                      type: "string",
+                      modality: "array",
+                      trackable: true,
+                      ingestPath: "conditions.locations.includeLocations",
+                      required: true,
+                      options: [
+                        { label: "Windows", value: "windows" },
+                        { label: "MacOS", value: "macOS" },
+                        { label: "Linux", value: "linux" },
+                        { label: "Windows", value: "android" },
+                        { label: "iOS", value: "iOS" },
+                        { label: "Windows Phone", value: "windowsPhone" },
+                      ],
+                    },
+                    excludePlatforms: {
+                      label: "Exclude Locations",
+                      type: "string",
+                      modality: "array",
+                      trackable: true,
+                      ingestPath: "conditions.locations.excludeLocations",
+                      required: false,
+                      options: [
+                        { label: "Windows", value: "windows" },
+                        { label: "MacOS", value: "macOS" },
+                        { label: "Linux", value: "linux" },
+                        { label: "Windows", value: "android" },
+                        { label: "iOS", value: "iOS" },
+                        { label: "Windows Phone", value: "windowsPhone" },
+                      ],
+                    },
+                  },
                 },
 
                 insiderRiskLevels: {

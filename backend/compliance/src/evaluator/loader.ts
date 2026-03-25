@@ -35,12 +35,28 @@ export async function loadAssignmentsForLink(
   if (linkError || !linkRow) throw new Error(`loadAssignmentsForLink: could not resolve integration for link ${linkId}`);
   const integrationId = linkRow.integration_id;
 
-  // 1. Query assignments for this tenant/link
+  // 1. Fetch frameworks for this integration only
+  const { data: frameworks, error: fwError } = await (supabase as any)
+    .from("compliance_frameworks")
+    .select("id, name")
+    .eq("tenant_id", tenantId)
+    .eq("integration_id", integrationId);
+
+  if (fwError) throw new Error(`loadAssignmentsForLink frameworks failed: ${fwError.message}`);
+  if (!frameworks || frameworks.length === 0) return [];
+
+  const frameworkNames = new Map<string, string>(
+    (frameworks as { id: string; name: string }[]).map((f) => [f.id, f.name]),
+  );
+  const integrationFrameworkIds = Array.from(frameworkNames.keys());
+
+  // 2. Query assignments — filtered to this integration's frameworks from the start
   const { data: assignments, error: assignError } = await (supabase as any)
     .from("compliance_assignments")
     .select("framework_id, link_id")
     .eq("tenant_id", tenantId)
-    .or(`link_id.eq.${linkId},link_id.is.null`);
+    .or(`link_id.eq.${linkId},link_id.is.null`)
+    .in("framework_id", integrationFrameworkIds);
 
   if (assignError) throw new Error(`loadAssignmentsForLink failed: ${assignError.message}`);
   if (!assignments || assignments.length === 0) return [];
@@ -57,28 +73,14 @@ export async function loadAssignmentsForLink(
     }
   }
 
-  const frameworkIds = Array.from(byFramework.keys());
-  if (frameworkIds.length === 0) return [];
-
-  // 2. Fetch framework names
-  const { data: frameworks, error: fwError } = await (supabase as any)
-    .from("compliance_frameworks")
-    .select("id, name")
-    .in("id", frameworkIds)
-    .eq("tenant_id", tenantId)
-    .eq("integration_id", integrationId);
-
-  if (fwError) throw new Error(`loadAssignmentsForLink frameworks failed: ${fwError.message}`);
-
-  const frameworkNames = new Map<string, string>(
-    (frameworks as { id: string; name: string }[]).map((f) => [f.id, f.name]),
-  );
+  const assignedIds = Array.from(byFramework.keys());
+  if (assignedIds.length === 0) return [];
 
   // 3. Fetch checks
   const { data: checks, error: checkError } = await (supabase as any)
     .from("compliance_framework_checks")
     .select("id, framework_id, check_type_id, name, description, severity, check_config, sort_order, tenant_id, on_pass_workflow_id, on_fail_workflow_id, on_change_workflow_id")
-    .in("framework_id", frameworkIds)
+    .in("framework_id", assignedIds)
     .eq("tenant_id", tenantId)
     .order("sort_order");
 
@@ -92,7 +94,7 @@ export async function loadAssignmentsForLink(
     grouped.set(check.framework_id, list);
   }
 
-  return frameworkIds.map((fwId) => ({
+  return assignedIds.map((fwId) => ({
     frameworkId: fwId,
     frameworkName: frameworkNames.get(fwId) ?? fwId,
     checks: grouped.get(fwId) ?? [],

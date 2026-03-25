@@ -16,8 +16,8 @@
   </h2>
 
   {#if hook.loading}
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-      {#each Array(5) as _}
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {#each Array(4) as _}
         <Card.Root class="p-4">
           <div class="flex flex-col gap-1.5">
             <span class="h-3 w-20 rounded bg-muted-foreground/15"></span>
@@ -29,7 +29,7 @@
   {:else if hook.error}
     <p class="text-sm text-destructive">{hook.error}</p>
   {:else if d}
-    <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <a href="/microsoft-365/groups">
         <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors">
           <div class="flex flex-col gap-1">
@@ -59,14 +59,6 @@
           <div class="flex flex-col gap-1">
             <span class="text-xs text-muted-foreground">Disabled Policies</span>
             <span class="text-2xl font-bold">{d.policies.disabled}</span>
-          </div>
-        </Card.Root>
-      </a>
-      <a href="/microsoft-365/policies?view=mfa">
-        <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors">
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground">MFA Policies</span>
-            <span class="text-2xl font-bold">{d.policies.mfa}</span>
           </div>
         </Card.Root>
       </a>

@@ -222,6 +222,7 @@
   });
 
   const conditions = $derived((policy?.conditions as any) ?? {});
+  const controls = $derived((policy?.grant_controls as any) ?? {});
 
   const filteredExcluded = $derived({
     users: excludedUsers.filter(
@@ -272,11 +273,6 @@
       </div>
       <div class="flex flex-wrap gap-1 mt-2">
         <Badge variant={stateVariant} class={stateClass}>{stateLabel}</Badge>
-        {#if policy?.requires_mfa}
-          <Badge variant="default" class="bg-green-500/15 text-green-600 border-green-500/30"
-            >Requires MFA</Badge
-          >
-        {/if}
       </div>
     </Sheet.Header>
 
@@ -284,10 +280,11 @@
 
     <div class="px-4 flex-1 flex flex-col min-h-0">
       <Tabs.Root bind:value={activeTab} class="flex flex-col flex-1 min-h-0">
-        <Tabs.List class="grid grid-cols-3 shrink-0">
+        <Tabs.List>
           <Tabs.Trigger value="excluded">Excluded</Tabs.Trigger>
           <Tabs.Trigger value="included">Included</Tabs.Trigger>
           <Tabs.Trigger value="conditions">Conditions</Tabs.Trigger>
+          <Tabs.Trigger value="controls">Controls</Tabs.Trigger>
         </Tabs.List>
 
         <Tabs.Content value="excluded" class="mt-3 flex flex-col flex-1 min-h-0">
@@ -545,6 +542,37 @@
 
               {#if !conditions.platforms && !conditions.locations && !conditions.clientAppTypes && !conditions.signInRiskLevels && !conditions.userRiskLevels && !conditions.applications}
                 <p class="text-sm text-muted-foreground py-4">No conditions configured.</p>
+              {/if}
+            </div>
+          </div>
+        </Tabs.Content>
+        <Tabs.Content value="controls" class="mt-3 flex flex-col flex-1 min-h-0">
+          <div class="flex-1 overflow-y-auto">
+            <div class="flex flex-col gap-3">
+              {#if controls.builtInControls?.length}
+                <div class="rounded-md border bg-card px-3 py-2">
+                  <p class="text-xs font-medium text-muted-foreground mb-2">Built In</p>
+                  <div class="flex flex-wrap gap-1">
+                    {#each controls.builtInControls as c}
+                      <Badge variant="outline" class="text-xs">{c}</Badge>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              {#if controls.customAuthenticationFactors?.length}
+                <div class="rounded-md border bg-card px-3 py-2">
+                  <p class="text-xs font-medium text-muted-foreground mb-2">Custom Authentication Factors</p>
+                  <div class="flex flex-wrap gap-1">
+                    {#each controls.customAuthenticationFactors as c}
+                      <Badge variant="outline" class="text-xs">{c}</Badge>
+                    {/each}
+                  </div>
+                </div>
+              {/if}
+
+              {#if !controls.builtInControls?.length && !controls.customAuthenticationFactors?.length}
+                <p class="text-sm text-muted-foreground py-4">No controls configured.</p>
               {/if}
             </div>
           </div>
