@@ -69,8 +69,7 @@ export class PolicyExistsEvaluator implements CheckEvaluator {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let rowQuery: any = db.schema(schema).from(name);
         rowQuery = rowQuery.select("*").eq("link_id", ctx.linkId);
-        const { query: rowFiltered } = applyFilter(rowQuery, filter);
-        const { data: rowData } = await rowFiltered;
+        const { data: rowData } = await rowQuery;
         const failed_conditions = computeFailedConditions(rowData ?? [], filter);
         return { passed, detail: { count: count ?? 0, threshold, failed_conditions } };
       }

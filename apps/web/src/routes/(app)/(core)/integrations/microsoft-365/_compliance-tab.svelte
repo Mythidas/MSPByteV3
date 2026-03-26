@@ -2,7 +2,7 @@
   import * as Card from '$lib/components/ui/card/index.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
-  import { Plus, ShieldCheck, Pencil, Trash2, Globe } from '@lucide/svelte';
+  import { Plus, ShieldCheck, Pencil, Trash2, Globe, UserCog } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
@@ -38,7 +38,7 @@
     onmutated?: () => void;
   } = $props();
 
-  const tenantLinks = $derived(links.filter((l) => !l.site_id));
+  const tenantLinks = $derived([...links].filter((l) => !l.site_id).sort((a, b) => a.name!.localeCompare(b?.name ?? '')));
 
   let selectedFrameworkId = $state<string | null>(null);
   let frameworkSheetOpen = $state(false);
@@ -51,6 +51,9 @@
 
   const selectedFramework = $derived(
     frameworks.find((f) => f.id === selectedFrameworkId) ?? null
+  );
+  const selectedFrameworkChecks = $derived.by(() =>
+    [...(selectedFramework?.compliance_framework_checks ?? [])].sort((a, b) => a.name.localeCompare(b.name))
   );
 
   const isDefaultAssigned = $derived((frameworkId: string) =>
@@ -254,13 +257,13 @@
           </div>
           <div class="flex items-center gap-1">
             <button
-              class="p-1.5 rounded hover:bg-muted transition-colors text-muted-foreground"
+              class="p-1.5 rounded hover:bg-primary/20 hover:cursor-pointer transition-colors text-muted-foreground hover:text-primary"
               onclick={() => openEditFramework(selectedFramework)}
             >
               <Pencil class="size-4" />
             </button>
             <button
-              class="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+              class="p-1.5 rounded hover:bg-destructive/10 hover:cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
               onclick={() => deleteFramework(selectedFramework)}
             >
               <Trash2 class="size-4" />
@@ -278,14 +281,14 @@
               </Button>
             </div>
 
-            {#if selectedFramework.compliance_framework_checks.length === 0}
+            {#if selectedFrameworkChecks.length === 0}
               <div class="flex flex-col items-center py-6 gap-1 text-muted-foreground">
                 <ShieldCheck class="size-6 opacity-40" />
                 <span class="text-sm">No checks defined</span>
               </div>
             {:else}
               <div class="flex flex-col gap-2">
-                {#each selectedFramework.compliance_framework_checks as check (check.id)}
+                {#each selectedFrameworkChecks as check (check.id)}
                   <div class="flex items-center gap-3 p-3 rounded border bg-muted/20">
                     <div class="flex-1 flex flex-col gap-0.5 min-w-0">
                       <span class="text-sm font-medium truncate">{check.name}</span>

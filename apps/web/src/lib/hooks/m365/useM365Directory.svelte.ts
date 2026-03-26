@@ -23,28 +23,14 @@ export function createM365Directory(getParams: () => { tenantId: string; linkId:
 
     Promise.all([
       applyScope(
-        supabase
-          .schema('vendors')
-          .from('m365_groups' as any)
-          .select('*', { count: 'exact', head: true })
+        supabase.schema('vendors').from('m365_groups').select('*', { count: 'exact', head: true })
       ),
+      supabase.schema('definitions').from('m365_roles').select('*', { count: 'exact', head: true }),
       applyScope(
-        supabase
-          .schema('vendors')
-          .from('m365_roles' as any)
-          .select('*', { count: 'exact', head: true })
-      ),
-      applyScope(
-        supabase
-          .schema('vendors')
-          .from('m365_policies' as any)
-          .select('*', { count: 'exact', head: true })
+        supabase.schema('vendors').from('m365_policies').select('*', { count: 'exact', head: true })
       ).eq('policy_state', 'enabled'),
       applyScope(
-        supabase
-          .schema('vendors')
-          .from('m365_policies' as any)
-          .select('*', { count: 'exact', head: true })
+        supabase.schema('vendors').from('m365_policies').select('*', { count: 'exact', head: true })
       ).eq('policy_state', 'disabled'),
     ])
       .then(([groups, roles, policiesEnabled, policiesDisabled]) => {

@@ -125,17 +125,6 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
         },
       },
       {
-        type: IngestType.M365Roles,
-        freshnessMinutes: DAILY,
-        priority: 5,
-        scopeLevel: "link",
-        db: {
-          schema: "vendors",
-          table: "m365_roles",
-          shape: {},
-        },
-      },
-      {
         type: IngestType.M365Policies,
         freshnessMinutes: DAILY,
         priority: 5,
@@ -247,13 +236,12 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       type: "boolean",
                       modality: "single",
                       trackable: true,
-                      ingestPath:
-                        "session_controls.persistentBrowser.isEnabled",
+                      ingestPath: "session_controls.signInFrequency.isEnabled",
                       required: true,
                     },
                     type: {
                       label: "Type",
-                      type: "string",
+                      type: "enum",
                       modality: "single",
                       trackable: true,
                       ingestPath: "session_controls.signInFrequency.type",
@@ -273,7 +261,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                     },
                     frequencyInterval: {
                       label: "Interval",
-                      type: "string",
+                      type: "enum",
                       modality: "single",
                       trackable: true,
                       ingestPath:
@@ -296,8 +284,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                   fields: {
                     mode: {
                       label: "Mode",
-                      type: "string",
-                      modality: "array",
+                      type: "enum",
+                      modality: "single",
                       trackable: true,
                       ingestPath: "session_controls.persistentBrowser.mode",
                       required: false,
@@ -402,8 +390,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       ingestPath: "conditions.users.includeRoles",
                       required: false,
                       reference: {
-                        table: "vendors.m365_roles",
-                        valueColumn: "external_id",
+                        table: "definitions.m365_roles",
+                        valueColumn: "template_id",
                         labelColumn: "name",
                       },
                     },
@@ -415,8 +403,8 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       ingestPath: "conditions.users.excludeRoles",
                       required: false,
                       reference: {
-                        table: "vendors.m365_roles",
-                        valueColumn: "external_id",
+                        table: "definitions.m365_roles",
+                        valueColumn: "template_id",
                         labelColumn: "name",
                       },
                     },
@@ -451,17 +439,18 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                   fields: {
                     includeApplications: {
                       label: "Include Applications",
-                      type: "string",
+                      type: "enum",
                       modality: "array",
                       trackable: true,
                       ingestPath: "conditions.applications.includeApplications",
                       required: true,
+                      options: [{ label: "All", value: "All" }],
                     },
                     excludeApplications: {
                       label: "Exclude Applications",
                       type: "string",
                       modality: "array",
-                      trackable: true,
+                      trackable: false,
                       ingestPath: "conditions.applications.excludeApplications",
                       required: false,
                     },
@@ -594,11 +583,11 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                   required: false,
                   fields: {
                     includePlatforms: {
-                      label: "Include Locations",
+                      label: "Include Platforms",
                       type: "string",
                       modality: "array",
                       trackable: true,
-                      ingestPath: "conditions.locations.includeLocations",
+                      ingestPath: "conditions.platforms.includePlatforms",
                       required: true,
                       options: [
                         { label: "Windows", value: "windows" },
@@ -610,11 +599,11 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
                       ],
                     },
                     excludePlatforms: {
-                      label: "Exclude Locations",
+                      label: "Exclude Platforms",
                       type: "string",
                       modality: "array",
                       trackable: true,
-                      ingestPath: "conditions.locations.excludeLocations",
+                      ingestPath: "conditions.platforms.excludePlatforms",
                       required: false,
                       options: [
                         { label: "Windows", value: "windows" },
@@ -673,7 +662,7 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     ],
     navigation: [
       { label: "Identities", route: "/identities", isNullable: true },
-      { label: "Roles", route: "/roles", isNullable: true },
+      { label: "Roles", route: "/roles", isNullable: false },
       { label: "Groups", route: "/groups", isNullable: true },
       { label: "Licenses", route: "/licenses", isNullable: true },
       { label: "Policies", route: "/policies", isNullable: true },

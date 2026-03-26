@@ -11,7 +11,6 @@ export class M365PoliciesLinker implements LinkerContract {
   readonly dependencies: LinkerDependency[] = [
     { integrationId: "microsoft-365", ingestType: IngestType.M365Identities },
     { integrationId: "microsoft-365", ingestType: IngestType.M365Groups },
-    { integrationId: "microsoft-365", ingestType: IngestType.M365Roles },
     { integrationId: "microsoft-365", ingestType: IngestType.M365Policies },
   ];
 
@@ -108,15 +107,14 @@ export class M365PoliciesLinker implements LinkerContract {
     let roleIdMap = new Map<string, string>();
     if (allRoleTemplateIds.length > 0) {
       const result = await helper.batchSelect(
-        "vendors",
+        "definitions",
         "m365_roles",
         allRoleTemplateIds,
-        "role_template_id",
+        "template_id",
         500,
-        (q: any) => q.eq("link_id", linkId).eq("tenant_id", tenantId),
       );
       roleIdMap = new Map(
-        (result.data ?? []).map((r: any) => [r.role_template_id, r.id]),
+        (result.data ?? []).map((r: any) => [r.template_id, r.id]),
       );
     }
 

@@ -2,6 +2,7 @@
   import * as Dialog from '$lib/components/ui/dialog/index.js';
   import * as Select from '$lib/components/ui/select/index.js';
   import SingleSelect from '$lib/components/single-select.svelte';
+  import ReferenceSelect from './_reference-select.svelte';
   import { Input } from '$lib/components/ui/input/index.js';
   import { Button } from '$lib/components/ui/button/index.js';
   import { Label } from '$lib/components/ui/label/index.js';
@@ -12,7 +13,6 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { Integration } from '@workspace/core/types/integrations';
-  import type { FieldReference } from '@workspace/core/types/contracts/schema-registry';
   import type {
     CheckCondition,
     ConditionLogic,
@@ -114,58 +114,6 @@
       checkTypeId === 'policy_count_gte' ||
       checkTypeId === 'policy_not_exists',
   );
-
-  // ─── Reference options ────────────────────────────────────────────────────
-
-  let referenceOptions = $state<Record<string, { value: string; label: string }[]>>({});
-  let referenceLoading = $state<Record<string, boolean>>({});
-  const debounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
-
-  $effect(() => {
-    if (!selectedSource) {
-      referenceOptions = {};
-      return;
-    }
-
-    // Populate with special values only — DB rows fetched on search
-    const initial: Record<string, { value: string; label: string }[]> = {};
-    for (const f of trackableFields) {
-      if (!f.field.reference) continue;
-      initial[f.ingestPath] = [...(f.field.reference.specialValues ?? [])];
-    }
-    referenceOptions = initial;
-  });
-
-  function handleReferenceSearch(fieldPath: string, ref: FieldReference, query: string) {
-    clearTimeout(debounceTimers.get(fieldPath));
-    const timer = setTimeout(async () => {
-      referenceLoading = { ...referenceLoading, [fieldPath]: true };
-      const parts = ref.table.includes('.') ? ref.table.split('.') : ['public', ref.table];
-      const [schema, tableName] = parts;
-      const db = supabase as any;
-      const q = schema === 'public' ? db.from(tableName) : db.schema(schema).from(tableName);
-      let dbQuery = q
-        .select(`${ref.valueColumn},${ref.labelColumn}`)
-        .eq('tenant_id', authStore.currentTenant?.id)
-        .limit(30);
-      if (query.trim()) {
-        dbQuery = dbQuery.ilike(ref.labelColumn, `%${query.trim()}%`);
-      }
-      const { data } = await dbQuery;
-      if (data) {
-        const loaded = (data as Record<string, unknown>[]).map((row) => ({
-          value: String(row[ref.valueColumn] ?? ''),
-          label: String(row[ref.labelColumn] ?? row[ref.valueColumn] ?? ''),
-        }));
-        referenceOptions = {
-          ...referenceOptions,
-          [fieldPath]: [...(ref.specialValues ?? []), ...loaded],
-        };
-      }
-      referenceLoading = { ...referenceLoading, [fieldPath]: false };
-    }, 300);
-    debounceTimers.set(fieldPath, timer);
-  }
 
   // ─── Hydration ────────────────────────────────────────────────────────────
 
@@ -425,24 +373,16 @@
           <div class="flex flex-col gap-1.5">
             <Label>Field Comparison</Label>
             <div class="flex gap-2 items-center flex-wrap">
-              <Select.Root
-                type="single"
-                bind:value={selectedFieldPath}
-                onValueChange={() => {
-                  const f = trackableFields.find((f) => f.ingestPath === selectedFieldPath);
+              <SingleSelect 
+                placeholder="Select field..." 
+                bind:selected={selectedFieldPath} 
+                options={trackableFields.map((f) => ({ label: f.label, value: f.ingestPath }))} 
+                onchange={(v) =>  { 
+                  const f = trackableFields.find((f) => f.ingestPath === v);
                   if (f) fieldOp = getOperatorsForField(f)[0]?.value ?? 'eq';
                   fieldValue = '';
-                }}
-              >
-                <Select.Trigger class="flex-1 min-w-32">
-                  {selectedEvalField?.label ?? 'Select field...'}
-                </Select.Trigger>
-                <Select.Content>
-                  {#each trackableFields as f}
-                    <Select.Item value={f.ingestPath}>{f.label}</Select.Item>
-                  {/each}
-                </Select.Content>
-              </Select.Root>
+                }} 
+              />
 
               {#if selectedEvalField}
                 <Select.Root
@@ -495,13 +435,10 @@
                       </Select.Content>
                     </Select.Root>
                   {:else if selectedEvalField.field.reference && (fieldOp === 'contains' || fieldOp === 'not_contains')}
-                    <SingleSelect
-                      options={referenceOptions[selectedEvalField.ingestPath] ?? (selectedEvalField.field.reference.specialValues ?? [])}
-                      bind:selected={fieldValue}
-                      loading={referenceLoading[selectedEvalField.ingestPath]}
-                      onsearch={(q) => handleReferenceSearch(selectedEvalField.ingestPath, selectedEvalField.field.reference!, q)}
+                    <ReferenceSelect
+                      ref={selectedEvalField.field.reference}
+                      selected={fieldValue}
                       onchange={(v) => { fieldValue = v; }}
-                      placeholder="Select..."
                       class="flex-1 min-w-28"
                     />
                   {:else}
@@ -555,20 +492,14 @@
               {@const condOps = condField ? getOperatorsForField(condField) : []}
               <div class="flex gap-2 items-center">
                 <!-- Field -->
-                <Select.Root
-                  type="single"
-                  value={cond.field}
-                  onValueChange={(v) => updateConditionField(i, v)}
-                >
-                  <Select.Trigger class="flex-1 min-w-0 truncate">
-                    {condField?.label ?? 'Select field...'}
-                  </Select.Trigger>
-                  <Select.Content>
-                    {#each trackableFields as f}
-                      <Select.Item value={f.ingestPath}>{f.label}</Select.Item>
-                    {/each}
-                  </Select.Content>
-                </Select.Root>
+                <div class="min-w-0 flex-1">
+                  <SingleSelect 
+                    selected={cond.field} 
+                    placeholder="Select field..." 
+                    options={trackableFields.map((f) => ({ label: f.label, value: f.ingestPath }))} 
+                    onchange={(v) => updateConditionField(i, v)}
+                  />
+                </div>
 
                 <!-- Operator -->
                 {#if condField}
@@ -635,14 +566,10 @@
                       </Select.Content>
                     </Select.Root>
                   {:else if condField.field.reference && (cond.op === 'contains' || cond.op === 'not_contains')}
-                    {@const condSelected = String(cond.value ?? '')}
-                    <SingleSelect
-                      options={referenceOptions[condField.ingestPath] ?? (condField.field.reference.specialValues ?? [])}
-                      selected={condSelected}
-                      loading={referenceLoading[condField.ingestPath]}
-                      onsearch={(q) => handleReferenceSearch(condField.ingestPath, condField.field.reference!, q)}
+                    <ReferenceSelect
+                      ref={condField.field.reference}
+                      selected={String(cond.value ?? '')}
                       onchange={(v) => updateConditionValue(i, v)}
-                      placeholder="Select..."
                       class="flex-1 min-w-0"
                     />
                   {:else}

@@ -81,9 +81,6 @@ export class Microsoft365Adapter implements AdapterContract {
       case IT.M365Groups:
         return this.fetchGroups(connector, linkId, tenantId, now);
 
-      case IT.M365Roles:
-        return this.fetchRoles(connector, linkId, tenantId, now);
-
       case IT.M365Policies:
         return this.fetchPolicies(
           connector,
@@ -235,43 +232,6 @@ export class Microsoft365Adapter implements AdapterContract {
     return [
       {
         table: "m365_groups",
-        rows,
-        onConflict: "tenant_id,link_id,external_id",
-      },
-    ];
-  }
-
-  private async fetchRoles(
-    connector: Microsoft365Connector,
-    linkId: string,
-    tenantId: string,
-    now: string,
-  ): Promise<UpsertPayload[]> {
-    const { data, error } = await connector.getRoles(undefined, true);
-    if (error || !data)
-      throw new Error(`Microsoft365 getRoles failed: ${error?.message}`);
-
-    Logger.info({
-      module: "Microsoft365Adapter",
-      context: "fetchRoles",
-      message: `Fetched ${data.roles.length} directory roles`,
-    });
-
-    const rows = data.roles.map((r: any) => ({
-      tenant_id: tenantId,
-      external_id: r.id,
-      link_id: linkId,
-      last_seen_at: now,
-      created_at: now,
-      updated_at: now,
-      name: r.displayName ?? null,
-      description: r.description ?? null,
-      role_template_id: r.roleTemplateId ?? null,
-    }));
-
-    return [
-      {
-        table: "m365_roles",
         rows,
         onConflict: "tenant_id,link_id,external_id",
       },

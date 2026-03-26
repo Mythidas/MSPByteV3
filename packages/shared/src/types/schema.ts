@@ -12,6 +12,43 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.1"
   }
+  definitions: {
+    Tables: {
+      m365_roles: {
+        Row: {
+          description: string | null
+          id: string
+          name: string
+          template_id: string
+        }
+        Insert: {
+          description?: string | null
+          id?: string
+          name: string
+          template_id: string
+        }
+        Update: {
+          description?: string | null
+          id?: string
+          name?: string
+          template_id?: string
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       agent_logs: {
@@ -1919,13 +1956,6 @@ export type Database = {
             referencedRelation: "m365_identities"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "m365_identity_roles_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "m365_roles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       m365_licenses: {
@@ -2162,53 +2192,7 @@ export type Database = {
             referencedRelation: "m365_policies"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "m365_policy_roles_role_id_fkey"
-            columns: ["role_id"]
-            isOneToOne: false
-            referencedRelation: "m365_roles"
-            referencedColumns: ["id"]
-          },
         ]
-      }
-      m365_roles: {
-        Row: {
-          created_at: string
-          description: string | null
-          external_id: string
-          id: string
-          last_seen_at: string
-          link_id: string
-          name: string
-          role_template_id: string | null
-          tenant_id: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          external_id: string
-          id?: string
-          last_seen_at?: string
-          link_id: string
-          name: string
-          role_template_id?: string | null
-          tenant_id: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          external_id?: string
-          id?: string
-          last_seen_at?: string
-          link_id?: string
-          name?: string
-          role_template_id?: string | null
-          tenant_id?: string
-          updated_at?: string
-        }
-        Relationships: []
       }
       sophos_endpoints: {
         Row: {
@@ -2701,18 +2685,14 @@ export type Database = {
       }
       m365_roles_view: {
         Row: {
-          created_at: string | null
           description: string | null
-          external_id: string | null
           id: string | null
-          last_seen_at: string | null
           link_id: string | null
           link_name: string | null
           member_count: number | null
           name: string | null
-          role_template_id: string | null
+          template_id: string | null
           tenant_id: string | null
-          updated_at: string | null
         }
         Relationships: []
       }
@@ -2882,6 +2862,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  definitions: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

@@ -152,11 +152,10 @@
         return;
       }
       const { data, error } = await supabase
-        .schema('vendors')
+        .schema('definitions')
         .from('m365_roles')
         .select('id,name,description')
-        .in('id', roleIds)
-        .eq('link_id', identity.link_id);
+        .in('id', roleIds);
       if (error) throw error;
       roles = data ?? [];
     } catch (e: any) {
@@ -240,11 +239,11 @@
       let roleTemplateIds: string[] = [];
       if (roleIds.length > 0) {
         const { data: roleRows } = await supabase
-          .schema('vendors')
+          .schema('definitions')
           .from('m365_roles')
-          .select('role_template_id')
+          .select('template_id')
           .in('id', roleIds);
-        roleTemplateIds = (roleRows ?? []).map((r: any) => r.role_template_id).filter(Boolean);
+        roleTemplateIds = (roleRows ?? []).map((r: any) => r.template_id).filter(Boolean);
       }
 
       // Get identity's group external IDs

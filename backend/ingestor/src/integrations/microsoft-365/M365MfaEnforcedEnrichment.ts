@@ -48,11 +48,9 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
       .eq("link_id", linkId);
 
     const { data: roleRows } = await supabase
-      .schema("vendors")
-      .from("m365_roles")
-      .select("id, external_id")
-      .eq("tenant_id", tenantId)
-      .eq("link_id", linkId);
+      .schema("definitions")
+      .from("m365_roles" as any)
+      .select("id, template_id");
 
     const { data: identityGroupRows } = await supabase
       .schema("vendors")
@@ -86,8 +84,8 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
     const groupIdToExternal = new Map<string, string>(
       (groupRows ?? []).map((g) => [g.id, g.external_id ?? ""]),
     );
-    const roleIdToExternal = new Map<string, string>(
-      (roleRows ?? []).map((r) => [r.id, r.external_id ?? ""]),
+    const roleIdToTemplate = new Map<string, string>(
+      ((roleRows as any[]) ?? []).map((r) => [r.id, r.template_id ?? ""]),
     );
 
     const identityGroups = new Map<string, Set<string>>();
@@ -101,11 +99,11 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
 
     const identityRoles = new Map<string, Set<string>>();
     for (const row of identityRoleRows ?? []) {
-      const extId = roleIdToExternal.get(row.role_id);
-      if (!extId) continue;
+      const templateId = roleIdToTemplate.get(row.role_id);
+      if (!templateId) continue;
       if (!identityRoles.has(row.identity_id))
         identityRoles.set(row.identity_id, new Set());
-      identityRoles.get(row.identity_id)!.add(extId);
+      identityRoles.get(row.identity_id)!.add(templateId);
     }
 
     // Evaluate MFA enforcement per identity

@@ -2,7 +2,6 @@ export enum IngestType {
   // M365
   M365Identities = "m365-identities",
   M365Groups = "m365-groups",
-  M365Roles = "m365-roles",
   M365Licenses = "m365-licenses",
   M365Policies = "m365-policies",
   M365ExchangeConfig = "m365-exchange-config",

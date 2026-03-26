@@ -5,7 +5,6 @@ import { IngestType } from "@workspace/core/types/ingest";
 export const STALE_THRESHOLDS_MS: Partial<Record<IngestType, number>> = {
   [IngestType.M365Identities]: 4 * 60 * 60 * 1000, // 4h
   [IngestType.M365Groups]: 8 * 60 * 60 * 1000, // 8h
-  [IngestType.M365Roles]: 24 * 60 * 60 * 1000, // 24h
   [IngestType.M365Policies]: 8 * 60 * 60 * 1000, // 8h
   [IngestType.M365Licenses]: 24 * 60 * 60 * 1000, // 24h
   [IngestType.M365ExchangeConfig]: 24 * 60 * 60 * 1000, // 24h

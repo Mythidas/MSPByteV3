@@ -36,6 +36,7 @@ export class JobReconciler {
         const types = config.supportedTypes.filter(
           (t) => !t.linkerDependencies || t.linkerDependencies.length === 0,
         );
+        if (config.id !== "microsoft-365") continue;
         if (types.length === 0) continue;
 
         // Query links using the appropriate filter for this integration's link model

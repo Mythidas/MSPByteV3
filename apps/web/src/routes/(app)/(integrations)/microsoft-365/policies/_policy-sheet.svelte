@@ -123,7 +123,7 @@
               .in('id', groupIds)
           : Promise.resolve({ data: [] }),
         roleIds.length > 0
-          ? supabase.schema('vendors').from('m365_roles').select('id,name').in('id', roleIds)
+          ? supabase.schema('definitions').from('m365_roles').select('id,name').in('id', roleIds)
           : Promise.resolve({ data: [] }),
       ]);
 
@@ -189,7 +189,7 @@
               .in('id', groupIds)
           : Promise.resolve({ data: [] }),
         roleIds.length > 0
-          ? supabase.schema('vendors').from('m365_roles').select('id,name').in('id', roleIds)
+          ? supabase.schema('definitions').from('m365_roles').select('id,name').in('id', roleIds)
           : Promise.resolve({ data: [] }),
       ]);
 

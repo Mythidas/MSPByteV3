@@ -11,7 +11,6 @@ export class M365IdentityRolesLinker implements LinkerContract {
   readonly linkerType = "m365-identity-roles";
   readonly dependencies: LinkerDependency[] = [
     { integrationId: "microsoft-365", ingestType: IngestType.M365Identities },
-    { integrationId: "microsoft-365", ingestType: IngestType.M365Roles },
   ];
 
   async run(scope: {
@@ -82,18 +81,16 @@ export class M365IdentityRolesLinker implements LinkerContract {
       (identityRows ?? []).map((r: any) => [r.external_id, r.id]),
     );
 
-    // Load roles scoped to this link
+    // Load roles from global definitions (same across all tenants)
     const { data: roleRows } = await supabase
-      .schema("vendors")
-      .from("m365_roles")
-      .select("id, external_id")
-      .eq("tenant_id", tenantId)
-      .eq("link_id", linkId);
+      .schema("definitions")
+      .from("m365_roles" as any)
+      .select("id, template_id");
 
     const rows: any[] = [];
-    for (const role of roleRows ?? []) {
+    for (const role of (roleRows as any[]) ?? []) {
       const { data, error } = await connector.getRoleMembers(
-        role.external_id,
+        role.template_id,
         undefined,
         true,
       );
@@ -102,7 +99,7 @@ export class M365IdentityRolesLinker implements LinkerContract {
         Logger.warn({
           module: "M365IdentityRolesLinker",
           context: "run",
-          message: `Failed to get members for role ${role.external_id} link ${linkId}: ${error.message}`,
+          message: `Failed to get members for role ${role.template_id} link ${linkId}: ${error.message}`,
         });
         continue;
       }

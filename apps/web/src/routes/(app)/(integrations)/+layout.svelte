@@ -19,7 +19,7 @@
 
 {#if !integration}
   <Loader />
-{:else}
+{:else if !!integration}
   <FadeIn class="flex size-full overflow-hidden">
     <div class="flex h-full min-w-48 justify-center py-4 pl-4">
       <div class="flex flex-col gap-1 bg-card/80 rounded shadow w-full p-2">
@@ -60,7 +60,15 @@
       </div>
     </div>
     <div class="flex flex-col size-full p-4 overflow-hidden">
+    {#if !!scopedLinks.find((sl) => page.url.pathname.includes(sl.route)) && !currentScope}
+      <div class="flex size-full justify-center items-center">
+        <div class="p-4 rounded shadow border">
+          <span class="text-4xl">Select a Tenant/Site to view this route</span>
+        </div>
+      </div>
+    {:else}
       {@render children()}
+    {/if}
     </div>
   </FadeIn>
 {/if}

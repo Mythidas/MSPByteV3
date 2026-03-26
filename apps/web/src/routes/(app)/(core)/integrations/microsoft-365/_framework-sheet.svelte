@@ -8,6 +8,7 @@
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { Tables } from '@workspace/shared/types/database';
+  import SingleSelect from "$lib/components/single-select.svelte";
 
   type Framework = Tables<'public', 'compliance_frameworks'>;
 
@@ -25,9 +26,32 @@
 
   let name = $state('');
   let description = $state('');
+  let parent = $state<string | undefined>(undefined);
+
   let loading = $state(false);
+  let frameworks = $state<Framework[]>([]);
+  let filteredFrameworks = $derived(frameworks.filter((f) => {
+    return f.id !== framework?.id && !frameworks.find((f) => f.parent_id === framework?.id);
+  }))
 
   $effect(() => {
+    const load = async () => {
+      loading = true;
+
+      const { data } = await supabase.from('compliance_frameworks')
+        .select('*')
+        .eq('integration_id', 'microsoft-365')
+        .eq('tenant_id', authStore.currentTenant?.id ?? '');
+      
+      frameworks = data ?? [];
+      
+      if (framework) {
+        parent = frameworks.find((f) => f.id === framework.parent_id)?.id;
+      }
+
+      loading = false;
+    }
+
     if (open) {
       if (mode === 'edit' && framework) {
         name = framework.name;
@@ -36,6 +60,8 @@
         name = '';
         description = '';
       }
+
+      load();
     }
   });
 
@@ -55,18 +81,21 @@
           .insert({
             name: name.trim(),
             description: description.trim() || null,
+            parent_id: parent ?? null,
             integration_id: 'microsoft-365',
             tenant_id: tenantId,
           });
         if (error) throw error.message;
         toast.info('Framework created');
-      } else {
+      } else if (mode === 'edit') {
         const { error } = await (supabase as any)
           .from('compliance_frameworks' as any)
-          .update({ name: name.trim(), description: description.trim() || null })
+          .update({ name: name.trim(), description: description.trim() || null, parent_id: parent ?? null })
           .eq('id', framework!.id);
         if (error) throw error.message;
         toast.info('Framework updated');
+      } else {
+        
       }
 
       open = false;
@@ -104,6 +133,7 @@
             rows={4}
           />
         </div>
+        <SingleSelect placeholder="Select Framework..." bind:selected={parent} options={filteredFrameworks.map((f) => ({ label: f.name, value: f.id }))} />
       </div>
 
       <Sheet.Footer class="p-4 border-t">

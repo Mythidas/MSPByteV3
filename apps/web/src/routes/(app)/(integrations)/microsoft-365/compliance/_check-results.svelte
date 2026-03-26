@@ -27,7 +27,7 @@
     m365_identities: '/microsoft-365/identities',
     'vendors.m365_groups': '/microsoft-365/groups',
     m365_groups: '/microsoft-365/groups',
-    'vendors.m365_roles': '/microsoft-365/roles',
+    'definitions.m365_roles': '/microsoft-365/roles',
     m365_roles: '/microsoft-365/roles',
     'vendors.m365_licenses': '/microsoft-365/licenses',
     m365_licenses: '/microsoft-365/licenses',
@@ -57,14 +57,6 @@
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
   }
-
-  const SEVERITY_CLASSES: Record<string, string> = {
-    critical: 'bg-destructive/15 text-destructive border border-destructive/30',
-    high: 'bg-warning/15 text-warning border border-warning/30',
-    medium: 'bg-amber-500/15 text-amber-500 border border-amber-500/30',
-    low: 'bg-muted text-muted-foreground border border-border',
-    info: 'bg-muted text-muted-foreground border border-border',
-  };
 
   const STATUS_CLASSES: Record<string, string> = {
     pass: 'bg-success/15 text-success border border-success/30',
@@ -103,15 +95,11 @@
   const sourceRoute = $derived(getSourceRoute(check));
   const failCount = $derived(results.filter((r) => r.status === 'fail').length);
   const passCount = $derived(results.filter((r) => r.status === 'pass').length);
-  const checkStatusClass = $derived(
-    failCount > 0
-      ? 'bg-destructive/15 text-destructive border border-destructive/30'
-      : passCount > 0
-        ? 'bg-success/15 text-success border border-success/30'
-        : 'bg-muted text-muted-foreground border border-border'
+  const failStatusLabel = $derived(
+    failCount > 0 ? `${failCount} failing` : null
   );
-  const checkStatusLabel = $derived(
-    failCount > 0 ? `${failCount} failing` : passCount > 0 ? 'passing' : 'unknown'
+  const passStatusLabel = $derived(
+    passCount > 0 ? `${passCount} passing` : null
   );
   const filteredResults = $derived(
     results.filter((r) => {
@@ -152,11 +140,20 @@
       {:else}
         <ChevronDown class="size-3.5 shrink-0 text-muted-foreground" />
       {/if}
-      <span
-        class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0 {checkStatusClass}"
-      >
-        {checkStatusLabel}
-      </span>
+      {#if failStatusLabel && statusFilter !== 'pass'}
+        <span
+          class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0 bg-destructive/15 text-destructive border border-destructive/30"
+        >
+          {failStatusLabel}
+        </span>
+      {/if}
+      {#if passStatusLabel && statusFilter !== 'fail'}
+        <span
+          class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium shrink-0 bg-success/15 text-success border border-success/30"
+        >
+          {passStatusLabel}
+        </span>
+      {/if}
       <span class="font-medium text-sm truncate">{check.name}</span>
     </div>
     {#if sourceRoute}

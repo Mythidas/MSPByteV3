@@ -353,10 +353,13 @@ export class Microsoft365Connector {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
 
+      console.log(
+        `https://graph.microsoft.com/v1.0/directoryRoles(roleTemplateId='${roleId}')/members`,
+      );
       const url =
         filters?.cursor ??
         this.makeGraphURL(
-          `https://graph.microsoft.com/v1.0/directoryRoles/${roleId}/members`,
+          `https://graph.microsoft.com/v1.0/directoryRoles(roleTemplateId='${roleId}')/members`,
           filters,
           "id,displayName,userPrincipalName",
         );

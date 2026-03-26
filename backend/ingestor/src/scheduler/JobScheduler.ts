@@ -221,13 +221,15 @@ export class JobScheduler {
   ): Promise<void> {
     const supabase = getSupabase();
     const rateMinutes =
-      INTEGRATIONS[integrationId as keyof typeof INTEGRATIONS]
-        ?.supportedTypes.find((t) => t.type === ingestType)?.freshnessMinutes ?? 120;
+      INTEGRATIONS[
+        integrationId as keyof typeof INTEGRATIONS
+      ]?.supportedTypes.find((t) => t.type === ingestType)?.freshnessMinutes ??
+      120;
     const scheduledFor = new Date(
       Date.now() + rateMinutes * 60 * 1000,
     ).toISOString();
 
-    await (supabase.from("ingest_jobs" as any) as any).insert({
+    await supabase.from("ingest_jobs").insert({
       tenant_id: tenantId,
       site_id: siteId,
       link_id: linkId,

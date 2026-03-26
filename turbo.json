@@ -31,6 +31,10 @@
     "test": {
       "dependsOn": ["^build"],
       "inputs": ["src/**/*.ts", "vitest.config.*"]
+    },
+    "seeds": {
+      "cache": false,
+      "env": ["PUBLIC_SUPABASE_URL", "SUPABASE_SERVICE_KEY"]
     }
   }
 }
