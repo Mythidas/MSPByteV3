@@ -2,9 +2,9 @@ import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY } from '$e
 import { createServerClient } from '@supabase/ssr';
 import { redirect, type Handle } from '@sveltejs/kit';
 import { hasPermission } from '$lib/utils/permissions';
-import { getRoutePermission } from '$lib/utils/route-permissions';
 import type { Database } from '@workspace/shared/types/schema';
 import type { Tables } from '@workspace/shared/types/database';
+import { getRoutePermission } from '$lib/config/routes';
 
 export const handle: Handle = async ({ event, resolve }) => {
   event.locals.supabase = createServerClient<Database>(
