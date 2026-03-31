@@ -2,7 +2,7 @@
   import * as Card from '$lib/components/ui/card/index.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
-  import { Plus, ShieldCheck, Pencil, Trash2, Globe, UserCog } from '@lucide/svelte';
+  import { Plus, ShieldCheck, Pencil, Trash2, Globe } from '@lucide/svelte';
   import { toast } from 'svelte-sonner';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
@@ -38,7 +38,9 @@
     onmutated?: () => void;
   } = $props();
 
-  const tenantLinks = $derived([...links].filter((l) => !l.site_id).sort((a, b) => a.name!.localeCompare(b?.name ?? '')));
+  const tenantLinks = $derived(
+    [...links].filter((l) => !l.site_id).sort((a, b) => a.name!.localeCompare(b?.name ?? ''))
+  );
 
   let selectedFrameworkId = $state<string | null>(null);
   let frameworkSheetOpen = $state(false);
@@ -49,11 +51,11 @@
   let checkDialogMode = $state<'create' | 'edit'>('create');
   let editingCheck = $state<Tables<'public', 'compliance_framework_checks'> | null>(null);
 
-  const selectedFramework = $derived(
-    frameworks.find((f) => f.id === selectedFrameworkId) ?? null
-  );
+  const selectedFramework = $derived(frameworks.find((f) => f.id === selectedFrameworkId) ?? null);
   const selectedFrameworkChecks = $derived.by(() =>
-    [...(selectedFramework?.compliance_framework_checks ?? [])].sort((a, b) => a.name.localeCompare(b.name))
+    [...(selectedFramework?.compliance_framework_checks ?? [])].sort((a, b) =>
+      a.name.localeCompare(b.name)
+    )
   );
 
   const isDefaultAssigned = $derived((frameworkId: string) =>
@@ -117,21 +119,28 @@
 
   async function toggleDefaultAssignment(frameworkId: string) {
     const tenantId = authStore.currentTenant?.id ?? '';
-    const existing = assignments.find(
-      (a) => a.framework_id === frameworkId && a.link_id === null
-    );
+    const existing = assignments.find((a) => a.framework_id === frameworkId && a.link_id === null);
 
     if (existing) {
       const { error } = await (supabase as any)
         .from('compliance_assignments' as any)
         .delete()
         .eq('id', existing.id);
-      if (error) { toast.error('Failed to remove assignment'); return; }
+      if (error) {
+        toast.error('Failed to remove assignment');
+        return;
+      }
     } else {
-      const { error } = await (supabase as any)
-        .from('compliance_assignments' as any)
-        .insert({ framework_id: frameworkId, integration_id: 'microsoft-365', tenant_id: tenantId, link_id: null });
-      if (error) { toast.error('Failed to add assignment'); return; }
+      const { error } = await (supabase as any).from('compliance_assignments' as any).insert({
+        framework_id: frameworkId,
+        integration_id: 'microsoft-365',
+        tenant_id: tenantId,
+        link_id: null,
+      });
+      if (error) {
+        toast.error('Failed to add assignment');
+        return;
+      }
     }
     onmutated?.();
   }
@@ -147,12 +156,21 @@
         .from('compliance_assignments' as any)
         .delete()
         .eq('id', existing.id);
-      if (error) { toast.error('Failed to remove assignment'); return; }
+      if (error) {
+        toast.error('Failed to remove assignment');
+        return;
+      }
     } else {
-      const { error } = await (supabase as any)
-        .from('compliance_assignments' as any)
-        .insert({ framework_id: frameworkId, integration_id: 'microsoft-365', tenant_id: tenantId, link_id: linkId });
-      if (error) { toast.error('Failed to add assignment'); return; }
+      const { error } = await (supabase as any).from('compliance_assignments' as any).insert({
+        framework_id: frameworkId,
+        integration_id: 'microsoft-365',
+        tenant_id: tenantId,
+        link_id: linkId,
+      });
+      if (error) {
+        toast.error('Failed to add assignment');
+        return;
+      }
     }
     onmutated?.();
   }
@@ -182,7 +200,12 @@
     <span class="text-sm text-muted-foreground">
       Manage compliance frameworks and their checks for Microsoft 365.
     </span>
-    <Button size="sm" onclick={openCreateFramework} class="gap-1.5">
+    <Button
+      size="sm"
+      onclick={openCreateFramework}
+      class="gap-1.5"
+      disabled={!authStore.isAllowed('Integrations.Write')}
+    >
       <Plus class="size-4" /> New Framework
     </Button>
   </div>
@@ -205,7 +228,8 @@
               onclick={() => (selectedFrameworkId = selectedFrameworkId === fw.id ? null : fw.id)}
             >
               <Card.Root
-                class="p-3 cursor-pointer hover:border-primary/50 transition-colors {selectedFrameworkId === fw.id
+                class="p-3 cursor-pointer hover:border-primary/50 transition-colors {selectedFrameworkId ===
+                fw.id
                   ? 'border-primary bg-primary/10'
                   : 'bg-card/70'}"
               >
@@ -231,7 +255,8 @@
                       ).length}
                       {#if count > 0}
                         <Badge variant="outline" class="text-xs {severityClass[sev]}">
-                          {count} {sev}
+                          {count}
+                          {sev}
                         </Badge>
                       {/if}
                     {/each}
@@ -256,18 +281,22 @@
             {/if}
           </div>
           <div class="flex items-center gap-1">
-            <button
-              class="p-1.5 rounded hover:bg-primary/20 hover:cursor-pointer transition-colors text-muted-foreground hover:text-primary"
+            <Button
+              variant="ghost"
               onclick={() => openEditFramework(selectedFramework)}
+              class="p-1.5! h-fit rounded text-muted-foreground hover:text-primary"
             >
               <Pencil class="size-4" />
-            </button>
-            <button
-              class="p-1.5 rounded hover:bg-destructive/10 hover:cursor-pointer text-muted-foreground hover:text-destructive transition-colors"
+            </Button>
+
+            <Button
+              variant="ghost"
+              disabled={!authStore.isAllowed('Integrations.Write')}
               onclick={() => deleteFramework(selectedFramework)}
+              class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
             >
               <Trash2 class="size-4" />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -276,7 +305,13 @@
           <div class="flex flex-col gap-3 p-4 border-b">
             <div class="flex items-center justify-between">
               <span class="font-medium text-sm">Checks</span>
-              <Button variant="outline" size="sm" onclick={openAddCheck} class="gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={openAddCheck}
+                class="gap-1"
+                disabled={!authStore.isAllowed('Integrations.Write')}
+              >
                 <Plus class="size-3" /> Add Check
               </Button>
             </div>
@@ -294,21 +329,27 @@
                       <span class="text-sm font-medium truncate">{check.name}</span>
                       <span class="text-xs text-muted-foreground">{check.check_type_id}</span>
                     </div>
-                    <Badge variant="outline" class="text-xs shrink-0 {severityClass[check.severity] ?? ''}">
+                    <Badge
+                      variant="outline"
+                      class="text-xs shrink-0 {severityClass[check.severity] ?? ''}"
+                    >
                       {check.severity}
                     </Badge>
-                    <button
-                      class="p-1 rounded hover:bg-muted transition-colors text-muted-foreground"
+                    <Button
+                      variant="ghost"
                       onclick={() => openEditCheck(check)}
+                      class="p-1.5! h-fit rounded text-muted-foreground hover:text-primary"
                     >
-                      <Pencil class="size-3.5" />
-                    </button>
-                    <button
-                      class="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+                      <Pencil class="size-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                       onclick={() => deleteCheck(check)}
+                      class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
                     >
-                      <Trash2 class="size-3.5" />
-                    </button>
+                      <Trash2 class="size-4" />
+                    </Button>
                   </div>
                 {/each}
               </div>
@@ -326,6 +367,7 @@
                 <span class="text-xs text-muted-foreground">Apply to all tenants by default</span>
               </div>
               <Switch
+                disabled={!authStore.isAllowed('Integrations.Write')}
                 checked={isDefaultAssigned(selectedFramework.id)}
                 onCheckedChange={() => toggleDefaultAssignment(selectedFramework.id)}
               />
@@ -341,6 +383,7 @@
                     <span class="text-sm">{link.name ?? link.external_id}</span>
                   </div>
                   <Switch
+                    disabled={!authStore.isAllowed('Integrations.Write')}
                     checked={isLinkAssigned(selectedFramework.id, link.id)}
                     onCheckedChange={() => toggleLinkAssignment(selectedFramework.id, link.id)}
                   />

@@ -180,17 +180,18 @@
                   options={dbSites.map((ds) => ({ label: ds.name, value: ds.id }))}
                   selected={mappedSiteId}
                   onchange={(v) => onMappingChange(domain, v.length ? v : null)}
+                  disabled={!authStore.isAllowed('Integrations.Write')}
                 />
               </div>
             {/each}
           </div>
         {/if}
         <div class="flex h-fit pt-4">
-          <PermissionGaurd permission="Integrations.Write">
-            <Button size="sm" disabled={!mappingsChanged || saving} onclick={handleSaveMappings}
-              >Save Mappings</Button
-            >
-          </PermissionGaurd>
+          <Button
+            size="sm"
+            disabled={!mappingsChanged || saving || authStore.isAllowed('Integrations.Write')}
+            onclick={handleSaveMappings}>Save Mappings</Button
+          >
         </div>
       </Tabs.Content>
 
@@ -217,12 +218,15 @@
               }}
             >
               <input name="gdapTenantId" value={selectedLink.external_id} hidden />
-              <PermissionGaurd permission="Integrations.Write">
-                <Button size="sm" variant="outline" type="submit" disabled={refreshing}>
-                  <Activity class="size-4 mr-1.5" />
-                  {refreshing ? 'Refreshing...' : 'Refresh Capabilities'}
-                </Button>
-              </PermissionGaurd>
+              <Button
+                size="sm"
+                variant="outline"
+                type="submit"
+                disabled={refreshing || !authStore.isAllowed('Integrations.Write')}
+              >
+                <Activity class="size-4 mr-1.5" />
+                {refreshing ? 'Refreshing...' : 'Refresh Capabilities'}
+              </Button>
             </form>
           </div>
           <div class="flex flex-col gap-2">
@@ -253,10 +257,15 @@
     <div class="flex flex-col size-full p-4 items-center justify-center">
       <div class="flex flex-col h-fit justify-center items-center w-full gap-2">
         Process consent flow to activate this tenant.
-        <form method="POST" action="?/gdapConsent" use:enhance>
-          <input name="gdapTenantId" bind:value={selectedLink.external_id} hidden />
-          <Button type="submit">Consent</Button>
-        </form>
+        <PermissionGaurd permission="Integrations.Write">
+          <form method="POST" action="?/gdapConsent" use:enhance>
+            <input name="gdapTenantId" bind:value={selectedLink.external_id} hidden />
+            <Button type="submit">Consent</Button>
+          </form>
+          {#snippet denied()}
+            <span class="text-warning">You are not permitted to perform this action.</span>
+          {/snippet}
+        </PermissionGaurd>
       </div>
     </div>
   {/if}

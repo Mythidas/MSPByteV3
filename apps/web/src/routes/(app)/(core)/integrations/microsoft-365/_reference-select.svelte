@@ -9,11 +9,13 @@
     selected,
     onchange,
     class: className = '',
+    disabled,
   }: {
     ref: FieldReference;
     selected: string;
     onchange: (v: string) => void;
     class?: string;
+    disabled?: boolean;
   } = $props();
 
   let options = $state<{ value: string; label: string }[]>([]);
@@ -22,7 +24,7 @@
 
   async function fetchRows(
     query?: string,
-    exactValue?: string,
+    exactValue?: string
   ): Promise<{ value: string; label: string }[]> {
     const parts = ref.table.includes('.') ? ref.table.split('.') : ['public', ref.table];
     const [schema, tableName] = parts;
@@ -46,7 +48,7 @@
   function mergeOptions(
     special: { value: string; label: string }[],
     rows: { value: string; label: string }[],
-    priority: { value: string; label: string }[],
+    priority: { value: string; label: string }[]
   ): { value: string; label: string }[] {
     const seen = new Set<string>();
     const result: { value: string; label: string }[] = [];
@@ -89,4 +91,5 @@
   {onchange}
   placeholder="Select..."
   class={className}
+  {disabled}
 />

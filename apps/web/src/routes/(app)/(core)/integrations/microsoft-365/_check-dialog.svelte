@@ -82,7 +82,7 @@
           label: label || raw,
           fields: getFlatTrackableFields(t.db!.shape),
         } satisfies Source;
-      }),
+      })
   );
 
   // ─── Form state ───────────────────────────────────────────────────────────
@@ -104,7 +104,7 @@
   const selectedSource = $derived(availableSources.find((s) => s.tableKey === sourceKey) ?? null);
   const trackableFields = $derived(selectedSource?.fields ?? []);
   const selectedEvalField = $derived(
-    trackableFields.find((f) => f.ingestPath === selectedFieldPath) ?? null,
+    trackableFields.find((f) => f.ingestPath === selectedFieldPath) ?? null
   );
 
   const showConditions = $derived(checkTypeId !== 'field_compare');
@@ -112,7 +112,7 @@
   const showThreshold = $derived(
     checkTypeId === 'policy_exists' ||
       checkTypeId === 'policy_count_gte' ||
-      checkTypeId === 'policy_not_exists',
+      checkTypeId === 'policy_not_exists'
   );
 
   // ─── Hydration ────────────────────────────────────────────────────────────
@@ -140,11 +140,13 @@
           conditions = cfg.filter.conditions ?? [];
         } else if (cfg?.match && typeof cfg.match === 'object') {
           conditionLogic = 'AND';
-          conditions = Object.entries(cfg.match as Record<string, unknown>).map(([field, value]) => ({
-            field,
-            op: 'eq' as ConditionOperator,
-            value,
-          }));
+          conditions = Object.entries(cfg.match as Record<string, unknown>).map(
+            ([field, value]) => ({
+              field,
+              op: 'eq' as ConditionOperator,
+              value,
+            })
+          );
         } else {
           conditionLogic = 'AND';
           conditions = [];
@@ -182,7 +184,7 @@
   function updateConditionField(i: number, ingestPath: string) {
     const updated = [...conditions];
     const field = trackableFields.find((f) => f.ingestPath === ingestPath);
-    const defaultOp = field ? getOperatorsForField(field)[0]?.value ?? 'eq' : 'eq';
+    const defaultOp = field ? (getOperatorsForField(field)[0]?.value ?? 'eq') : 'eq';
     updated[i] = { field: ingestPath, op: defaultOp, value: '' };
     conditions = updated;
   }
@@ -232,8 +234,14 @@
   // ─── Submit ───────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
-    if (!name.trim()) { toast.error('Name is required'); return; }
-    if (!sourceKey) { toast.error('Data source is required'); return; }
+    if (!name.trim()) {
+      toast.error('Name is required');
+      return;
+    }
+    if (!sourceKey) {
+      toast.error('Data source is required');
+      return;
+    }
     if (showFieldCompare && !selectedFieldPath) {
       toast.error('Field is required for Field Compare checks');
       return;
@@ -289,20 +297,33 @@
         <!-- Name -->
         <div class="flex flex-col gap-1.5">
           <Label>Name</Label>
-          <Input bind:value={name} placeholder="e.g. MFA Required for All Users" />
+          <Input
+            bind:value={name}
+            disabled={!authStore.isAllowed('Integrations.Write')}
+            placeholder="e.g. MFA Required for All Users"
+          />
         </div>
 
         <!-- Description -->
         <div class="flex flex-col gap-1.5">
           <Label>Description</Label>
-          <Textarea bind:value={description} placeholder="Optional description..." rows={2} />
+          <Textarea
+            bind:value={description}
+            disabled={!authStore.isAllowed('Integrations.Write')}
+            placeholder="Optional description..."
+            rows={2}
+          />
         </div>
 
         <!-- Severity + Check Type -->
         <div class="grid grid-cols-2 gap-3">
           <div class="flex flex-col gap-1.5">
             <Label>Severity</Label>
-            <Select.Root type="single" bind:value={severity}>
+            <Select.Root
+              type="single"
+              bind:value={severity}
+              disabled={!authStore.isAllowed('Integrations.Write')}
+            >
               <Select.Trigger class="w-full capitalize">{severity}</Select.Trigger>
               <Select.Content>
                 {#each SEVERITIES as s}
@@ -323,6 +344,7 @@
                 fieldOp = 'eq';
                 fieldValue = '';
               }}
+              disabled={!authStore.isAllowed('Integrations.Write')}
             >
               <Select.Trigger class="w-full">
                 {CHECK_TYPES.find((t) => t.value === checkTypeId)?.label ?? checkTypeId}
@@ -348,6 +370,7 @@
               fieldOp = 'eq';
               fieldValue = '';
             }}
+            disabled={!authStore.isAllowed('Integrations.Write')}
           >
             <Select.Trigger class="w-full">
               {selectedSource?.label ?? 'Select a source...'}
@@ -364,7 +387,12 @@
         {#if showThreshold}
           <div class="flex flex-col gap-1.5">
             <Label>Threshold</Label>
-            <Input type="number" bind:value={threshold} min="1" />
+            <Input
+              type="number"
+              bind:value={threshold}
+              disabled={!authStore.isAllowed('Integrations.Write')}
+              min="1"
+            />
           </div>
         {/if}
 
@@ -373,15 +401,16 @@
           <div class="flex flex-col gap-1.5">
             <Label>Field Comparison</Label>
             <div class="flex gap-2 items-center flex-wrap">
-              <SingleSelect 
-                placeholder="Select field..." 
-                bind:selected={selectedFieldPath} 
-                options={trackableFields.map((f) => ({ label: f.label, value: f.ingestPath }))} 
-                onchange={(v) =>  { 
+              <SingleSelect
+                placeholder="Select field..."
+                bind:selected={selectedFieldPath}
+                options={trackableFields.map((f) => ({ label: f.label, value: f.ingestPath }))}
+                onchange={(v) => {
                   const f = trackableFields.find((f) => f.ingestPath === v);
                   if (f) fieldOp = getOperatorsForField(f)[0]?.value ?? 'eq';
                   fieldValue = '';
-                }} 
+                }}
+                disabled={!authStore.isAllowed('Integrations.Write')}
               />
 
               {#if selectedEvalField}
@@ -389,9 +418,12 @@
                   type="single"
                   bind:value={fieldOp}
                   onValueChange={() => (fieldValue = '')}
+                  disabled={!authStore.isAllowed('Integrations.Write')}
                 >
                   <Select.Trigger class="w-36 shrink-0">
-                    {getOperatorsForField(selectedEvalField).find((o: { value: string; label: string }) => o.value === fieldOp)?.label ?? fieldOp}
+                    {getOperatorsForField(selectedEvalField).find(
+                      (o: { value: string; label: string }) => o.value === fieldOp
+                    )?.label ?? fieldOp}
                   </Select.Trigger>
                   <Select.Content>
                     {#each getOperatorsForField(selectedEvalField) as opt}
@@ -408,11 +440,19 @@
                       placeholder="count"
                       min="0"
                       class="w-24 shrink-0"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     />
                   {:else if selectedEvalField.field.options && (selectedEvalField.field.type === 'enum' || (selectedEvalField.field.modality === 'array' && (fieldOp === 'contains' || fieldOp === 'not_contains')))}
-                    <Select.Root type="single" bind:value={fieldValue}>
+                    <Select.Root
+                      type="single"
+                      bind:value={fieldValue}
+                      disabled={!authStore.isAllowed('Integrations.Write')}
+                    >
                       <Select.Trigger class="flex-1 min-w-28">
-                        {selectedEvalField.field.options.find((o: { value: string; label: string }) => o.value === fieldValue)?.label ?? (fieldValue || 'Select...')}
+                        {selectedEvalField.field.options.find(
+                          (o: { value: string; label: string }) => o.value === fieldValue
+                        )?.label ??
+                          (fieldValue || 'Select...')}
                       </Select.Trigger>
                       <Select.Content>
                         {#each selectedEvalField.field.options as opt}
@@ -421,7 +461,11 @@
                       </Select.Content>
                     </Select.Root>
                   {:else if selectedEvalField.field.type === 'boolean'}
-                    <Select.Root type="single" bind:value={fieldValue}>
+                    <Select.Root
+                      type="single"
+                      bind:value={fieldValue}
+                      disabled={!authStore.isAllowed('Integrations.Write')}
+                    >
                       <Select.Trigger class="flex-1 min-w-28">
                         {fieldValue === 'true'
                           ? 'True'
@@ -438,8 +482,11 @@
                     <ReferenceSelect
                       ref={selectedEvalField.field.reference}
                       selected={fieldValue}
-                      onchange={(v) => { fieldValue = v; }}
+                      onchange={(v) => {
+                        fieldValue = v;
+                      }}
                       class="flex-1 min-w-28"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     />
                   {:else}
                     <Input
@@ -447,6 +494,7 @@
                       type={selectedEvalField.field.type === 'number' ? 'number' : 'text'}
                       placeholder="expected value"
                       class="flex-1 min-w-28"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     />
                   {/if}
                 {/if}
@@ -464,21 +512,29 @@
                 {#if conditions.length > 1}
                   <div class="flex items-center rounded-md border overflow-hidden text-xs">
                     <button
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                       class="px-2 py-0.5 transition-colors {conditionLogic === 'AND'
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-muted'}"
-                      onclick={() => (conditionLogic = 'AND')}
-                    >AND</button>
+                      onclick={() => (conditionLogic = 'AND')}>AND</button
+                    >
                     <button
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                       class="px-2 py-0.5 transition-colors {conditionLogic === 'OR'
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:bg-muted'}"
-                      onclick={() => (conditionLogic = 'OR')}
-                    >OR</button>
+                      onclick={() => (conditionLogic = 'OR')}>OR</button
+                    >
                   </div>
                 {/if}
               </div>
-              <Button variant="ghost" size="sm" onclick={addCondition} class="h-7 px-2 gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onclick={addCondition}
+                class="h-7 px-2 gap-1"
+                disabled={!authStore.isAllowed('Integrations.Write')}
+              >
                 <Plus class="size-3" /> Add
               </Button>
             </div>
@@ -493,11 +549,12 @@
               <div class="flex gap-2 items-center">
                 <!-- Field -->
                 <div class="min-w-0 flex-1">
-                  <SingleSelect 
-                    selected={cond.field} 
-                    placeholder="Select field..." 
-                    options={trackableFields.map((f) => ({ label: f.label, value: f.ingestPath }))} 
+                  <SingleSelect
+                    selected={cond.field}
+                    placeholder="Select field..."
+                    options={trackableFields.map((f) => ({ label: f.label, value: f.ingestPath }))}
                     onchange={(v) => updateConditionField(i, v)}
+                    disabled={!authStore.isAllowed('Integrations.Write')}
                   />
                 </div>
 
@@ -507,9 +564,11 @@
                     type="single"
                     value={cond.op}
                     onValueChange={(v) => updateConditionOp(i, v as ConditionOperator)}
+                    disabled={!authStore.isAllowed('Integrations.Write')}
                   >
                     <Select.Trigger class="w-32 shrink-0">
-                      {condOps.find((o: { value: string; label: string }) => o.value === cond.op)?.label ?? cond.op}
+                      {condOps.find((o: { value: string; label: string }) => o.value === cond.op)
+                        ?.label ?? cond.op}
                     </Select.Trigger>
                     <Select.Content>
                       {#each condOps as opt}
@@ -525,17 +584,18 @@
                     <Input
                       type="number"
                       value={String(cond.value ?? '')}
-                      oninput={(e) =>
-                        updateConditionValue(i, (e.target as HTMLInputElement).value)}
+                      oninput={(e) => updateConditionValue(i, (e.target as HTMLInputElement).value)}
                       placeholder="n"
                       min="0"
                       class="w-20 shrink-0"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     />
                   {:else if condField.field.options && (condField.field.type === 'enum' || (condField.field.modality === 'array' && (cond.op === 'contains' || cond.op === 'not_contains')))}
                     <Select.Root
                       type="single"
                       value={String(cond.value ?? '')}
                       onValueChange={(v) => updateConditionValue(i, v)}
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     >
                       <Select.Trigger class="flex-1 min-w-0 truncate">
                         {condField.field.options.find((o) => o.value === cond.value)?.label ??
@@ -552,6 +612,7 @@
                       type="single"
                       value={String(cond.value ?? '')}
                       onValueChange={(v) => updateConditionValue(i, v)}
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     >
                       <Select.Trigger class="flex-1 min-w-0">
                         {cond.value === 'true' || cond.value === true
@@ -571,25 +632,28 @@
                       selected={String(cond.value ?? '')}
                       onchange={(v) => updateConditionValue(i, v)}
                       class="flex-1 min-w-0"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     />
                   {:else}
                     <Input
                       value={String(cond.value ?? '')}
-                      oninput={(e) =>
-                        updateConditionValue(i, (e.target as HTMLInputElement).value)}
+                      oninput={(e) => updateConditionValue(i, (e.target as HTMLInputElement).value)}
                       type={condField.field.type === 'number' ? 'number' : 'text'}
                       placeholder="value"
                       class="flex-1 min-w-0"
+                      disabled={!authStore.isAllowed('Integrations.Write')}
                     />
                   {/if}
                 {/if}
 
-                <button
-                  class="p-1.5 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                <Button
+                  variant="ghost"
+                  disabled={!authStore.isAllowed('Integrations.Write')}
                   onclick={() => removeCondition(i)}
+                  class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
                 >
                   <Trash2 class="size-4" />
-                </button>
+                </Button>
               </div>
             {/each}
           </div>
@@ -598,7 +662,10 @@
 
       <Dialog.Footer class="p-4 border-t shrink-0">
         <Button variant="outline" onclick={() => (open = false)}>Cancel</Button>
-        <Button onclick={handleSubmit} disabled={loading}>
+        <Button
+          onclick={handleSubmit}
+          disabled={loading || !authStore.isAllowed('Integrations.Write')}
+        >
           {loading ? 'Saving...' : 'Save'}
         </Button>
       </Dialog.Footer>

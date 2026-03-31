@@ -48,7 +48,7 @@
   let selectedLinkId = $state<string | null>(null);
   let connectionSearch = $state('');
   let activeFilter = $state<
-    'All' | 'Active' | 'Needs Consent' | 'Has Unmapped' | 'Has Orphans' | 'Missing Capabilities'
+    'All' | 'Active' | 'Needs Consent' | 'Has Unmapped' | 'Missing Capabilities'
   >('All');
   let configSheetOpen = $state(false);
 
@@ -75,7 +75,6 @@
         .reduce((dacc, sl) => dacc + ((sl.meta as any).domains?.length ?? 0), 0);
       return acc + ((al.meta as any).domains?.length ?? 0) - mapped;
     }, 0),
-    totalOrphaned: 0,
     isConfigured: !!dbIntegration,
   });
 
@@ -159,13 +158,7 @@
       .length;
 
   const evaluateLinkFiler = (
-    active:
-      | 'All'
-      | 'Active'
-      | 'Needs Consent'
-      | 'Has Unmapped'
-      | 'Has Orphans'
-      | 'Missing Capabilities',
+    active: 'All' | 'Active' | 'Needs Consent' | 'Has Unmapped' | 'Missing Capabilities',
     link: Tables<'public', 'integration_links'>
   ) => {
     switch (active) {
@@ -181,8 +174,6 @@
       }
       case 'Active':
         return link.status === 'active';
-      case 'Has Orphans':
-        return true;
       case 'Needs Consent':
         return (link.meta as any)?.consentVersion !== CONSENT_VERSION && link.status === 'active';
       case 'Missing Capabilities':
@@ -194,34 +185,34 @@
 </script>
 
 <!-- Configuration Sheet -->
-<Sheet.Root bind:open={configSheetOpen}>
-  <Sheet.Portal>
-    <Sheet.Overlay />
-    <Sheet.Content side="right" class="w-105 flex flex-col gap-0 p-0">
-      <Sheet.Header class="p-4 border-b">
-        <Sheet.Title>Configure Microsoft 365</Sheet.Title>
-        <Sheet.Description>Set up your M365 integration credentials.</Sheet.Description>
-      </Sheet.Header>
+<PermissionGaurd permission="Integrations.Write">
+  <Sheet.Root bind:open={configSheetOpen}>
+    <Sheet.Portal>
+      <Sheet.Overlay />
+      <Sheet.Content side="right" class="w-105 flex flex-col gap-0 p-0">
+        <Sheet.Header class="p-4 border-b">
+          <Sheet.Title>Configure Microsoft 365</Sheet.Title>
+          <Sheet.Description>Set up your M365 integration credentials.</Sheet.Description>
+        </Sheet.Header>
 
-      <div class="flex flex-col p-4 flex-1 overflow-y-auto">
-        <Card.Root class="bg-primary/5 border-primary/20">
-          <Card.Header class="pb-2">
-            <Card.Title class="text-base">GDAP Partner Connection</Card.Title>
-          </Card.Header>
-          <Card.Content>
-            <p class="text-sm text-muted-foreground mb-4">
-              Connect MSPByte as a partner application through Microsoft's Granular Delegated Admin
-              Privileges (GDAP) framework. This allows managing multiple customer tenants without
-              requiring per-tenant credentials.
-            </p>
-            <form method="POST" action="?/initialConsent" use:enhance>
-              <Button variant="outline" size="sm" type="submit">Connect MSPByte</Button>
-            </form>
-          </Card.Content>
-        </Card.Root>
-      </div>
-      <Sheet.Footer>
-        <PermissionGaurd permission="Integrations.Write">
+        <div class="flex flex-col p-4 flex-1 overflow-y-auto">
+          <Card.Root class="bg-primary/5 border-primary/20">
+            <Card.Header class="pb-2">
+              <Card.Title class="text-base">GDAP Partner Connection</Card.Title>
+            </Card.Header>
+            <Card.Content>
+              <p class="text-sm text-muted-foreground mb-4">
+                Connect MSPByte as a partner application through Microsoft's Granular Delegated
+                Admin Privileges (GDAP) framework. This allows managing multiple customer tenants
+                without requiring per-tenant credentials.
+              </p>
+              <form method="POST" action="?/initialConsent" use:enhance>
+                <Button variant="outline" size="sm" type="submit">Connect MSPByte</Button>
+              </form>
+            </Card.Content>
+          </Card.Root>
+        </div>
+        <Sheet.Footer>
           <AlertDialog.Root>
             <AlertDialog.Trigger>
               {#snippet child({ props })}
@@ -249,20 +240,22 @@
               </AlertDialog.Footer>
             </AlertDialog.Content>
           </AlertDialog.Root>
-        </PermissionGaurd>
-      </Sheet.Footer>
-    </Sheet.Content>
-  </Sheet.Portal>
-</Sheet.Root>
+        </Sheet.Footer>
+      </Sheet.Content>
+    </Sheet.Portal>
+  </Sheet.Root>
+</PermissionGaurd>
 
 <!-- Main Layout -->
 <div class="flex flex-col size-full p-4 gap-4 overflow-hidden">
   <div class="flex items-start justify-between shrink-0">
     <IntegrationHeader {integration} active={!!dbIntegration} {loading} />
-    <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
-      <Settings class="size-4" />
-      Configure
-    </Button>
+    <PermissionGaurd permission="Integrations.Write">
+      <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
+        <Settings class="size-4" />
+        Configure
+      </Button>
+    </PermissionGaurd>
   </div>
 
   {#if !!dbIntegration}
@@ -273,7 +266,7 @@
       </Tabs.List>
 
       <Tabs.Content value="connections" class="flex flex-col flex-1 overflow-hidden gap-4 mt-0">
-        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3 shrink-0">
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3 shrink-0">
           <Card.Root class="p-4">
             <div class="flex flex-col gap-1">
               <span class="text-xs text-muted-foreground">Total Tenants</span>
@@ -299,14 +292,6 @@
               <span class="text-xs text-muted-foreground">Unmapped</span>
               <span class="text-2xl font-bold text-destructive"
                 >{loading ? '—' : metrics.totalUnmapped}</span
-              >
-            </div>
-          </Card.Root>
-          <Card.Root class="p-4">
-            <div class="flex flex-col gap-1">
-              <span class="text-xs text-muted-foreground">Orphaned</span>
-              <span class="text-2xl font-bold text-destructive"
-                >{loading ? '—' : metrics.totalOrphaned}</span
               >
             </div>
           </Card.Root>
@@ -347,7 +332,7 @@
             <SearchBar bind:value={connectionSearch} placeholder="Search tenants..." />
           </div>
           <div class="flex gap-1.5 shrink-0">
-            {#each ['All', 'Active', 'Needs Consent', 'Has Unmapped', 'Has Orphans', 'Missing Capabilities'] as filter}
+            {#each ['All', 'Active', 'Needs Consent', 'Has Unmapped', 'Missing Capabilities'] as filter}
               <button
                 class="px-2.5 py-1 rounded-full text-xs font-medium border transition-colors
               {activeFilter === filter
