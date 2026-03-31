@@ -1,17 +1,15 @@
 <script lang="ts">
   import { DataTable, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission } from '$lib/utils/permissions';
   import { boolBadgeColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import { authStore } from '$lib/stores/auth.svelte.js';
 
   type ExchangeConfig = Tables<'views', 'm365_exchange_configs_view'>;
 
   const { data } = $props();
 
-  let canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
-  );
+  let canWrite = $derived(authStore.isAllowed('Sites.Write'));
 
   const columns: DataTableColumn<ExchangeConfig>[] = $derived.by(() => {
     const linkSelected = !!scopeStore.currentLink;

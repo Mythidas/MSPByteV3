@@ -49,7 +49,9 @@
         {#each routeMap.entries() as [group, routes]}
           {#if group === 'top'}
             {#each routes as route}
-              {@render navLink({ href: route.href, label: route.label })}
+              {#if authStore.isAllowed(route.permission)}
+                {@render navLink({ href: route.href, label: route.label })}
+              {/if}
             {/each}
           {:else}
             {@const groupActive = routes.some((route) => page.url.pathname.startsWith(route.href))}
@@ -65,17 +67,19 @@
               </button>
               {#if openGroup === group}
                 <div
-                  class="absolute top-full left-0 mt-1 min-w-36 rounded-2xl border bg-background shadow-md flex flex-col p-1"
+                  class="absolute top-full left-0 mt-1 min-w-36 rounded border bg-background shadow-md flex flex-col p-1"
                 >
                   {#each routes as route}
-                    {@const active = page.url.pathname.startsWith(route.href)}
-                    <a
-                      href={route.href}
-                      class={cn(linkClass, 'w-full', active && 'bg-primary/50')}
-                      onclick={() => (openGroup = null)}
-                    >
-                      {route.label}
-                    </a>
+                    {#if authStore.isAllowed(route.permission)}
+                      {@const active = page.url.pathname.startsWith(route.href)}
+                      <a
+                        href={route.href}
+                        class={cn(linkClass, 'w-full rounded', active && 'bg-primary/50')}
+                        onclick={() => (openGroup = null)}
+                      >
+                        {route.label}
+                      </a>
+                    {/if}
                   {/each}
                 </div>
               {/if}

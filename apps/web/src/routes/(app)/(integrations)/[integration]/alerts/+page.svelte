@@ -1,7 +1,6 @@
 <script lang="ts">
   import { DataTable, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission } from '$lib/utils/permissions';
   import { relativeDateColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { Badge } from '$lib/components/ui/badge/index.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
@@ -10,6 +9,7 @@
   import { severityClass, alertStatusClass } from './_alert-config.js';
   import AlertSheet from './_alert-sheet.svelte';
   import type { TableView } from '$lib/components/data-table/types.js';
+  import { authStore } from '$lib/stores/auth.svelte.js';
 
   type Alert = Tables<'views', 'd_alerts_view'>;
 
@@ -18,9 +18,7 @@
   let selectedAlert = $state<Alert | null>(null);
   let sheetOpen = $state(false);
 
-  let canSuppress = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Assets.Write')
-  );
+  let canSuppress = $derived(authStore.isAllowed('Assets.Write'));
 
   const integration = $derived(INTEGRATIONS[scopeStore.currentIntegration!]);
   const isLinkScoped = $derived(integration?.scope === 'link');

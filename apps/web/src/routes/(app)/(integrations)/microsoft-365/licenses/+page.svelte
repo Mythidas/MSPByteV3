@@ -1,21 +1,17 @@
 <script lang="ts">
   import { DataTable, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission } from '$lib/utils/permissions';
   import { boolBadgeColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import LicenseSheet from './_license-sheet.svelte';
+  import { authStore } from '$lib/stores/auth.svelte.js';
 
   type License = Tables<'views', 'm365_licenses_view'>;
-
-  const { data } = $props();
 
   let selectedLicense = $state<License | null>(null);
   let sheetOpen = $state(false);
 
-  let canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
-  );
+  let canWrite = $derived(authStore.isAllowed('Sites.Write'));
 
   const columns: DataTableColumn<License>[] = $derived.by(() => {
     const linkSelected = !!scopeStore.currentLink;

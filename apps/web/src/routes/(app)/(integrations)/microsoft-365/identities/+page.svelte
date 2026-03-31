@@ -6,7 +6,6 @@
     type TableView,
   } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission } from '$lib/utils/permissions';
   import {
     boolBadgeColumn,
     relativeDateColumn,
@@ -21,14 +20,10 @@
 
   type Identity = Tables<'views', 'm365_identities_view'>;
 
-  const { data } = $props();
-
   let selectedIdentity = $state<Identity | null>(null);
   let sheetOpen = $state(false);
 
-  let canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
-  );
+  let canWrite = $derived(authStore.isAllowed('Sites.Write'));
   const licenseHook = createM365LicenseOptions(() => authStore.currentTenant?.id ?? null);
 
   const licenseMap = $derived<Record<string, string>>(

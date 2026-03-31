@@ -1,4 +1,5 @@
 import { goto } from '$app/navigation';
+import { hasPermission, type Permission } from '$lib/utils/permissions';
 import { supabase } from '$lib/utils/supabase';
 import type { Tables } from '@workspace/shared/types/database';
 import { PersistedState } from 'runed';
@@ -39,6 +40,10 @@ function createAuthStore() {
     },
     set currentTenant(t: Tenant | null) {
       tenant.current = t;
+    },
+
+    isAllowed: (p: Permission) => {
+      return hasPermission(role.current?.attributes as any, p);
     },
 
     logout: async () => {

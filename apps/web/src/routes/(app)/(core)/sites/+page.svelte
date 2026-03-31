@@ -3,20 +3,17 @@
   import { supabase } from '$lib/utils/supabase.js';
   import type { Tables } from '@workspace/shared/types/database';
   import { toast } from 'svelte-sonner';
-  import { hasPermission } from '$lib/utils/permissions';
-  import { goto } from '$app/navigation';
   import { INTEGRATIONS } from '@workspace/core/config/integrations.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { formatDate } from '$lib/utils/format';
-  import type { IntegrationId } from "@workspace/core/types/integrations.js";
+  import type { IntegrationId } from '@workspace/core/types/integrations.js';
+  import { authStore } from '$lib/stores/auth.svelte.js';
 
   type Site = Tables<'views', 'd_sites_view'>;
 
   const { data } = $props();
   let isDeleting = $state(false);
-  let canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
-  );
+  let canWrite = $derived(authStore.isAllowed('Sites.Write'));
 
   const getColor = (id: IntegrationId) => {
     switch (id) {
@@ -97,7 +94,7 @@
                 );
 
               if (error) {
-                console.log(error)
+                console.log(error);
                 toast.error('Failed to delete sites. Please try again.', { id: toastId });
               } else {
                 await fetchData();

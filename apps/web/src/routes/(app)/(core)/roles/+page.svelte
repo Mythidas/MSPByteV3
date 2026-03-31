@@ -3,11 +3,12 @@
   import { supabase } from '$lib/utils/supabase.js';
   import type { Tables } from '@workspace/shared/types/database';
   import { toast } from 'svelte-sonner';
-  import { hasPermission, canActOnLevel } from '$lib/utils/permissions';
+  import { canActOnLevel } from '$lib/utils/permissions';
   import PermissionGuard from '$lib/components/auth/permission-gaurd.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import RoleSheet from './_role-sheet.svelte';
+  import { authStore } from '$lib/stores/auth.svelte.js';
 
   type Role = Tables<'views', 'd_roles_view'>;
 
@@ -20,9 +21,7 @@
   let isDeleting = $state(false);
 
   const currentUserLevel = $derived(data.role?.level ?? null);
-  const canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Users.Write')
-  );
+  const canWrite = $derived(authStore.isAllowed('Users.Write'));
 
   const columns: DataTableColumn<Role>[] = [
     {
@@ -130,8 +129,9 @@
   <div class="flex items-center gap-2">
     <span>{value}</span>
     {#if row.tenant_id === null}
-      <Badge variant="outline" class="bg-muted text-muted-foreground border-muted-foreground/30 text-xs"
-        >System</Badge
+      <Badge
+        variant="outline"
+        class="bg-muted text-muted-foreground border-muted-foreground/30 text-xs">System</Badge
       >
     {/if}
   </div>

@@ -1,21 +1,17 @@
 <script lang="ts">
   import { DataTable, type DataTableColumn } from '$lib/components/data-table';
   import type { Tables } from '@workspace/shared/types/database';
-  import { hasPermission } from '$lib/utils/permissions';
   import { textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import RoleSheet from './_role-sheet.svelte';
+  import { authStore } from '$lib/stores/auth.svelte.js';
 
   type Role = Tables<'views', 'm365_roles_view'>;
-
-  const { data } = $props();
 
   let selectedRole = $state<Role | null>(null);
   let sheetOpen = $state(false);
 
-  let canWrite = $derived(
-    hasPermission(data.role?.attributes as Record<string, unknown>, 'Sites.Write')
-  );
+  let canWrite = $derived(authStore.isAllowed('Sites.Write'));
 
   const columns: DataTableColumn<Role>[] = $derived.by(() => {
     const linkSelected = !!scopeStore.currentLink;
