@@ -20,6 +20,7 @@
   import { authStore } from '$lib/stores/auth.svelte';
   import { toast } from 'svelte-sonner';
   import PermissionGaurd from '$lib/components/auth/permission-gaurd.svelte';
+  import InlineEdit from '$lib/components/fields/inline-edit.svelte';
 
   const {
     selectedLink,
@@ -116,17 +117,28 @@
   <!-- Tenant header -->
   <div class="flex items-start justify-between px-4 py-3 border-b shrink-0">
     <div class="flex flex-col gap-0.5">
-      <h2 class="font-semibold">{selectedLink.name ?? selectedLink.external_id}</h2>
+      <InlineEdit
+        value={selectedLink.name ?? ''}
+        permission="Integrations.Write"
+        class="font-semibold"
+        onsave={async (name) => {
+          const { error } = await supabase
+            .from('integration_links')
+            .update({ name })
+            .eq('id', selectedLink.id);
+          if (error) toast.error('Failed to update name');
+          else {
+            toast.info('Name updated');
+            onSaveMappings?.();
+          }
+        }}
+      />
       <span class="text-xs text-muted-foreground font-mono">Tenant: {selectedLink.external_id}</span
       >
     </div>
-    <button
-      class="p-1 rounded hover:bg-muted transition-colors"
-      onclick={() => deselect?.()}
-      aria-label="Close panel"
-    >
+    <Button variant="ghost" onclick={() => deselect?.()} class="h-fit p-1.5!">
       <X class="size-4" />
-    </button>
+    </Button>
   </div>
 
   {#if selectedLink.status === 'active'}
@@ -189,7 +201,7 @@
         <div class="flex h-fit pt-4">
           <Button
             size="sm"
-            disabled={!mappingsChanged || saving || authStore.isAllowed('Integrations.Write')}
+            disabled={!mappingsChanged || saving || !authStore.isAllowed('Integrations.Write')}
             onclick={handleSaveMappings}>Save Mappings</Button
           >
         </div>
