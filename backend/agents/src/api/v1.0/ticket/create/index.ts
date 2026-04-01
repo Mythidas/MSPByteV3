@@ -1,6 +1,7 @@
 import { HaloPSAConnector } from "@workspace/shared/lib/connectors/HaloPSAConnector.js";
 import { HaloPSATicketHandler } from "@workspace/shared/lib/services/halopsa/HaloPSATicketHandler.js";
 import { HaloPSAConfig } from "@workspace/shared/types/integrations/halopsa/index.js";
+import { MSPAgentConfig } from "@workspace/shared/types/integrations/mspagent/index.js";
 import { FastifyInstance } from "fastify";
 import { PerformanceTracker } from "@workspace/shared/lib/utils/performance.js";
 import { logAgentApiCall } from "@/lib/agentLogger.js";
@@ -68,9 +69,8 @@ export default async function (fastify: FastifyInstance) {
             throw new Error("Agent integration not found");
           }
 
-          const psaIntId = (agentIntegration.config as any)?.primaryPSA as
-            | string
-            | undefined;
+          const psaIntId = (agentIntegration.config as MSPAgentConfig)
+            ?.primaryPsa as string | undefined;
           if (!psaIntId) {
             return [agentRes.data, siteRes.data, null, null, null] as const;
           }
