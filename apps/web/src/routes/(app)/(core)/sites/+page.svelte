@@ -5,15 +5,30 @@
   import { toast } from 'svelte-sonner';
   import { INTEGRATIONS } from '@workspace/core/config/integrations.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
+  import { Button } from '$lib/components/ui/button/index.js';
   import { formatDate } from '$lib/utils/format';
   import type { IntegrationId } from '@workspace/core/types/integrations.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
+  import type { PageData } from './$types.js';
+  import CreateSiteSheet from './_create-site-sheet.svelte';
+  import { goto } from '$app/navigation';
 
   type Site = Tables<'views', 'd_sites_view'>;
 
-  const { data } = $props();
+  const { data }: { data: PageData } = $props();
+
   let isDeleting = $state(false);
   let canWrite = $derived(authStore.isAllowed('Sites.Write'));
+  let sheetOpen = $state(false);
+  let refreshKey = $state(0);
+
+  function handleSuccess() {
+    refreshKey++;
+  }
+
+  function handleRowClick(row: Site) {
+    if (row.id) goto(`/sites/${row.id}`);
+  }
 
   const getColor = (id: IntegrationId) => {
     switch (id) {
@@ -128,20 +143,37 @@
 {/snippet}
 
 <div class="flex flex-col gap-2 p-4 size-full">
-  <h1 class="h-fit text-2xl font-bold">Sites</h1>
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold">Sites</h1>
+    {#if canWrite}
+      <Button onclick={() => (sheetOpen = true)}>Create Site</Button>
+    {/if}
+  </div>
 
-  <DataTable
-    schema="views"
-    table="d_sites_view"
-    {columns}
-    {rowActions}
-    defaultSort={{ field: 'name', dir: 'asc' }}
-    enableRowSelection={canWrite}
-    enableGlobalSearch={true}
-    enableFilters={true}
-    enablePagination={true}
-    enableColumnToggle={true}
-    enableExport={true}
-    enableURLState={true}
-  />
+  {#key refreshKey}
+    <DataTable
+      schema="views"
+      table="d_sites_view"
+      {columns}
+      {rowActions}
+      defaultSort={{ field: 'name', dir: 'asc' }}
+      onrowclick={handleRowClick}
+      enableRowSelection={canWrite}
+      enableGlobalSearch={true}
+      enableFilters={true}
+      enablePagination={true}
+      enableColumnToggle={true}
+      enableExport={true}
+      enableURLState={true}
+    />
+  {/key}
 </div>
+
+<CreateSiteSheet
+  bind:open={sheetOpen}
+  dattoResources={data.dattoResources}
+  coveResources={data.coveResources}
+  sophosResources={data.sophosResources}
+  haloResources={data.haloResources}
+  onsuccess={handleSuccess}
+/>
