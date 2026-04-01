@@ -2,6 +2,7 @@
   "name": "mspbytev3",
   "version": "0.0.1",
   "private": "true",
+  "type": "module",
   "workspaces": [
     "apps/*",
     "packages/*",
@@ -11,6 +12,7 @@
     "build": "turbo build",
     "test": "turbo test",
     "dev": "turbo dev",
+    "lint": "turbo lint",
     "dev:web": "turbo dev --filter=@workspace/web",
     "dev:agent": "turbo dev --filter=@workspace/agents --filter=@workspace/agent",
     "dev:pipeline": "turbo dev --filter=@workspace/ingestor --filter=@workspace/workflows --filter=@workspace/compliance",
@@ -27,11 +29,17 @@
     "node": ">=20"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.5",
+    "@eslint/js": "^10.0.1",
     "@types/minimatch": "^6.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
     "@workspace/ts-config": "workspace:*",
+    "eslint": "^10.1.0",
     "prettier": "^3.8.1",
     "prettier-plugin-svelte": "^3.4.1",
-    "tsc-alias": "^1.8.16"
+    "tsc-alias": "^1.8.16",
+    "typescript-eslint": "^8.58.0"
   },
   "dependencies": {
     "@supabase/postgrest-js": "^2.93.3",

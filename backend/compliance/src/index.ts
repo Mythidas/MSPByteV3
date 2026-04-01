@@ -2,7 +2,8 @@ import "./queues";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { startWorkers, stopWorkers } from "./workers";
 
-Logger.level = (process.env.LOG_LEVEL as any) ?? "info";
+const logLevel = process.env.LOG_LEVEL;
+Logger.level = Logger.isLogLevel(logLevel) ? logLevel : "info";
 
 startWorkers();
 Logger.info({ module: "compliance", context: "index", message: "started" });
@@ -17,5 +18,11 @@ const shutdown = async (signal: string) => {
   process.exit(0);
 };
 
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+  return;
+});
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+  return;
+});

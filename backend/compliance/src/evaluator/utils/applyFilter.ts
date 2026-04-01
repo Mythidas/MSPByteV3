@@ -3,7 +3,10 @@ import type {
   CheckCondition,
   ConditionOperator,
 } from "@workspace/core/types/contracts/compliance";
-import { toPostgrestColumn, toPostgrestJsonColumn } from "@workspace/shared/lib/utils/supabase-helper";
+import {
+  toPostgrestColumn,
+  toPostgrestJsonColumn,
+} from "@workspace/shared/lib/utils/supabase-helper";
 
 const SIZE_OPS: ConditionOperator[] = ["size_eq", "size_gte", "size_lte"];
 
@@ -19,12 +22,7 @@ export function getNestedValue(
   }, row);
 }
 
-function applySingleCondition(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  query: any,
-  cond: CheckCondition,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-): any {
+function applySingleCondition(query: any, cond: CheckCondition): any {
   const { field, op, value } = cond;
   const col = toPostgrestColumn(field);
   const jsonCol = toPostgrestJsonColumn(field);
@@ -42,7 +40,11 @@ function applySingleCondition(
     case "lte":
       return query.lte(col, value);
     case "contains":
-      return query.filter(jsonCol, "cs", JSON.stringify(Array.isArray(value) ? value : [value]));
+      return query.filter(
+        jsonCol,
+        "cs",
+        JSON.stringify(Array.isArray(value) ? value : [value]),
+      );
     case "not_contains":
       return query.not(
         jsonCol,
@@ -58,7 +60,6 @@ function applySingleCondition(
   }
 }
 
-// Builds a single PostgREST OR-filter part, e.g. "policy_state.eq.enabled"
 function toOrPart(cond: CheckCondition): string | null {
   const col = toPostgrestColumn(cond.field);
   const jsonCol = toPostgrestJsonColumn(cond.field);
@@ -117,13 +118,10 @@ function matchSizeCondition(
  *   2. Apply `jsFilter(rows)` to the fetched rows before counting / inspecting them
  */
 export function applyFilter(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   query: any,
   filter: ConditionGroup | undefined,
 ): {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   query: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   jsFilter?: (rows: any[]) => any[];
 } {
   if (!filter || filter.conditions.length === 0) return { query };

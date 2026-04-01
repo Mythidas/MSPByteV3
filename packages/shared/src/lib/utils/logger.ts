@@ -1,4 +1,4 @@
-export type LogLevel = 'trace' | 'info' | 'warn' | 'error' | 'fatal';
+export type LogLevel = "trace" | "info" | "warn" | "error" | "fatal";
 
 export type APIError = {
   module: string;
@@ -32,26 +32,26 @@ function format(level: LogLevel, info: LogInfo): string {
 }
 
 export class Logger {
-  static level: LogLevel = 'trace';
+  static level: LogLevel = "trace";
 
   static trace(info: LogInfo): void {
-    if (LEVEL_ORDER['trace'] < LEVEL_ORDER[Logger.level]) return;
-    console.debug(format('trace', info));
+    if (LEVEL_ORDER["trace"] < LEVEL_ORDER[Logger.level]) return;
+    console.debug(format("trace", info));
   }
 
   static info(info: LogInfo): void {
-    if (LEVEL_ORDER['info'] < LEVEL_ORDER[Logger.level]) return;
-    console.info(format('info', info));
+    if (LEVEL_ORDER["info"] < LEVEL_ORDER[Logger.level]) return;
+    console.info(format("info", info));
   }
 
   static warn(info: LogInfo): void {
-    if (LEVEL_ORDER['warn'] < LEVEL_ORDER[Logger.level]) return;
-    console.warn(format('warn', info));
+    if (LEVEL_ORDER["warn"] < LEVEL_ORDER[Logger.level]) return;
+    console.warn(format("warn", info));
   }
 
   static error(info: LogInfo): { error: APIError } {
-    if (LEVEL_ORDER['error'] >= LEVEL_ORDER[Logger.level]) {
-      console.error(format('error', info));
+    if (LEVEL_ORDER["error"] >= LEVEL_ORDER[Logger.level]) {
+      console.error(format("error", info));
     }
     return {
       error: {
@@ -64,8 +64,8 @@ export class Logger {
   }
 
   static fatal(info: LogInfo): { error: APIError } {
-    if (LEVEL_ORDER['fatal'] >= LEVEL_ORDER[Logger.level]) {
-      console.error(format('fatal', info));
+    if (LEVEL_ORDER["fatal"] >= LEVEL_ORDER[Logger.level]) {
+      console.error(format("fatal", info));
     }
     return {
       error: {
@@ -80,13 +80,19 @@ export class Logger {
   static response(body: APIResponse<any>, status: number): Response {
     if (status !== 200 && body.error) {
       console.error(
-        format('error', {
+        format("error", {
           module: body.error.module,
           context: body.error.context,
           message: `${body.error.message} | ${status}`,
-        })
+        }),
       );
     }
     return Response.json(body, { status });
+  }
+
+  static isLogLevel(value: unknown): value is LogLevel {
+    return ["trace", "info", "warn", "error", "fatal"].includes(
+      value as LogLevel,
+    );
   }
 }

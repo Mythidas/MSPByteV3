@@ -7,18 +7,17 @@ import { redis } from "../redis";
 const MODULE = "compliance";
 const CONTEXT = "compliance-worker";
 
-type ComplianceJobPayload = { tenantId: string; linkId?: string };
+export type ComplianceJobPayload = { tenantId: string; linkId?: string };
 
 export class ComplianceWorker {
-  private worker: Worker;
+  private worker: Worker<ComplianceJobPayload, unknown, string>;
 
   constructor() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.worker = new Worker(
       QueueNames.ComplianceEval,
       (job) => this.process(job),
       {
-        connection: redis as any,
+        connection: redis,
         concurrency: 5,
       },
     );
