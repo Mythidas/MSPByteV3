@@ -12,19 +12,15 @@
   import SearchBar from '$lib/components/search-bar.svelte';
   import FadeIn from '$lib/components/transition/fade-in.svelte';
   import {
-    CircleAlert,
-    X,
     Settings,
     TriangleAlert,
     Users,
     Globe,
-    Activity,
     CircleCheck,
     CircleX,
+    LoaderCircle,
   } from '@lucide/svelte';
   import Loader from '$lib/components/transition/loader.svelte';
-  import SingleSelect from '$lib/components/single-select.svelte';
-  import { CircleQuestionMark } from 'lucide-svelte';
   import { enhance } from '$app/forms';
   import { page } from '$app/state';
   import { toast } from 'svelte-sonner';
@@ -34,6 +30,7 @@
   import ComplianceTab from './_compliance-tab.svelte';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
+  import { goto } from '$app/navigation';
 
   const { data, form }: PageProps = $props();
 
@@ -51,6 +48,7 @@
     'All' | 'Active' | 'Needs Consent' | 'Has Unmapped' | 'Missing Capabilities'
   >('All');
   let configSheetOpen = $state(false);
+  let syncing = $state(false);
 
   const tenantLinks = $derived(dbLinks.filter((l) => !l.site_id));
   const siteLinks = $derived(dbLinks.filter((l) => !!l.site_id));
@@ -94,8 +92,8 @@
       dbIntegration = (await data.getIntegration) ?? null;
       dbLinks = (await data.getLinks) ?? [];
       dbSites = (await data.getSites) ?? [];
-      complianceFrameworks = data.frameworks ?? [];
-      complianceAssignments = data.assignments ?? [];
+      complianceFrameworks = await data.getFrameworks;
+      complianceAssignments = await data.getAssignments;
       loading = false;
     };
 
@@ -136,11 +134,18 @@
     } else if (error) {
       toast.error(`Failed to complete the consent flow: ${error}`);
     }
+
+    if (error || initialConsent || consentedTenant) {
+      goto('?', { replaceState: true });
+    }
   });
 
   $effect(() => {
     if (form?.error) {
-      toast.info(`Failed to process action: ${form.error}`);
+      toast.error(`Failed to process action: ${form.error}`);
+    } else if (form?.success && 'inserted' in form) {
+      toast.success(`GDAP sync complete — ${form.inserted} added, ${form.removed} removed`);
+      loadLinks();
     }
   });
 
@@ -240,12 +245,32 @@
 <div class="flex flex-col size-full p-4 gap-4 overflow-hidden">
   <div class="flex items-start justify-between shrink-0">
     <IntegrationHeader {integration} active={!!dbIntegration} {loading} />
-    <PermissionGaurd permission="Integrations.Write">
-      <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
-        <Settings class="size-4" />
-        Configure
-      </Button>
-    </PermissionGaurd>
+    <div class="flex gap-2">
+      <PermissionGaurd permission="Integrations.Write">
+        <form
+          action="?/syncGDAPRelationships"
+          method="POST"
+          use:enhance={() => {
+            syncing = true;
+            return async ({ update }) => {
+              await update();
+              syncing = false;
+            };
+          }}
+        >
+          <Button variant="outline" size="sm" type="submit" disabled={syncing} class="gap-2">
+            <LoaderCircle class="size-4 {syncing ? 'animate-spin' : ''}" />
+            Resync GDAP
+          </Button>
+        </form>
+      </PermissionGaurd>
+      <PermissionGaurd permission="Integrations.Write">
+        <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
+          <Settings class="size-4" />
+          Configure
+        </Button>
+      </PermissionGaurd>
+    </div>
   </div>
 
   {#if !!dbIntegration}

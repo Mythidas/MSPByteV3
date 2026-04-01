@@ -1,6 +1,6 @@
 import type { MSCapabilityKey } from "../types/integrations/microsoft/capabilities.js";
 
-export const CONSENT_VERSION = 1;
+export const CONSENT_VERSION = 2;
 
 /** Directory roles the app's SP must hold in each GDAP customer tenant. Add here as features grow. */
 export const REQUIRED_DIRECTORY_ROLES: Record<string, string> = {
