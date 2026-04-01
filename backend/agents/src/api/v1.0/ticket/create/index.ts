@@ -15,7 +15,6 @@ export default async function (fastify: FastifyInstance) {
     const perf = new PerformanceTracker();
     let statusCode = 500;
     let ticketID: string | null = null;
-    let errorMessage: string | undefined;
 
     try {
       const siteID = req.headers["x-site-id"] as string;
@@ -30,17 +29,7 @@ export default async function (fastify: FastifyInstance) {
 
       if (!siteID || !deviceID) {
         statusCode = 401;
-        errorMessage = "API headers invalid";
-        return Logger.response(
-          {
-            error: {
-              module: "v1.0/ticket/create",
-              context: "POST",
-              message: "API headers invalid",
-            },
-          },
-          401,
-        );
+        throw new Error("API headers invalid");
       }
 
       const supabase = getSupabase();
@@ -102,16 +91,8 @@ export default async function (fastify: FastifyInstance) {
 
       if (!psaConfig || !site || !agent) {
         statusCode = 404;
-        errorMessage = "PSA records not valid";
-        return Logger.response(
-          {
-            error: {
-              module: "v1.0/ticket/create",
-              context: "POST",
-              message: `PSA records not valid [SiteID: ${site.id}, AgentID: ${agent.id}, HasConfig: ${!!psaConfig}]`,
-            },
-          },
-          404,
+        throw new Error(
+          `PSA records not valid [SiteID: ${site.id}, AgentID: ${agent.id}, HasConfig: ${!!psaConfig}]`,
         );
       }
 
@@ -345,17 +326,7 @@ export default async function (fastify: FastifyInstance) {
 
       if (!createdTicketID) {
         statusCode = 500;
-        errorMessage = "Failed to create ticket";
-        return Logger.response(
-          {
-            error: {
-              module: "v1.0/ticket/create",
-              context: "POST",
-              message: "Failed to create ticket",
-            },
-          },
-          500,
-        );
+        throw new Error("Failed to create ticket");
       }
 
       ticketID = createdTicketID;
@@ -389,30 +360,6 @@ export default async function (fastify: FastifyInstance) {
         }
       });
 
-      // Log successful API call
-      await logAgentApiCall(
-        {
-          endpoint: "/v1.0/ticket/create",
-          method: "POST",
-          agentId: agent.id,
-          siteId: site.id,
-          tenantId: agent.tenant_id,
-          psaSiteId: psaSiteId,
-          rmmDeviceId: body.rmm_id,
-        },
-        {
-          statusCode: 200,
-          externalId: String(ticketID),
-          requestMetadata: {
-            ...ticketInfo,
-          },
-          responseMetadata: {
-            ticket_id: ticketID,
-          },
-        },
-        perf,
-      );
-
       return Logger.response(
         {
           data: ticketID,
@@ -420,7 +367,7 @@ export default async function (fastify: FastifyInstance) {
         200,
       );
     } catch (err) {
-      errorMessage = err instanceof Error ? err.message : String(err);
+      const errorMessage = err instanceof Error ? err.message : String(err);
 
       // Log failed API call
       const siteID = req.headers["x-site-id"] as string;
