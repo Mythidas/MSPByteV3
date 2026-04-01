@@ -1,22 +1,45 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 import type { IntegrationId } from '@workspace/core/config/integrations';
+import {
+  deriveNotificationsFromHealth,
+  deriveNotificationsFromExpiry,
+} from './(core)/integrations/_helpers/integration-health';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
   if (!locals.user || !locals.role || !locals.tenant) {
     throw redirect(303, '/auth/login');
   }
 
-  const { data: activeIntegrations } = await locals.supabase
-    .from('integrations')
-    .select('id')
-    .is('deleted_at', null)
-    .eq('tenant_id', locals.tenant.id);
+  const tenantId = locals.tenant.id;
+
+  const [{ data: activeIntegrations }, { data: syncIssues }, { data: expiringCreds }] =
+    await Promise.all([
+      locals.supabase.from('integrations').select('id').is('deleted_at', null).eq('tenant_id', tenantId),
+      (locals.supabase as any)
+        .from('ingest_sync_states')
+        .select('integration_id, last_error_class, last_error_message, consecutive_failures')
+        .eq('tenant_id', tenantId)
+        .eq('last_status', 'failed'),
+      locals.supabase
+        .from('integrations')
+        .select('id, credential_expiration')
+        .eq('tenant_id', tenantId)
+        .is('deleted_at', null)
+        .not('credential_expiration', 'is', null)
+        .lt('credential_expiration', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()),
+    ]);
+
+  const notifications = [
+    ...deriveNotificationsFromHealth(syncIssues ?? []),
+    ...deriveNotificationsFromExpiry(expiringCreds ?? []),
+  ];
 
   return {
     user: locals.user,
     role: locals.role,
     tenant: locals.tenant,
     activeIntegrations: activeIntegrations?.map((ai) => ai.id as IntegrationId) ?? [],
+    notifications,
   };
 };

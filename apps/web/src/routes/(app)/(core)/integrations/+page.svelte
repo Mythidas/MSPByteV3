@@ -33,14 +33,29 @@
   {:then values}
     <FadeIn class="grid grid-cols-4 gap-2">
       {#each filtered as key}
-        {@const active = !!values.find((v) => v.id === key && !v.deleted_at)}
-        <div class="flex flex-col bg-card/70 p-4 h-30 justify-between">
+        {@const entry = values.find((v) => v.id === key && !v.deleted_at)}
+        {@const active = !!entry}
+        <div class="flex flex-col bg-card/70 p-4 h-fit min-h-30 justify-between gap-2">
           <div class="flex w-full justify-between">
             <span>{INTEGRATIONS[key].name}</span>
             <span class="text-sm text-muted-foreground">
               {INTEGRATIONS[key].category.toUpperCase()}
             </span>
           </div>
+          {#if active && entry}
+            <div class="flex flex-col gap-1">
+              {#if entry.healthStatus === 'action_required'}
+                <Badge class="h-fit w-fit bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/10">Action Required</Badge>
+              {:else if entry.healthStatus === 'degraded'}
+                <Badge class="h-fit w-fit bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/10">Degraded</Badge>
+              {/if}
+              {#if entry.credExpiryStatus === 'expired'}
+                <span class="text-xs text-destructive">Credentials expired</span>
+              {:else if entry.credExpiryStatus === 'expiring_urgent'}
+                <span class="text-xs text-amber-500">Expires in {entry.credDaysRemaining} day{entry.credDaysRemaining === 1 ? '' : 's'}</span>
+              {/if}
+            </div>
+          {/if}
           <div class="flex w-full justify-between items-end">
             <Badge variant={active ? 'default' : 'secondary'} class="h-fit">
               {active ? 'Configured' : 'Available'}

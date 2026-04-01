@@ -56,10 +56,11 @@ export const actions = {
       encryptedSecret = await encryptSecret(clientSecret);
     }
 
+    const credentialExpiration = (formData.get('credentialExpiration') as string) || null;
     const config: SophosPartnerConfig = { clientId, clientSecret: encryptedSecret };
 
     const { error } = await locals.supabase.from('integrations').upsert(
-      { id: 'sophos-partner', tenant_id: locals.tenant!.id, config, deleted_at: null },
+      { id: 'sophos-partner', tenant_id: locals.tenant!.id, config, deleted_at: null, credential_expiration: credentialExpiration },
       { onConflict: 'id,tenant_id' },
     );
 

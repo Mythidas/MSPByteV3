@@ -59,10 +59,11 @@ export const actions = {
       encryptedSecret = await encryptSecret(apiSecretKey);
     }
 
+    const credentialExpiration = (formData.get('credentialExpiration') as string) || null;
     const config: DattoRMMConfig = { url, apiKey, apiSecretKey: encryptedSecret, siteVariableName };
 
     const { error } = await locals.supabase.from('integrations').upsert(
-      { id: 'dattormm', tenant_id: locals.tenant!.id, config, deleted_at: null },
+      { id: 'dattormm', tenant_id: locals.tenant!.id, config, deleted_at: null, credential_expiration: credentialExpiration },
       { onConflict: 'id,tenant_id' },
     );
 

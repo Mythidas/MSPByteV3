@@ -14,7 +14,7 @@
 <DropdownMenu.Root>
   <DropdownMenu.Trigger>
     <div
-      class="flex rounded-full bg-primary items-center justify-center w-10 h-10 hover:cursor-pointer hover:bg-primary/70"
+      class="flex rounded-full bg-primary items-center justify-center w-8 h-8 text-sm hover:cursor-pointer hover:bg-primary/70"
     >
       {initials}
     </div>

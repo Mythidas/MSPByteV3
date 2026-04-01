@@ -311,6 +311,19 @@
                     class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
                   />
                 </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="cove-credential-expiration">
+                    Credential Expiration
+                    <span class="text-muted-foreground font-normal text-xs">(optional)</span>
+                  </label>
+                  <input
+                    id="cove-credential-expiration"
+                    name="credentialExpiration"
+                    type="date"
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={dbIntegration?.credential_expiration?.split('T')[0] ?? ''}
+                  />
+                </div>
               </Card.Content>
             </Card.Root>
 

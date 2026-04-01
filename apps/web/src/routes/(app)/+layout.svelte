@@ -6,8 +6,11 @@
   import { cn } from '$lib/utils';
   import { type LayoutProps } from './$types';
   import { scopeStore } from '$lib/stores/scope.svelte';
+  import { notificationStore } from '$lib/stores/notifications.svelte';
   import IntegrationSelect from '$lib/components/nav/integration-select.svelte';
   import ScopeSelect from '$lib/components/nav/scope-select.svelte';
+  import NotificationBell from '$lib/components/nav/notification-bell.svelte';
+  import NotificationBanner from '$lib/components/notifications/notification-banner.svelte';
   import { buildRouteMap } from '$lib/config/routes';
   import ChevronDown from '@lucide/svelte/icons/chevron-down';
   import { Aperture } from '@lucide/svelte';
@@ -24,6 +27,7 @@
     authStore.currentRole = data.role;
     authStore.currentTenant = data.tenant;
     scopeStore.activeIntegrations = data.activeIntegrations;
+    notificationStore.set(data.notifications);
   });
 </script>
 
@@ -88,10 +92,12 @@
         {/each}
       </div>
     </div>
-    <div class="flex h-full px-2">
+    <div class="flex h-full px-2 items-center gap-1">
+      <NotificationBell />
       <UserAccount />
     </div>
   </div>
+  <NotificationBanner />
   <div class="flex flex-col relative size-full overflow-hidden">
     {@render children()}
   </div>

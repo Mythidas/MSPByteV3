@@ -69,10 +69,11 @@ export const actions = {
       encryptedSecret = await encryptSecret(clientSecret);
     }
 
+    const credentialExpiration = (formData.get('credentialExpiration') as string) || null;
     const config: CoveConnectorConfig = { server, partnerId, clientId, clientSecret: encryptedSecret };
 
     const { error } = await locals.supabase.from('integrations').upsert(
-      { id: 'cove', tenant_id: locals.tenant!.id, config, deleted_at: null },
+      { id: 'cove', tenant_id: locals.tenant!.id, config, deleted_at: null, credential_expiration: credentialExpiration },
       { onConflict: 'id,tenant_id' },
     );
 
