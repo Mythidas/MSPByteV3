@@ -34,7 +34,7 @@
   // Dedup results: latest per (linkId, checkId)
   const latestResults = $derived.by(() => {
     const link = scopeStore.currentLink;
-    const map = new Map<string, typeof hook.results[0]>();
+    const map = new Map<string, (typeof hook.results)[0]>();
     for (const r of hook.results) {
       const key = `${r.link_id}::${r.framework_check_id}`;
       if (!map.has(key)) {
@@ -57,11 +57,11 @@
   const summaryPass = $derived(visibleResults.filter((r) => r.status === 'pass').length);
   const summaryFail = $derived(visibleResults.filter((r) => r.status === 'fail').length);
   const summaryUnknown = $derived(
-    visibleResults.filter((r) => r.status !== 'pass' && r.status !== 'fail').length,
+    visibleResults.filter((r) => r.status !== 'pass' && r.status !== 'fail').length
   );
   const summaryTotal = $derived(visibleResults.length);
   const summaryPassRate = $derived(
-    summaryTotal > 0 ? Math.round((summaryPass / summaryTotal) * 100) : 0,
+    summaryTotal > 0 ? Math.round((summaryPass / summaryTotal) * 100) : 0
   );
 
   // Per-framework summary for selector cards
@@ -120,7 +120,7 @@
 
   // Selected framework pass rate
   const selectedFrameworkSummary = $derived(
-    selectedFrameworkId ? (frameworkSummaries.get(selectedFrameworkId) ?? null) : null,
+    selectedFrameworkId ? (frameworkSummaries.get(selectedFrameworkId) ?? null) : null
   );
   const selectedFrameworkPassRate = $derived.by(() => {
     if (!selectedFrameworkSummary) return 0;
@@ -206,33 +206,35 @@
             {#each hook.frameworks as fw (fw.id)}
               {@const summary = frameworkSummaries.get(fw.id)}
               {@const isActive = selectedFrameworkId === fw.id}
-              <button
-                class="text-left rounded-lg border p-3 transition-colors {isActive
-                  ? 'bg-primary/10 border-primary/30'
-                  : 'bg-card hover:border-primary/20 hover:bg-primary/5'}"
-                onclick={() => {
-                  selectedFrameworkId = fw.id;
-                  statusFilter = 'fail';
-                }}
-              >
-                <div class="font-medium text-sm leading-tight">{fw.name}</div>
-                {#if summary}
-                  <div class="flex items-center gap-1.5 mt-1.5">
-                    <span
-                      class="text-xs px-1.5 py-0.5 rounded bg-success/15 text-success border border-success/30"
-                    >
-                      {summary.passCount} pass
-                    </span>
-                    {#if summary.failCount > 0}
+              {#if (summary?.failCount ?? 0) + (summary?.passCount ?? 0) > 0}
+                <button
+                  class="text-left rounded-lg border p-3 transition-colors {isActive
+                    ? 'bg-primary/10 border-primary/30'
+                    : 'bg-card hover:border-primary/20 hover:bg-primary/5'}"
+                  onclick={() => {
+                    selectedFrameworkId = fw.id;
+                    statusFilter = 'fail';
+                  }}
+                >
+                  <div class="font-medium text-sm leading-tight">{fw.name}</div>
+                  {#if summary}
+                    <div class="flex items-center gap-1.5 mt-1.5">
                       <span
-                        class="text-xs px-1.5 py-0.5 rounded bg-destructive/15 text-destructive border border-destructive/30"
+                        class="text-xs px-1.5 py-0.5 rounded bg-success/15 text-success border border-success/30"
                       >
-                        {summary.failCount} fail
+                        {summary.passCount} pass
                       </span>
-                    {/if}
-                  </div>
-                {/if}
-              </button>
+                      {#if summary.failCount > 0}
+                        <span
+                          class="text-xs px-1.5 py-0.5 rounded bg-destructive/15 text-destructive border border-destructive/30"
+                        >
+                          {summary.failCount} fail
+                        </span>
+                      {/if}
+                    </div>
+                  {/if}
+                </button>
+              {/if}
             {/each}
           </div>
 

@@ -35,25 +35,26 @@ export function createM365ComplianceData(getTenantId: () => string | null) {
     error = null;
 
     Promise.all([
-      (supabase as any)
-        .from('compliance_frameworks' as any)
+      supabase
+        .from('compliance_frameworks')
         .select('id, name')
         .eq('tenant_id', tenantId)
         .eq('integration_id', 'microsoft-365'),
-      (supabase as any)
-        .from('compliance_framework_checks' as any)
+      supabase
+        .from('compliance_framework_checks')
         .select('id, name, description, severity, check_config, framework_id')
         .eq('tenant_id', tenantId),
-      (supabase as any)
-        .from('compliance_results' as any)
+      supabase
+        .from('compliance_results')
         .select('id, framework_check_id, link_id, status, detail, evaluated_at')
         .eq('tenant_id', tenantId)
         .order('evaluated_at', { ascending: false }),
-      (supabase as any)
-        .from('integration_links' as any)
+      supabase
+        .from('integration_links')
         .select('id, name')
         .eq('tenant_id', tenantId)
-        .eq('integration_id', 'microsoft-365'),
+        .eq('integration_id', 'microsoft-365')
+        .eq('status', 'active'),
     ])
       .then(([fwRes, checkRes, resultRes, linkRes]) => {
         frameworks = (fwRes.data ?? []) as ComplianceFramework[];
@@ -70,11 +71,23 @@ export function createM365ComplianceData(getTenantId: () => string | null) {
   });
 
   return {
-    get frameworks() { return frameworks; },
-    get checks() { return checks; },
-    get results() { return results; },
-    get links() { return links; },
-    get loading() { return loading; },
-    get error() { return error; },
+    get frameworks() {
+      return frameworks;
+    },
+    get checks() {
+      return checks;
+    },
+    get results() {
+      return results;
+    },
+    get links() {
+      return links;
+    },
+    get loading() {
+      return loading;
+    },
+    get error() {
+      return error;
+    },
   };
 }

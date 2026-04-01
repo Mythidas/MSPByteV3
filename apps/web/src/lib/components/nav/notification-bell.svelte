@@ -28,7 +28,7 @@
     <Bell class="w-5 h-5" />
     {#if notificationStore.count > 0}
       <span
-        class="absolute top-1 right-1 min-w-[16px] h-4 text-[10px] font-bold rounded-full
+        class="absolute top-1 right-1 min-w-4 h-4 text-[10px] font-bold rounded-full
                bg-destructive text-destructive-foreground flex items-center justify-center px-1 leading-none"
       >
         {notificationStore.count > 99 ? '99+' : notificationStore.count}
@@ -42,12 +42,16 @@
     >
       <div class="px-3 py-2.5 border-b text-sm font-medium">Notifications</div>
       {#if notificationStore.undismissed.length === 0}
-        <div class="px-4 py-6 text-sm text-muted-foreground text-center">No active notifications</div>
+        <div class="px-4 py-6 text-sm text-muted-foreground text-center">
+          No active notifications
+        </div>
       {:else}
         <div class="max-h-96 overflow-y-auto">
           {#each notificationStore.undismissed as n (n.id)}
             {@const Icon = severityIcon(n.severity)}
-            <div class="flex items-start gap-2.5 px-3 py-2.5 border-b last:border-0 hover:bg-muted/40">
+            <div
+              class="flex items-start gap-2.5 px-3 py-2.5 border-b last:border-0 hover:bg-muted/40"
+            >
               <Icon class="w-4 h-4 mt-0.5 shrink-0 {severityIconClass(n.severity)}" />
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium leading-snug">{n.title}</div>
