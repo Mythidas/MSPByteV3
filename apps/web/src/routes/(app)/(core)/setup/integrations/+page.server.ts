@@ -5,7 +5,7 @@ import {
   deriveIntegrationHealthStatus,
   getCredentialExpirationStatus,
   getCredentialDaysRemaining,
-} from './_helpers/integration-health';
+} from '../../../../../lib/utils/integration-health';
 
 type SyncStateRow = {
   integration_id: string;

@@ -7,8 +7,9 @@
   const { children } = $props();
 
   const tabs = [
-    { href: '/automation/workflows', label: 'Workflows' },
-    { href: '/automation/tasks', label: 'Tasks' },
+    { href: '/setup/users', label: 'Users' },
+    { href: '/setup/roles', label: 'Roles' },
+    { href: '/setup/integrations', label: 'Integrations' },
   ];
 </script>
 

@@ -6,8 +6,8 @@
   import SearchBar from '$lib/components/search-bar.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
   import { SquareArrowRight } from 'lucide-svelte';
-    import { INTEGRATIONS } from "@workspace/core/config/integrations";
-    import type { IntegrationId } from "@workspace/core/types/integrations";
+  import { INTEGRATIONS } from '@workspace/core/config/integrations';
+  import type { IntegrationId } from '@workspace/core/types/integrations';
 
   const { data }: PageProps = $props();
 
@@ -45,14 +45,24 @@
           {#if active && entry}
             <div class="flex flex-col gap-1">
               {#if entry.healthStatus === 'action_required'}
-                <Badge class="h-fit w-fit bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/10">Action Required</Badge>
+                <Badge
+                  class="h-fit w-fit bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/10"
+                  >Action Required</Badge
+                >
               {:else if entry.healthStatus === 'degraded'}
-                <Badge class="h-fit w-fit bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/10">Degraded</Badge>
+                <Badge
+                  class="h-fit w-fit bg-amber-500/10 text-amber-500 border-amber-500/20 hover:bg-amber-500/10"
+                  >Degraded</Badge
+                >
               {/if}
               {#if entry.credExpiryStatus === 'expired'}
                 <span class="text-xs text-destructive">Credentials expired</span>
               {:else if entry.credExpiryStatus === 'expiring_urgent'}
-                <span class="text-xs text-amber-500">Expires in {entry.credDaysRemaining} day{entry.credDaysRemaining === 1 ? '' : 's'}</span>
+                <span class="text-xs text-amber-500"
+                  >Expires in {entry.credDaysRemaining} day{entry.credDaysRemaining === 1
+                    ? ''
+                    : 's'}</span
+                >
               {/if}
             </div>
           {/if}
@@ -60,7 +70,7 @@
             <Badge variant={active ? 'default' : 'secondary'} class="h-fit">
               {active ? 'Configured' : 'Available'}
             </Badge>
-            <Button variant="link" class="py-0! h-fit" href={`/integrations/${key}`}>
+            <Button variant="link" class="py-0! h-fit" href={`/setup/integrations/${key}`}>
               {active ? 'Manage' : 'Configure'}
               <SquareArrowRight class="w-5 h-5" />
             </Button>

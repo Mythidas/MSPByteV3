@@ -14,27 +14,34 @@ const ROUTES: Route[] = [
     permission: 'Sites.Read',
   },
   {
+    label: 'Workflows',
+    href: '/automation/workflows',
+    permission: 'Automation.Read',
+    group: 'Automation',
+  },
+  {
+    label: 'Tasks',
+    href: '/automation/tasks',
+    permission: 'Automation.Read',
+    group: 'Automation',
+  },
+  {
     label: 'Users',
-    href: '/users',
+    href: '/setup/users',
     permission: 'Users.Read',
     group: 'Setup',
   },
   {
     label: 'Roles',
-    href: '/roles',
+    href: '/setup/roles',
     permission: 'Users.Read',
     group: 'Setup',
   },
   {
     label: 'Integrations',
-    href: '/integrations',
+    href: '/setup/integrations',
     permission: 'Integrations.Read',
     group: 'Setup',
-  },
-  {
-    label: 'Automation',
-    href: '/automation',
-    permission: 'Automation.Read',
   },
 ];
 

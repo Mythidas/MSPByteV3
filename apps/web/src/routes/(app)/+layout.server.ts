@@ -1,10 +1,10 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import type { IntegrationId } from '@workspace/core/config/integrations';
+import type { IntegrationId } from '@workspace/core/types/integrations';
 import {
   deriveNotificationsFromHealth,
   deriveNotificationsFromExpiry,
-} from './(core)/integrations/_helpers/integration-health';
+} from '$lib/utils/integration-health';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
   if (!locals.user || !locals.role || !locals.tenant) {
@@ -15,8 +15,12 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
   const [{ data: activeIntegrations }, { data: syncIssues }, { data: expiringCreds }] =
     await Promise.all([
-      locals.supabase.from('integrations').select('id').is('deleted_at', null).eq('tenant_id', tenantId),
-      (locals.supabase as any)
+      locals.supabase
+        .from('integrations')
+        .select('id')
+        .is('deleted_at', null)
+        .eq('tenant_id', tenantId),
+      locals.supabase
         .from('ingest_sync_states')
         .select('integration_id, last_error_class, last_error_message, consecutive_failures')
         .eq('tenant_id', tenantId)
