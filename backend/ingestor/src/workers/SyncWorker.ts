@@ -4,7 +4,7 @@ import { publishEvent } from "@workspace/core/lib/event-bus";
 import type { DataReadyEvent } from "@workspace/core/types/event";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { JobScheduler } from "../scheduler/JobScheduler.js";
-import { completeIngestJob, failIngestJob } from "../lib/ingest-state.js";
+import { startIngestJob, completeIngestJob, failIngestJob } from "../lib/ingest-state.js";
 import { PipelineTracker } from "../lib/tracker.js";
 import { getSupabase } from "../supabase.js";
 import { resolveCredentials } from "@workspace/core/lib/credentials";
@@ -46,21 +46,25 @@ export class SyncWorker {
   }
 
   private async handleJob(job: Job<IngestJobData>): Promise<void> {
-    const { tenantId, ingestType, jobId, linkId, siteId, integrationId } =
-      job.data;
+    const { tenantId, ingestType, linkId, siteId, integrationId } = job.data;
     const supabase = getSupabase();
     const tracker = new PipelineTracker();
+
+    const dbJob = await startIngestJob({
+      tenant_id: tenantId,
+      link_id: linkId,
+      site_id: siteId,
+      integration_id: integrationId,
+      ingest_type: ingestType,
+      bullmq_job_id: job.id ?? null,
+    });
+    const jobId = dbJob.id;
 
     Logger.info({
       module: "SyncWorker",
       context: "handleJob",
       message: `[${jobId}] Starting ingest for ${integrationId}:${ingestType}`,
     });
-
-    await supabase
-      .from("ingest_jobs")
-      .update({ status: "running", updated_at: new Date().toISOString() })
-      .eq("id", jobId);
 
     try {
       // 1. Load integration config
@@ -205,7 +209,6 @@ export class SyncWorker {
         linkId,
         integrationId,
         ingestType,
-        50,
       );
 
       Logger.info({
@@ -217,7 +220,7 @@ export class SyncWorker {
       tracker.trackError(error as Error);
       try {
         await failIngestJob(jobId, {
-          error: (error as Error).message,
+          error,
           metrics: tracker.toJSON(),
         });
       } catch (updateError) {

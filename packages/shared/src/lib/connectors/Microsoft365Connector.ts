@@ -353,9 +353,6 @@ export class Microsoft365Connector {
       const { data: token, error: tokenError } = await this.getToken();
       if (tokenError) return { error: tokenError };
 
-      console.log(
-        `https://graph.microsoft.com/v1.0/directoryRoles(roleTemplateId='${roleId}')/members`,
-      );
       const url =
         filters?.cursor ??
         this.makeGraphURL(
@@ -365,14 +362,19 @@ export class Microsoft365Connector {
         );
 
       if (fetchAll) {
-        const values = await this.getAllPaged(url);
+        const values = await this.getAllPaged(url, [404]);
         return { data: { members: values } };
       }
 
       const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!response.ok) await this.throwGraphError(response);
+      if (!response.ok) {
+        if (response.status === 404) {
+          return { data: { members: [] } };
+        }
+        await this.throwGraphError(response);
+      }
 
       const json = await response.json();
       return {
@@ -685,7 +687,10 @@ export class Microsoft365Connector {
     }
   }
 
-  private async getAllPaged(url: string): Promise<any[]> {
+  private async getAllPaged(
+    url: string,
+    forgetErrors?: number[],
+  ): Promise<any[]> {
     const { data: token, error: tokenError } = await this.getToken();
     if (tokenError) throw new Error(tokenError.message);
 
@@ -698,7 +703,13 @@ export class Microsoft365Connector {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      if (!response.ok) await this.throwGraphError(response);
+      if (!response.ok) {
+        if (forgetErrors && forgetErrors.includes(response.status)) {
+          return items;
+        }
+
+        await this.throwGraphError(response);
+      }
 
       const json: any = await response.json();
       items.push(...(json.value || []));

@@ -690,57 +690,57 @@ export type Database = {
           completed_at: string | null
           created_at: string
           error: string | null
+          error_class: string | null
           id: string
           ingest_type: string
           integration_id: string
           link_id: string | null
           metrics: Json | null
-          priority: number
-          scheduled_for: string | null
           site_id: string | null
           started_at: string | null
           status: string
           tenant_id: string
-          trigger: string
           updated_at: string
+          user_facing: boolean
+          user_message: string | null
         }
         Insert: {
           bullmq_job_id?: string | null
           completed_at?: string | null
           created_at?: string
           error?: string | null
+          error_class?: string | null
           id?: string
           ingest_type: string
           integration_id: string
           link_id?: string | null
           metrics?: Json | null
-          priority?: number
-          scheduled_for?: string | null
           site_id?: string | null
           started_at?: string | null
           status?: string
           tenant_id: string
-          trigger?: string
           updated_at?: string
+          user_facing?: boolean
+          user_message?: string | null
         }
         Update: {
           bullmq_job_id?: string | null
           completed_at?: string | null
           created_at?: string
           error?: string | null
+          error_class?: string | null
           id?: string
           ingest_type?: string
           integration_id?: string
           link_id?: string | null
           metrics?: Json | null
-          priority?: number
-          scheduled_for?: string | null
           site_id?: string | null
           started_at?: string | null
           status?: string
           tenant_id?: string
-          trigger?: string
           updated_at?: string
+          user_facing?: boolean
+          user_message?: string | null
         }
         Relationships: [
           {
@@ -768,10 +768,15 @@ export type Database = {
       }
       ingest_sync_states: {
         Row: {
+          consecutive_failures: number
           id: string
           ingest_type: string
           integration_id: string
+          last_error_class: string | null
+          last_error_message: string | null
+          last_failed_at: string | null
           last_job_id: string | null
+          last_status: string | null
           last_synced_at: string
           link_id: string | null
           metadata: Json
@@ -779,10 +784,15 @@ export type Database = {
           tenant_id: string
         }
         Insert: {
+          consecutive_failures?: number
           id?: string
           ingest_type: string
           integration_id: string
+          last_error_class?: string | null
+          last_error_message?: string | null
+          last_failed_at?: string | null
           last_job_id?: string | null
+          last_status?: string | null
           last_synced_at: string
           link_id?: string | null
           metadata?: Json
@@ -790,10 +800,15 @@ export type Database = {
           tenant_id: string
         }
         Update: {
+          consecutive_failures?: number
           id?: string
           ingest_type?: string
           integration_id?: string
+          last_error_class?: string | null
+          last_error_message?: string | null
+          last_failed_at?: string | null
           last_job_id?: string | null
+          last_status?: string | null
           last_synced_at?: string
           link_id?: string | null
           metadata?: Json
@@ -889,6 +904,7 @@ export type Database = {
         Row: {
           config: Json
           created_at: string
+          credential_expiration: string | null
           deleted_at: string | null
           id: string
           tenant_id: string
@@ -897,6 +913,7 @@ export type Database = {
         Insert: {
           config: Json
           created_at?: string
+          credential_expiration?: string | null
           deleted_at?: string | null
           id: string
           tenant_id: string
@@ -905,6 +922,7 @@ export type Database = {
         Update: {
           config?: Json
           created_at?: string
+          credential_expiration?: string | null
           deleted_at?: string | null
           id?: string
           tenant_id?: string

@@ -1,9 +1,11 @@
 import { getSupabase } from '../supabase.js';
+import { classifyError } from './error-classifier.js';
 
 export type IngestJobRecord = {
   id: string;
   tenant_id: string;
   link_id: string | null;
+  site_id: string | null;
   integration_id: string;
   ingest_type: string;
 };
@@ -11,9 +13,10 @@ export type IngestJobRecord = {
 type StartParams = {
   tenant_id: string;
   link_id?: string | null;
+  site_id?: string | null;
   integration_id: string;
   ingest_type: string;
-  trigger?: string;
+  bullmq_job_id?: string | null;
 };
 
 export async function startIngestJob(params: StartParams): Promise<IngestJobRecord> {
@@ -24,11 +27,12 @@ export async function startIngestJob(params: StartParams): Promise<IngestJobReco
     .insert({
       tenant_id: params.tenant_id,
       link_id: params.link_id ?? null,
+      site_id: params.site_id ?? null,
       integration_id: params.integration_id,
       ingest_type: params.ingest_type,
+      bullmq_job_id: params.bullmq_job_id ?? null,
       status: 'running',
       started_at: now,
-      trigger: params.trigger ?? 'linker',
     })
     .select()
     .single();
@@ -46,14 +50,13 @@ export async function completeIngestJob(
 
   const { data: job, error: fetchError } = await supabase
     .from('ingest_jobs')
-    .select('tenant_id, link_id, integration_id, ingest_type')
+    .select('tenant_id, link_id, site_id, integration_id, ingest_type')
     .eq('id', jobId)
     .single();
 
   if (fetchError || !job) throw new Error(`completeIngestJob: job ${jobId} not found`);
 
-  await supabase
-    .from('ingest_jobs')
+  await (supabase.from('ingest_jobs' as any) as any)
     .update({
       status: 'completed',
       completed_at: now,
@@ -68,10 +71,15 @@ export async function completeIngestJob(
       {
         tenant_id: job.tenant_id,
         link_id: job.link_id,
+        site_id: job.site_id,
         integration_id: job.integration_id,
         ingest_type: job.ingest_type,
         last_synced_at: now,
         last_job_id: jobId,
+        last_status: 'completed',
+        consecutive_failures: 0,
+        last_error_class: null,
+        last_error_message: null,
         metadata: opts.syncMetadata ?? {},
       },
       { onConflict: 'tenant_id,link_id,integration_id,ingest_type' },
@@ -80,21 +88,68 @@ export async function completeIngestJob(
 
 export async function failIngestJob(
   jobId: string,
-  opts: { error: string; metrics?: Record<string, any> },
+  opts: { error: unknown; metrics?: Record<string, any> },
 ): Promise<void> {
   const supabase = getSupabase();
   const now = new Date().toISOString();
 
-  await supabase
+  const classified = classifyError(opts.error);
+
+  const { data: job, error: fetchError } = await supabase
     .from('ingest_jobs')
+    .select('tenant_id, link_id, site_id, integration_id, ingest_type')
+    .eq('id', jobId)
+    .single();
+
+  await (supabase.from('ingest_jobs' as any) as any)
     .update({
       status: 'failed',
       completed_at: now,
-      error: opts.error,
+      error: classified.rawMessage,
+      error_class: classified.errorClass,
+      user_facing: classified.userFacing,
+      user_message: classified.userMessage,
       metrics: opts.metrics ?? null,
       updated_at: now,
     })
     .eq('id', jobId);
+
+  if (fetchError || !job) return;
+
+  // Read current consecutive_failures before incrementing
+  let currentFailures = 0;
+  let syncQuery = supabase
+    .from('ingest_sync_states')
+    .select('consecutive_failures')
+    .eq('tenant_id', job.tenant_id)
+    .eq('integration_id', job.integration_id)
+    .eq('ingest_type', job.ingest_type);
+  syncQuery = job.link_id !== null ? syncQuery.eq('link_id', job.link_id) : syncQuery.is('link_id', null);
+  const { data: syncState } = await syncQuery.maybeSingle();
+
+  if (syncState) {
+    currentFailures = syncState.consecutive_failures ?? 0;
+  }
+
+  await supabase
+    .from('ingest_sync_states')
+    .upsert(
+      {
+        tenant_id: job.tenant_id,
+        link_id: job.link_id,
+        site_id: job.site_id,
+        integration_id: job.integration_id,
+        ingest_type: job.ingest_type,
+        last_synced_at: now,
+        last_job_id: jobId,
+        last_status: 'failed',
+        last_failed_at: now,
+        last_error_class: classified.errorClass,
+        last_error_message: classified.userMessage,
+        consecutive_failures: currentFailures + 1,
+      },
+      { onConflict: 'tenant_id,link_id,integration_id,ingest_type' },
+    );
 }
 
 export async function getAvailableDataTypes(params: {

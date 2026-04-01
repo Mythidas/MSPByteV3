@@ -36,13 +36,6 @@ async function main() {
       throw new Error(`Missing required env var: ${envVar}`);
   }
 
-  const recovered = await JobScheduler.recoverStuckJobs();
-  Logger.info({
-    module: "Ingestor",
-    context: "main",
-    message: `Recovered ${recovered} stuck jobs`,
-  });
-
   // Spin up workers for every registered integration
   const syncWorkers: SyncWorker[] = [];
 

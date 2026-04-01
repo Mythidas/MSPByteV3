@@ -58,7 +58,7 @@ export class EnrichWorker {
       await completeIngestJob(dbJob.id, { metrics: tracker.toJSON() });
     } catch (err) {
       tracker.trackError(err as Error);
-      await failIngestJob(dbJob.id, { error: String(err), metrics: tracker.toJSON() });
+      await failIngestJob(dbJob.id, { error: err, metrics: tracker.toJSON() });
       throw err;
     }
   }

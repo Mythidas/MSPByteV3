@@ -8,8 +8,6 @@ export type IngestJobData = {
   tenantId: string;
   integrationId: string;
   ingestType: IngestType;
-  ingestId: string; // ingest_jobs.ingest_id (batch run UUID)
-  jobId: string; // ingest_jobs.id
   linkId: string | null;
   siteId: string | null;
 };

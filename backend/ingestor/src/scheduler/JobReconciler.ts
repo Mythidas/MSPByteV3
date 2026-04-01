@@ -1,7 +1,8 @@
-import { getSupabase } from "../supabase.js";
-import { Logger } from "@workspace/shared/lib/utils/logger";
-import { registry } from "../registry.js";
-import { INTEGRATIONS } from "@workspace/core/config/integrations";
+import { getSupabase } from '../supabase.js';
+import { Logger } from '@workspace/shared/lib/utils/logger';
+import { registry } from '../registry.js';
+import { INTEGRATIONS } from '@workspace/core/config/integrations';
+import { JobScheduler } from './JobScheduler.js';
 
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -12,8 +13,8 @@ export class JobReconciler {
     this.reconcile();
     this.timer = setInterval(() => this.reconcile(), RECONCILE_INTERVAL_MS);
     Logger.info({
-      module: "JobReconciler",
-      context: "start",
+      module: 'JobReconciler',
+      context: 'start',
       message: `Reconciler started (every ${RECONCILE_INTERVAL_MS / 60000}m)`,
     });
   }
@@ -36,51 +37,45 @@ export class JobReconciler {
         const types = config.supportedTypes.filter(
           (t) => !t.linkerDependencies || t.linkerDependencies.length === 0,
         );
-        if (config.id !== "microsoft-365") continue;
         if (types.length === 0) continue;
 
-        // Query links using the appropriate filter for this integration's link model
-        let linksQuery = supabase
-          .from("integration_links")
-          .select("id, tenant_id, site_id")
-          .eq("integration_id", def.integrationId)
-          .eq("status", "active");
+        const { data: links, error } = await supabase
+          .from('integration_links')
+          .select('id, tenant_id, site_id')
+          .eq('integration_id', def.integrationId)
+          .eq('status', 'active');
 
-        const { data: links, error } = await linksQuery;
         if (error) {
           Logger.error({
-            module: "JobReconciler",
-            context: "reconcile",
+            module: 'JobReconciler',
+            context: 'reconcile',
             message: `Error fetching links for ${def.integrationId}: ${error.message}`,
           });
           continue;
         }
 
         for (const typeConfig of types) {
-          if (typeConfig.scopeLevel === "tenant") {
-            const tenantIds = [
-              ...new Set((links ?? []).map((l) => l.tenant_id)),
-            ];
+          if (typeConfig.scopeLevel === 'tenant') {
+            const tenantIds = [...new Set((links ?? []).map((l) => l.tenant_id))];
             for (const tenantId of tenantIds) {
-              await this.ensureJobExists(
+              await this.ensureJobEnqueued(
                 tenantId,
                 null,
                 null,
                 def.integrationId,
                 typeConfig.type,
-                typeConfig.priority ?? 50,
+                typeConfig.freshnessMinutes ?? 120,
               );
             }
           } else {
-            // scopeLevel === "link": one job per link
             for (const link of links ?? []) {
-              await this.ensureJobExists(
+              await this.ensureJobEnqueued(
                 link.tenant_id,
                 link.id,
                 link.site_id,
                 def.integrationId,
                 typeConfig.type,
-                typeConfig.priority ?? 50,
+                typeConfig.freshnessMinutes ?? 120,
               );
             }
           }
@@ -88,80 +83,80 @@ export class JobReconciler {
       }
 
       Logger.trace({
-        module: "JobReconciler",
-        context: "reconcile",
-        message: "Reconcile pass complete",
+        module: 'JobReconciler',
+        context: 'reconcile',
+        message: 'Reconcile pass complete',
       });
     } catch (err) {
       Logger.error({
-        module: "JobReconciler",
-        context: "reconcile",
+        module: 'JobReconciler',
+        context: 'reconcile',
         message: `Reconcile error: ${err}`,
       });
     }
   }
 
-  private async ensureJobExists(
+  private async ensureJobEnqueued(
     tenantId: string,
     linkId: string | null,
     siteId: string | null,
     integrationId: string,
     ingestType: string,
-    priority: number,
+    freshnessMinutes: number,
   ): Promise<void> {
     const supabase = getSupabase();
+    const freshnessMs = freshnessMinutes * 60 * 1000;
 
-    let checkQuery = (supabase.from("ingest_jobs" as any) as any)
-      .select("*", { count: "exact", head: true })
-      .eq("tenant_id", tenantId)
-      .eq("ingest_type", ingestType)
-      .in("status", ["pending", "queued", "running"]);
+    let q = supabase
+      .from('ingest_sync_states')
+      .select('last_synced_at')
+      .eq('tenant_id', tenantId)
+      .eq('integration_id', integrationId)
+      .eq('ingest_type', ingestType);
 
-    checkQuery =
-      linkId === null
-        ? checkQuery.is("link_id", null)
-        : checkQuery.eq("link_id", linkId);
+    q = linkId !== null ? q.eq('link_id', linkId) : q.is('link_id', null);
 
-    const { count, error } = await checkQuery;
+    const { data, error } = await q.maybeSingle();
 
     if (error) {
       Logger.error({
-        module: "JobReconciler",
-        context: "ensureJobExists",
-        message: `Error checking job for ${linkId ?? "tenant"}:${ingestType}: ${error.message}`,
+        module: 'JobReconciler',
+        context: 'ensureJobEnqueued',
+        message: `Error checking sync state for ${linkId ?? 'tenant'}:${ingestType}: ${error.message}`,
       });
       return;
     }
 
-    if (count && count > 0) return;
-
-    const { error: insertError } = await (
-      supabase.from("ingest_jobs" as any) as any
-    ).insert({
-      tenant_id: tenantId,
-      site_id: siteId,
-      link_id: linkId,
-      integration_id: integrationId,
-      ingest_type: ingestType,
-      status: "pending",
-      priority,
-      trigger: "scheduled",
-      scheduled_for: null,
-    });
-
-    if (insertError) {
-      Logger.error({
-        module: "JobReconciler",
-        context: "ensureJobExists",
-        message: `Error inserting job for ${linkId ?? "tenant"}:${ingestType}: ${insertError.message}`,
+    if (!data) {
+      // Never synced — enqueue immediately
+      await JobScheduler.enqueueNow(tenantId, siteId, linkId, integrationId, ingestType);
+      Logger.info({
+        module: 'JobReconciler',
+        context: 'ensureJobEnqueued',
+        message: `Enqueued immediate job: ${ingestType} for ${linkId ? `link ${linkId}` : `tenant ${tenantId}`} (${integrationId}) — never synced`,
       });
       return;
     }
 
-    Logger.info({
-      module: "JobReconciler",
-      context: "ensureJobExists",
-      message: `Created missing job: ${ingestType} for ${linkId ? `link ${linkId}` : `tenant ${tenantId}`} (${integrationId})`,
-    });
+    const age = Date.now() - new Date(data.last_synced_at).getTime();
+
+    if (age >= freshnessMs) {
+      await JobScheduler.enqueueNow(tenantId, siteId, linkId, integrationId, ingestType);
+      Logger.info({
+        module: 'JobReconciler',
+        context: 'ensureJobEnqueued',
+        message: `Enqueued immediate job: ${ingestType} for ${linkId ? `link ${linkId}` : `tenant ${tenantId}`} (${integrationId}) — data stale`,
+      });
+    } else {
+      const remainingMs = freshnessMs - age;
+      await JobScheduler.scheduleWithDelay(
+        tenantId,
+        siteId,
+        linkId,
+        integrationId,
+        ingestType,
+        remainingMs,
+      );
+    }
   }
 }
