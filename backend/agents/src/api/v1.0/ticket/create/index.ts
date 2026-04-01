@@ -108,7 +108,7 @@ export default async function (fastify: FastifyInstance) {
             error: {
               module: "v1.0/ticket/create",
               context: "POST",
-              message: "PSA records not valid",
+              message: `PSA records not valid [SiteID: ${site.id}, AgentID: ${agent.id}, HasConfig: ${!!psaConfig}]`,
             },
           },
           404,
