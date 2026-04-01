@@ -4,8 +4,40 @@ import { decryptSecret } from '$lib/server/encryption';
 import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
 import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index.js';
 import type { MSPAgentConfig } from '@workspace/shared/types/integrations/mspagent/index.js';
+import type { TablesInsert } from '@workspace/shared/types/database';
+
+type MSPAgentLinkMeta = {
+  rmm: 'dattormm';
+  variableName: string;
+  variableStatus: 'ok' | 'missing' | 'mismatch' | null;
+  lastCheckedAt: string | null;
+};
 
 export const load: PageServerLoad = async ({}) => {};
+
+async function getDattoConnector(locals: App.Locals) {
+  const { data: dattoIntegration } = await locals.supabase
+    .from('integrations')
+    .select('*')
+    .eq('id', 'dattormm')
+    .eq('tenant_id', locals.tenant!.id)
+    .is('deleted_at', null)
+    .single();
+
+  if (!dattoIntegration) return { error: 'DattoRMM integration not configured' };
+
+  const dattoConfig = dattoIntegration.config as DattoRMMConfig;
+  if (!dattoConfig?.url || !dattoConfig?.apiKey || !dattoConfig?.apiSecretKey) {
+    return { error: 'DattoRMM integration not fully configured' };
+  }
+
+  const apiSecretKey = await decryptSecret(dattoConfig.apiSecretKey);
+  if (!apiSecretKey) return { error: 'Failed to decrypt DattoRMM credentials' };
+
+  return {
+    connector: new DattoRMMConnector({ url: dattoConfig.url, apiKey: dattoConfig.apiKey, apiSecretKey }),
+  };
+}
 
 export const actions = {
   pushVars: async ({ request, locals }) => {
@@ -23,27 +55,8 @@ export const actions = {
     const mspagentConfig = (mspagentIntegration?.config as MSPAgentConfig) ?? {};
     const variableName = mspagentConfig.siteVariableName ?? 'MSPSiteCode';
 
-    const { data: dattoIntegration } = await locals.supabase
-      .from('integrations')
-      .select('*')
-      .eq('id', 'dattormm')
-      .eq('tenant_id', locals.tenant!.id)
-      .is('deleted_at', null)
-      .single();
-
-    if (!dattoIntegration) {
-      return fail(404, { error: 'DattoRMM integration not configured' });
-    }
-
-    const dattoConfig = dattoIntegration.config as DattoRMMConfig;
-    if (!dattoConfig?.url || !dattoConfig?.apiKey || !dattoConfig?.apiSecretKey) {
-      return fail(404, { error: 'DattoRMM integration not fully configured' });
-    }
-
-    const apiSecretKey = await decryptSecret(dattoConfig.apiSecretKey);
-    if (!apiSecretKey) {
-      return fail(500, { error: 'Failed to decrypt DattoRMM credentials' });
-    }
+    const { connector, error: connectorError } = await getDattoConnector(locals);
+    if (connectorError) return fail(404, { error: connectorError });
 
     let linksQuery = locals.supabase
       .from('integration_links')
@@ -56,32 +69,121 @@ export const actions = {
     }
 
     const { data: links, error: linksError } = await linksQuery;
-    if (linksError) {
-      return fail(500, { error: linksError.message });
-    }
-
-    const connector = new DattoRMMConnector({
-      url: dattoConfig.url,
-      apiKey: dattoConfig.apiKey,
-      apiSecretKey,
-    });
+    if (linksError) return fail(500, { error: linksError.message });
 
     let pushed = 0;
     let failed = 0;
     const errors: string[] = [];
+    const mspagentUpserts: TablesInsert<'public', 'integration_links'>[] = [];
 
     for (const link of links ?? []) {
       if (!link.external_id || !link.site_id) continue;
-      const { error } = await connector.setSiteVariable(link.external_id, variableName, link.site_id);
+      const { error } = await connector!.setSiteVariable(link.external_id, variableName, link.site_id);
       if (error) {
         failed++;
         errors.push(`${link.name ?? link.external_id}: ${error}`);
       } else {
         pushed++;
+        mspagentUpserts.push({
+          integration_id: 'mspagent',
+          tenant_id: locals.tenant!.id,
+          site_id: link.site_id,
+          external_id: link.external_id,
+          name: link.name,
+          status: 'active',
+          meta: {
+            rmm: 'dattormm',
+            variableName,
+            variableStatus: null,
+            lastCheckedAt: null,
+          } as MSPAgentLinkMeta,
+        });
       }
     }
 
+    if (mspagentUpserts.length > 0) {
+      await locals.supabase
+        .from('integration_links')
+        .upsert(mspagentUpserts as any, { onConflict: 'tenant_id,integration_id,site_id,external_id' });
+    }
+
     return { pushResult: { pushed, failed, errors } };
+  },
+
+  checkVars: async ({ request, locals }) => {
+    const formData = await request.formData();
+    const siteId = formData.get('siteId') as string | null;
+
+    const { data: mspagentIntegration } = await locals.supabase
+      .from('integrations')
+      .select('*')
+      .eq('id', 'mspagent')
+      .eq('tenant_id', locals.tenant!.id)
+      .is('deleted_at', null)
+      .single();
+
+    const mspagentConfig = (mspagentIntegration?.config as MSPAgentConfig) ?? {};
+    const variableName = mspagentConfig.siteVariableName ?? 'MSPSiteCode';
+
+    const { connector, error: connectorError } = await getDattoConnector(locals);
+    if (connectorError) return fail(404, { error: connectorError });
+
+    let linksQuery = locals.supabase
+      .from('integration_links')
+      .select('*')
+      .eq('integration_id', 'dattormm')
+      .eq('tenant_id', locals.tenant!.id);
+
+    if (siteId) {
+      linksQuery = linksQuery.eq('site_id', siteId);
+    }
+
+    const { data: links, error: linksError } = await linksQuery;
+    if (linksError) return fail(500, { error: linksError.message });
+
+    type CheckResultItem = { siteId: string; status: 'ok' | 'missing' | 'mismatch'; currentValue: string | null };
+    const checkResult: CheckResultItem[] = [];
+    const mspagentUpserts: TablesInsert<'public', 'integration_links'>[] = [];
+
+    for (const link of links ?? []) {
+      if (!link.external_id || !link.site_id) continue;
+
+      const { data: currentValue } = await connector!.getSiteVariable(link.external_id, variableName);
+
+      let status: 'ok' | 'missing' | 'mismatch';
+      if (currentValue === null || currentValue === undefined) {
+        status = 'missing';
+      } else if (currentValue === link.site_id) {
+        status = 'ok';
+      } else {
+        status = 'mismatch';
+      }
+
+      checkResult.push({ siteId: link.site_id, status, currentValue: currentValue ?? null });
+
+      mspagentUpserts.push({
+        integration_id: 'mspagent',
+        tenant_id: locals.tenant!.id,
+        site_id: link.site_id,
+        external_id: link.external_id,
+        name: link.name,
+        status: 'active',
+        meta: {
+          rmm: 'dattormm',
+          variableName,
+          variableStatus: status,
+          lastCheckedAt: new Date().toISOString(),
+        } as MSPAgentLinkMeta,
+      });
+    }
+
+    if (mspagentUpserts.length > 0) {
+      await locals.supabase
+        .from('integration_links')
+        .upsert(mspagentUpserts as any, { onConflict: 'tenant_id,integration_id,site_id,external_id' });
+    }
+
+    return { checkResult };
   },
 
   save: async ({ request, locals }) => {

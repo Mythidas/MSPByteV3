@@ -14,6 +14,7 @@
   import Switch from '$lib/components/ui/switch/switch.svelte';
   import SearchBar from '$lib/components/search-bar.svelte';
   import SingleSelect from '$lib/components/single-select.svelte';
+  import ConfirmDialog from '$lib/components/fields/confirm-dialog.svelte';
   import { formatStringProper } from '$lib/utils/format';
 
   type Framework = Tables<'public', 'compliance_frameworks'> & {
@@ -331,14 +332,24 @@
               <Pencil class="size-4" />
             </Button>
 
-            <Button
-              variant="ghost"
-              disabled={!authStore.isAllowed('Integrations.Write')}
-              onclick={() => deleteFramework(selectedFramework)}
-              class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
+            <ConfirmDialog
+              title="Delete Framework?"
+              description="This will permanently delete '{selectedFramework.name}' and all its checks."
+              confirmLabel="Delete"
+              destructive
+              onconfirm={() => deleteFramework(selectedFramework)}
             >
-              <Trash2 class="size-4" />
-            </Button>
+              {#snippet trigger(props)}
+                <Button
+                  variant="ghost"
+                  disabled={!authStore.isAllowed('Integrations.Write')}
+                  class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
+                  {...props}
+                >
+                  <Trash2 class="size-4" />
+                </Button>
+              {/snippet}
+            </ConfirmDialog>
           </div>
         </div>
 
@@ -397,14 +408,24 @@
                     >
                       <Pencil class="size-4" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      disabled={!authStore.isAllowed('Integrations.Write')}
-                      onclick={() => deleteCheck(check)}
-                      class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
+                    <ConfirmDialog
+                      title="Delete Check?"
+                      description="This will permanently delete '{check.name}'."
+                      confirmLabel="Delete"
+                      destructive
+                      onconfirm={() => deleteCheck(check)}
                     >
-                      <Trash2 class="size-4" />
-                    </Button>
+                      {#snippet trigger(props)}
+                        <Button
+                          variant="ghost"
+                          disabled={!authStore.isAllowed('Integrations.Write')}
+                          class="p-1.5! h-fit rounded text-muted-foreground hover:text-destructive hover:bg-destructive/20!"
+                          {...props}
+                        >
+                          <Trash2 class="size-4" />
+                        </Button>
+                      {/snippet}
+                    </ConfirmDialog>
                   </div>
                 {/each}
               </div>

@@ -24,7 +24,7 @@
   import { enhance } from '$app/forms';
   import { toast } from 'svelte-sonner';
   import PermissionGaurd from '$lib/components/auth/permission-gaurd.svelte';
-  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+  import ConfirmDialog from '$lib/components/fields/confirm-dialog.svelte';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { SophosPartnerConfig } from '@workspace/shared/types/integrations/sophos/index.js';
@@ -226,129 +226,124 @@
 </script>
 
 <!-- Configuration Sheet -->
-<Sheet.Root bind:open={configSheetOpen}>
-  <Sheet.Portal>
-    <Sheet.Overlay />
-    <Sheet.Content side="right" class="w-105 flex flex-col gap-0 p-0">
-      <Sheet.Header class="p-4 border-b">
-        <Sheet.Title>Configure Sophos Partner</Sheet.Title>
-        <Sheet.Description>Enter your Sophos Partner API credentials.</Sheet.Description>
-      </Sheet.Header>
+<PermissionGaurd permission="Integrations.Write">
+  <Sheet.Root bind:open={configSheetOpen}>
+    <Sheet.Portal>
+      <Sheet.Overlay />
+      <Sheet.Content side="right" class="w-105 flex flex-col gap-0 p-0">
+        <Sheet.Header class="p-4 border-b">
+          <Sheet.Title>Configure Sophos Partner</Sheet.Title>
+          <Sheet.Description>Enter your Sophos Partner API credentials.</Sheet.Description>
+        </Sheet.Header>
 
-      <form
-        id="sophos-config-form"
-        method="POST"
-        action="?/save"
-        class="flex flex-col flex-1 overflow-hidden"
-        use:enhance={({ submitter }) => {
-          const isTesting = submitter?.getAttribute('formaction') === '?/testConnection';
-          if (isTesting) testingConnection = true;
-          else savingConfig = true;
+        <form
+          id="sophos-config-form"
+          method="POST"
+          action="?/save"
+          class="flex flex-col flex-1 overflow-hidden"
+          use:enhance={({ submitter }) => {
+            const isTesting = submitter?.getAttribute('formaction') === '?/testConnection';
+            if (isTesting) testingConnection = true;
+            else savingConfig = true;
 
-          return async ({ result, update }) => {
-            if (isTesting) {
-              testingConnection = false;
-              if (result.type === 'failure') {
-                toast.error(`Connection test failed: ${(result.data as any)?.error}`);
+            return async ({ result, update }) => {
+              if (isTesting) {
+                testingConnection = false;
+                if (result.type === 'failure') {
+                  toast.error(`Connection test failed: ${(result.data as any)?.error}`);
+                } else {
+                  toast.success('Connection test successful!');
+                }
               } else {
-                toast.success('Connection test successful!');
+                savingConfig = false;
+                await update();
               }
-            } else {
-              savingConfig = false;
-              await update();
-            }
-          };
-        }}
-      >
-        <div class="flex flex-col p-4 flex-1 overflow-y-auto gap-4">
-          <Card.Root class="bg-primary/5 border-primary/20">
-            <Card.Header class="pb-2">
-              <Card.Title class="text-base">API Credentials</Card.Title>
-            </Card.Header>
-            <Card.Content class="flex flex-col gap-3">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium" for="sophos-client-id">Client ID</label>
-                <input
-                  id="sophos-client-id"
-                  name="clientId"
-                  type="text"
-                  placeholder="Client ID"
-                  class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={existingConfig?.clientId ?? ''}
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium" for="sophos-client-secret">Client Secret</label>
-                <input
-                  id="sophos-client-secret"
-                  name="clientSecret"
-                  type="password"
-                  placeholder={existingConfig ? 'Leave blank to keep current' : 'Client Secret'}
-                  class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-            </Card.Content>
-          </Card.Root>
+            };
+          }}
+        >
+          <div class="flex flex-col p-4 flex-1 overflow-y-auto gap-4">
+            <Card.Root class="bg-primary/5 border-primary/20">
+              <Card.Header class="pb-2">
+                <Card.Title class="text-base">API Credentials</Card.Title>
+              </Card.Header>
+              <Card.Content class="flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="sophos-client-id">Client ID</label>
+                  <input
+                    id="sophos-client-id"
+                    name="clientId"
+                    type="text"
+                    placeholder="Client ID"
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={existingConfig?.clientId ?? ''}
+                  />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="sophos-client-secret">Client Secret</label
+                  >
+                  <input
+                    id="sophos-client-secret"
+                    name="clientSecret"
+                    type="password"
+                    placeholder={existingConfig ? 'Leave blank to keep current' : 'Client Secret'}
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </Card.Content>
+            </Card.Root>
 
-          <Button
-            type="submit"
-            formaction="?/testConnection"
-            variant="outline"
-            size="sm"
-            disabled={testingConnection}
-          >
-            {testingConnection ? 'Testing...' : 'Test Connection'}
-          </Button>
-        </div>
+            <Button
+              type="submit"
+              formaction="?/testConnection"
+              variant="outline"
+              size="sm"
+              disabled={testingConnection}
+            >
+              {testingConnection ? 'Testing...' : 'Test Connection'}
+            </Button>
+          </div>
 
-        <Sheet.Footer class="flex justify-between p-4 border-t gap-2">
-          <PermissionGaurd permission="Integrations.Write">
-            <AlertDialog.Root>
-              <AlertDialog.Trigger>
-                {#snippet child({ props })}
-                  {#if !!dbIntegration}
-                    <Button variant="destructive" size="sm" {...props}>Delete Integration</Button>
-                  {:else}
-                    <div></div>
-                  {/if}
+          <Sheet.Footer class="flex justify-between p-4 border-t gap-2">
+            {#if !!dbIntegration}
+              <ConfirmDialog
+                title="Delete Sophos Partner Integration?"
+                description="This will remove the Sophos Partner integration and all associated site mappings. This action can be undone within 30 days."
+                confirmLabel="Delete Integration"
+                destructive
+              >
+                {#snippet trigger(props)}
+                  <Button variant="destructive" size="sm" {...props}>Delete Integration</Button>
                 {/snippet}
-              </AlertDialog.Trigger>
-              <AlertDialog.Content>
-                <AlertDialog.Header>
-                  <AlertDialog.Title>Delete Sophos Partner Integration?</AlertDialog.Title>
-                  <AlertDialog.Description>
-                    This will remove the Sophos Partner integration and all associated site
-                    mappings. This action can be undone within 30 days.
-                  </AlertDialog.Description>
-                </AlertDialog.Header>
-                <AlertDialog.Footer>
-                  <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                {#snippet confirmAction()}
                   <form method="POST" action="?/deleteIntegration">
-                    <AlertDialog.Action type="submit" class="bg-red-500 hover:bg-red-500/70">
-                      Delete Integration
-                    </AlertDialog.Action>
+                    <Button type="submit" variant="destructive" size="sm">Delete Integration</Button
+                    >
                   </form>
-                </AlertDialog.Footer>
-              </AlertDialog.Content>
-            </AlertDialog.Root>
+                {/snippet}
+              </ConfirmDialog>
+            {:else}
+              <div></div>
+            {/if}
             <Button size="sm" type="submit" disabled={savingConfig}>
               {savingConfig ? 'Saving...' : 'Save'}
             </Button>
-          </PermissionGaurd>
-        </Sheet.Footer>
-      </form>
-    </Sheet.Content>
-  </Sheet.Portal>
-</Sheet.Root>
+          </Sheet.Footer>
+        </form>
+      </Sheet.Content>
+    </Sheet.Portal>
+  </Sheet.Root>
+</PermissionGaurd>
 
 <!-- Main Layout -->
 <div class="flex flex-col size-full p-4 gap-4 overflow-hidden">
   <div class="flex items-start justify-between shrink-0">
     <IntegrationHeader {integration} active={!!dbIntegration} {loading} />
-    <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
-      <Settings class="size-4" />
-      Configure
-    </Button>
+    <PermissionGaurd permission="Integrations.Write">
+      <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
+        <Settings class="size-4" />
+        Configure
+      </Button>
+    </PermissionGaurd>
   </div>
 
   {#if !!dbIntegration}
@@ -486,7 +481,7 @@
                   selected={pendingMappings[site.id]}
                   onchange={(v) => (pendingMappings[site.id] = v || undefined)}
                   placeholder={loadingTenants ? 'Loading...' : 'Select a Sophos tenant...'}
-                  disabled={loadingTenants}
+                  disabled={loadingTenants || !authStore.isAllowed('Integrations.Write')}
                 />
               </div>
             {/each}

@@ -24,7 +24,7 @@
   import { enhance } from '$app/forms';
   import { toast } from 'svelte-sonner';
   import PermissionGaurd from '$lib/components/auth/permission-gaurd.svelte';
-  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+  import ConfirmDialog from '$lib/components/fields/confirm-dialog.svelte';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index.js';
@@ -226,151 +226,145 @@
 </script>
 
 <!-- Configuration Sheet -->
-<Sheet.Root bind:open={configSheetOpen}>
-  <Sheet.Portal>
-    <Sheet.Overlay />
-    <Sheet.Content side="right" class="w-105 flex flex-col gap-0 p-0">
-      <Sheet.Header class="p-4 border-b">
-        <Sheet.Title>Configure DattoRMM</Sheet.Title>
-        <Sheet.Description>Enter your DattoRMM API credentials.</Sheet.Description>
-      </Sheet.Header>
+<PermissionGaurd permission="Integrations.Write">
+  <Sheet.Root bind:open={configSheetOpen}>
+    <Sheet.Portal>
+      <Sheet.Overlay />
+      <Sheet.Content side="right" class="w-105 flex flex-col gap-0 p-0">
+        <Sheet.Header class="p-4 border-b">
+          <Sheet.Title>Configure DattoRMM</Sheet.Title>
+          <Sheet.Description>Enter your DattoRMM API credentials.</Sheet.Description>
+        </Sheet.Header>
 
-      <form
-        id="datto-config-form"
-        method="POST"
-        action="?/save"
-        class="flex flex-col flex-1 overflow-hidden"
-        use:enhance={({ submitter }) => {
-          const isTesting = submitter?.getAttribute('formaction') === '?/testConnection';
-          if (isTesting) testingConnection = true;
-          else savingConfig = true;
+        <form
+          id="datto-config-form"
+          method="POST"
+          action="?/save"
+          class="flex flex-col flex-1 overflow-hidden"
+          use:enhance={({ submitter }) => {
+            const isTesting = submitter?.getAttribute('formaction') === '?/testConnection';
+            if (isTesting) testingConnection = true;
+            else savingConfig = true;
 
-          return async ({ result, update }) => {
-            if (isTesting) {
-              testingConnection = false;
-              if (result.type === 'failure') {
-                toast.error(`Connection test failed: ${(result.data as any)?.error}`);
+            return async ({ result, update }) => {
+              if (isTesting) {
+                testingConnection = false;
+                if (result.type === 'failure') {
+                  toast.error(`Connection test failed: ${(result.data as any)?.error}`);
+                } else {
+                  toast.success('Connection test successful!');
+                }
               } else {
-                toast.success('Connection test successful!');
+                savingConfig = false;
+                await update();
               }
-            } else {
-              savingConfig = false;
-              await update();
-            }
-          };
-        }}
-      >
-        <div class="flex flex-col p-4 flex-1 overflow-y-auto gap-4">
-          <Card.Root class="bg-primary/5 border-primary/20">
-            <Card.Header class="pb-2">
-              <Card.Title class="text-base">API Credentials</Card.Title>
-            </Card.Header>
-            <Card.Content class="flex flex-col gap-3">
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium" for="datto-url">URL</label>
-                <input
-                  id="datto-url"
-                  name="url"
-                  type="url"
-                  placeholder="https://pinotage-api.centrastage.net"
-                  class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={existingConfig?.url ?? ''}
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium" for="datto-api-key">API Key</label>
-                <input
-                  id="datto-api-key"
-                  name="apiKey"
-                  type="text"
-                  placeholder="API Key"
-                  class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={existingConfig?.apiKey ?? ''}
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium" for="datto-api-secret">API Secret Key</label>
-                <input
-                  id="datto-api-secret"
-                  name="apiSecretKey"
-                  type="password"
-                  placeholder={existingConfig ? 'Leave blank to keep current' : 'API Secret Key'}
-                  class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
-              <div class="flex flex-col gap-1.5">
-                <label class="text-sm font-medium" for="datto-var-name">Site Variable Name</label>
-                <input
-                  id="datto-var-name"
-                  name="siteVariableName"
-                  type="text"
-                  placeholder="MSPSiteCode"
-                  class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={existingConfig?.siteVariableName ?? ''}
-                />
-              </div>
-            </Card.Content>
-          </Card.Root>
+            };
+          }}
+        >
+          <div class="flex flex-col p-4 flex-1 overflow-y-auto gap-4">
+            <Card.Root class="bg-primary/5 border-primary/20">
+              <Card.Header class="pb-2">
+                <Card.Title class="text-base">API Credentials</Card.Title>
+              </Card.Header>
+              <Card.Content class="flex flex-col gap-3">
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="datto-url">URL</label>
+                  <input
+                    id="datto-url"
+                    name="url"
+                    type="url"
+                    placeholder="https://pinotage-api.centrastage.net"
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={existingConfig?.url ?? ''}
+                  />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="datto-api-key">API Key</label>
+                  <input
+                    id="datto-api-key"
+                    name="apiKey"
+                    type="text"
+                    placeholder="API Key"
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={existingConfig?.apiKey ?? ''}
+                  />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="datto-api-secret">API Secret Key</label>
+                  <input
+                    id="datto-api-secret"
+                    name="apiSecretKey"
+                    type="password"
+                    placeholder={existingConfig ? 'Leave blank to keep current' : 'API Secret Key'}
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label class="text-sm font-medium" for="datto-var-name">Site Variable Name</label>
+                  <input
+                    id="datto-var-name"
+                    name="siteVariableName"
+                    type="text"
+                    placeholder="MSPSiteCode"
+                    class="w-full px-3 py-2 text-sm rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={existingConfig?.siteVariableName ?? ''}
+                  />
+                </div>
+              </Card.Content>
+            </Card.Root>
 
-          <Button
-            type="submit"
-            formaction="?/testConnection"
-            variant="outline"
-            size="sm"
-            disabled={testingConnection}
-          >
-            {testingConnection ? 'Testing...' : 'Test Connection'}
-          </Button>
-        </div>
+            <Button
+              type="submit"
+              formaction="?/testConnection"
+              variant="outline"
+              size="sm"
+              disabled={testingConnection}
+            >
+              {testingConnection ? 'Testing...' : 'Test Connection'}
+            </Button>
+          </div>
 
-        <Sheet.Footer class="flex justify-between p-4 border-t gap-2">
-          <PermissionGaurd permission="Integrations.Write">
-            <AlertDialog.Root>
-              <AlertDialog.Trigger>
-                {#snippet child({ props })}
-                  {#if !!dbIntegration}
-                    <Button variant="destructive" size="sm" {...props}>Delete Integration</Button>
-                  {:else}
-                    <div></div>
-                  {/if}
+          <Sheet.Footer class="flex justify-between p-4 border-t gap-2">
+            {#if !!dbIntegration}
+              <ConfirmDialog
+                title="Delete DattoRMM Integration?"
+                description="This will remove the DattoRMM integration and all associated site mappings. This action can be undone within 30 days."
+                confirmLabel="Delete Integration"
+                destructive
+              >
+                {#snippet trigger(props)}
+                  <Button variant="destructive" size="sm" {...props}>Delete Integration</Button>
                 {/snippet}
-              </AlertDialog.Trigger>
-              <AlertDialog.Content>
-                <AlertDialog.Header>
-                  <AlertDialog.Title>Delete DattoRMM Integration?</AlertDialog.Title>
-                  <AlertDialog.Description>
-                    This will remove the DattoRMM integration and all associated site mappings. This
-                    action can be undone within 30 days.
-                  </AlertDialog.Description>
-                </AlertDialog.Header>
-                <AlertDialog.Footer>
-                  <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+                {#snippet confirmAction()}
                   <form method="POST" action="?/deleteIntegration">
-                    <AlertDialog.Action type="submit" class="bg-red-500 hover:bg-red-500/70">
-                      Delete Integration
-                    </AlertDialog.Action>
+                    <Button type="submit" variant="destructive" size="sm">Delete Integration</Button
+                    >
                   </form>
-                </AlertDialog.Footer>
-              </AlertDialog.Content>
-            </AlertDialog.Root>
+                {/snippet}
+              </ConfirmDialog>
+            {:else}
+              <div></div>
+            {/if}
             <Button size="sm" type="submit" disabled={savingConfig}>
               {savingConfig ? 'Saving...' : 'Save'}
             </Button>
-          </PermissionGaurd>
-        </Sheet.Footer>
-      </form>
-    </Sheet.Content>
-  </Sheet.Portal>
-</Sheet.Root>
+          </Sheet.Footer>
+        </form>
+      </Sheet.Content>
+    </Sheet.Portal>
+  </Sheet.Root>
+</PermissionGaurd>
 
 <!-- Main Layout -->
 <div class="flex flex-col size-full p-4 gap-4 overflow-hidden">
   <div class="flex items-start justify-between shrink-0">
     <IntegrationHeader {integration} active={!!dbIntegration} {loading} />
-    <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
-      <Settings class="size-4" />
-      Configure
-    </Button>
+    <PermissionGaurd permission="Integrations.Write">
+      <Button variant="outline" size="sm" onclick={() => (configSheetOpen = true)} class="gap-2">
+        <Settings class="size-4" />
+        Configure
+      </Button>
+    </PermissionGaurd>
   </div>
 
   {#if !!dbIntegration}
@@ -508,7 +502,7 @@
                   selected={pendingMappings[site.id]}
                   onchange={(v) => (pendingMappings[site.id] = v || undefined)}
                   placeholder={loadingDattoSites ? 'Loading...' : 'Select a DattoRMM site...'}
-                  disabled={loadingDattoSites}
+                  disabled={loadingDattoSites || !authStore.isAllowed('Integrations.Write')}
                 />
               </div>
             {/each}

@@ -29,7 +29,7 @@
   import { page } from '$app/state';
   import { toast } from 'svelte-sonner';
   import PermissionGaurd from '$lib/components/auth/permission-gaurd.svelte';
-  import * as AlertDialog from '$lib/components/ui/alert-dialog/index.js';
+  import ConfirmDialog from '$lib/components/fields/confirm-dialog.svelte';
   import SelectedLink from './_selected-link.svelte';
   import ComplianceTab from './_compliance-tab.svelte';
   import { supabase } from '$lib/utils/supabase';
@@ -213,33 +213,23 @@
           </Card.Root>
         </div>
         <Sheet.Footer>
-          <AlertDialog.Root>
-            <AlertDialog.Trigger>
-              {#snippet child({ props })}
-                {#if !!dbIntegration}
-                  <Button variant="destructive" {...props}>Delete Integration</Button>
-                {/if}
+          {#if !!dbIntegration}
+            <ConfirmDialog
+              title="Delete Microsoft 365 Integration?"
+              description="This will remove the Microsoft 365 integration from your account. All associated data (tenants, identities, domains) will be permanently deleted after 30 days. This action can be undone before that window expires."
+              confirmLabel="Delete Integration"
+              destructive
+            >
+              {#snippet trigger(props)}
+                <Button variant="destructive" {...props}>Delete Integration</Button>
               {/snippet}
-            </AlertDialog.Trigger>
-            <AlertDialog.Content>
-              <AlertDialog.Header>
-                <AlertDialog.Title>Delete Microsoft 365 Integration?</AlertDialog.Title>
-                <AlertDialog.Description>
-                  This will remove the Microsoft 365 integration from your account. All associated
-                  data (tenants, identities, domains) will be permanently deleted after
-                  <strong>30 days</strong>. This action can be undone before that window expires.
-                </AlertDialog.Description>
-              </AlertDialog.Header>
-              <AlertDialog.Footer>
-                <AlertDialog.Cancel>Cancel</AlertDialog.Cancel>
+              {#snippet confirmAction()}
                 <form method="POST" action="?/deleteIntegration">
-                  <AlertDialog.Action type="submit" class="bg-red-500 hover:bg-red-500/70"
-                    >Delete Integration</AlertDialog.Action
-                  >
+                  <Button type="submit" variant="destructive">Delete Integration</Button>
                 </form>
-              </AlertDialog.Footer>
-            </AlertDialog.Content>
-          </AlertDialog.Root>
+              {/snippet}
+            </ConfirmDialog>
+          {/if}
         </Sheet.Footer>
       </Sheet.Content>
     </Sheet.Portal>
