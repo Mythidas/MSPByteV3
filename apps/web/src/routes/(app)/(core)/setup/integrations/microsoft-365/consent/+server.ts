@@ -24,19 +24,19 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
   if (errorParam) {
     const desc = url.searchParams.get('error_description') ?? errorParam;
-    return redirect(302, `/integrations/microsoft-365?error=${encodeURIComponent(desc)}`);
+    return redirect(302, `/setup/integrations/microsoft-365?error=${encodeURIComponent(desc)}`);
   }
 
   if (!msTenantId || !stateRaw) {
     return redirect(
       302,
-      `/integrations/microsoft-365?error=${encodeURIComponent('Consent flow returned impartial parameters')}`
+      `/setup/integrations/microsoft-365?error=${encodeURIComponent('Consent flow returned impartial parameters')}`
     );
   }
 
   const { mspbyteTenantId, gdapTenantId } = z
     .object({ mspbyteTenantId: z.string().optional(), gdapTenantId: z.string().optional() })
-    .parse(stateRaw);
+    .parse(JSON.parse(stateRaw));
 
   // Build connectors. For GDAP tenant consent, scope the connector to that tenant.
   const partnerConnector = new Microsoft365Connector({
@@ -196,7 +196,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     return redirect(
       302,
-      `/integrations/microsoft-365?consentedTenant=${encodeURIComponent(gdapTenantId)}`
+      `/setup/integrations/microsoft-365?consentedTenant=${encodeURIComponent(gdapTenantId)}`
     );
   }
 
@@ -222,9 +222,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     });
     return redirect(
       302,
-      `/integrations/microsoft-365?error=${encodeURIComponent(parseSafeErrorMessage(error.message))}`
+      `/setup/integrations/microsoft-365?error=${encodeURIComponent(parseSafeErrorMessage(error.message))}`
     );
   }
 
-  return redirect(302, `/integrations/microsoft-365?initialConsent=success`);
+  return redirect(302, `/setup/integrations/microsoft-365?initialConsent=success`);
 };

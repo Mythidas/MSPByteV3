@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { CONSENT_VERSION, MS_CAPABILITIES } from '@workspace/shared/config/integrations/microsoft-365';
+  import {
+    CONSENT_VERSION,
+    MS_CAPABILITIES,
+  } from '@workspace/shared/config/integrations/microsoft-365';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
@@ -198,12 +201,16 @@
             {/each}
           </div>
         {/if}
-        <div class="flex h-fit pt-4">
+        <div class="flex h-fit pt-4 gap-2">
           <Button
             size="sm"
             disabled={!mappingsChanged || saving || !authStore.isAllowed('Integrations.Write')}
             onclick={handleSaveMappings}>Save Mappings</Button
           >
+          <form method="POST" action="?/gdapConsent" use:enhance>
+            <input name="gdapTenantId" value={selectedLink.external_id} hidden />
+            <Button size="sm" variant="outline" type="submit">Re-consent</Button>
+          </form>
         </div>
       </Tabs.Content>
 

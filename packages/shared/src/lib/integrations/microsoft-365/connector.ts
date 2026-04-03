@@ -111,6 +111,10 @@ export class Microsoft365Connector {
     };
   };
 
+  readonly organization: {
+    get(): Promise<{ displayName: string }>;
+  };
+
   constructor(
     readonly config: Microsoft365Config,
     private targetTenantId?: string,
@@ -126,6 +130,7 @@ export class Microsoft365Connector {
     this.tenantRelationships = this.buildTenantRelationshipsNamespace();
     this.servicePrincipals = this.buildServicePrincipalsNamespace();
     this.roleManagement = this.buildRoleManagementNamespace();
+    this.organization = this.buildOrganizationNamespace();
   }
 
   forTenant(customerTenantId: string): Microsoft365Connector {
@@ -475,6 +480,19 @@ export class Microsoft365Connector {
             );
           },
         },
+      },
+    };
+  }
+
+  private buildOrganizationNamespace(): Microsoft365Connector["organization"] {
+    const client = this.client;
+    const tenantId = () => this.tenantId();
+
+    return {
+      async get() {
+        const url = "https://graph.microsoft.com/v1.0/organization?$select=displayName";
+        const json = await client.get<{ value: { displayName: string }[] }>(url, tenantId());
+        return { displayName: json.value[0]?.displayName ?? "" };
       },
     };
   }

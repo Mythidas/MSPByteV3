@@ -46,7 +46,10 @@ export const actions = {
 
     const consentUrl = new URL('https://login.microsoftonline.com/common/adminconsent');
     consentUrl.searchParams.set('client_id', clientId);
-    consentUrl.searchParams.set('redirect_uri', `${origin}/integrations/microsoft-365/consent`);
+    consentUrl.searchParams.set(
+      'redirect_uri',
+      `${origin}/setup/integrations/microsoft-365/consent`
+    );
     consentUrl.searchParams.set(
       'state',
       JSON.stringify({ mspbyteTenantId: locals.user?.tenant_id })
@@ -81,7 +84,10 @@ export const actions = {
 
     const consentUrl = new URL(`https://login.microsoftonline.com/${gdapTenantId}/adminconsent`);
     consentUrl.searchParams.set('client_id', clientId);
-    consentUrl.searchParams.set('redirect_uri', `${origin}/integrations/microsoft-365/consent`);
+    consentUrl.searchParams.set(
+      'redirect_uri',
+      `${origin}/setup/integrations/microsoft-365/consent`
+    );
     consentUrl.searchParams.set('state', JSON.stringify({ gdapTenantId }));
 
     return redirect(303, consentUrl.href);
@@ -95,9 +101,10 @@ export const actions = {
       .is('deleted_at', null)
       .single();
 
-    const config = Microsoft365ConfigSchema.parse(integrationRow?.config);
+    const config = isRecord(integrationRow?.config) ? integrationRow.config : {};
     const mspTenantId = config.tenantId;
-    if (!mspTenantId) return fail(400, { error: 'Integration not configured' });
+    if (!mspTenantId || !isString(mspTenantId))
+      return fail(400, { error: 'Integration not configured' });
 
     const connector = new Microsoft365Connector({
       tenantId: mspTenantId,
@@ -116,6 +123,14 @@ export const actions = {
       (r) => r.status === 'active' && r.customer?.tenantId
     );
 
+    let mspDisplayName: string | null = null;
+    try {
+      const org = await connector.organization.get();
+      mspDisplayName = org.displayName || null;
+    } catch {
+      /* non-fatal */
+    }
+
     const { data: existingLinks, error: linksError } = await locals.supabase
       .from('integration_links')
       .select('id, external_id, name')
@@ -129,10 +144,27 @@ export const actions = {
     const dbExternalIds = new Set((existingLinks ?? []).map((l) => l.external_id));
 
     const toInsert = activeRelationships.filter((r) => !dbExternalIds.has(r.customer.tenantId));
-    const toDelete = (existingLinks ?? []).filter((l) => !gdapTenantIds.has(l.external_id));
+    // Exclude MSP's own tenant from deletion — it is not a GDAP relationship
+    const toDelete = (existingLinks ?? []).filter(
+      (l) => !gdapTenantIds.has(l.external_id) && l.external_id !== mspTenantId
+    );
 
-    if (toInsert.length > 0) {
-      const inserts = toInsert.map((r) => ({
+    const mspInserts = dbExternalIds.has(mspTenantId)
+      ? []
+      : [
+          {
+            integration_id: 'microsoft-365',
+            tenant_id: locals.tenant?.id ?? '',
+            external_id: mspTenantId,
+            name: mspDisplayName,
+            site_id: null,
+            status: 'active',
+            meta: {},
+          },
+        ];
+
+    const allInserts = [
+      ...toInsert.map((r) => ({
         integration_id: 'microsoft-365',
         tenant_id: locals.tenant?.id ?? '',
         external_id: r.customer.tenantId,
@@ -140,11 +172,14 @@ export const actions = {
         site_id: null,
         status: 'pending',
         meta: {},
-      }));
+      })),
+      ...mspInserts,
+    ];
 
+    if (allInserts.length > 0) {
       const { error: insertError } = await locals.supabase
         .from('integration_links')
-        .insert(inserts);
+        .insert(allInserts);
       if (insertError) return fail(500, { error: insertError.message });
     }
 
@@ -157,7 +192,7 @@ export const actions = {
       if (deleteError) return fail(500, { error: deleteError.message });
     }
 
-    return { success: true, inserted: toInsert.length, removed: toDelete.length };
+    return { success: true, inserted: allInserts.length, removed: toDelete.length };
   },
   refreshCapabilities: async ({ request, locals }) => {
     const formData = await request.formData();
@@ -173,9 +208,10 @@ export const actions = {
       .is('deleted_at', null)
       .single();
 
-    const config = Microsoft365ConfigSchema.parse(integrationRow?.config);
+    const config = isRecord(integrationRow?.config) ? integrationRow.config : {};
     const mspTenantId = config.tenantId;
-    if (!mspTenantId) return fail(400, { error: 'Integration not configured' });
+    if (!mspTenantId || !isString(mspTenantId))
+      return fail(400, { error: 'Integration not configured' });
 
     const tenantConnector = new Microsoft365Connector({
       tenantId: mspTenantId,
