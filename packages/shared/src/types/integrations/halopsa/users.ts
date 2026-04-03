@@ -45,12 +45,12 @@ export type HaloPSAUser = {
   contract_value?: number;
   software_role_name?: string;
 
-  customfields?: any[];
-  attachments?: any[];
-  custombuttons?: any[];
+  customfields?: unknown[];
+  attachments?: unknown[];
+  custombuttons?: unknown[];
 
   relationship_id?: number;
-  user_relationships?: any[];
+  user_relationships?: unknown[];
 
   uddevsite?: number;
   uddevnum?: number;
@@ -99,7 +99,7 @@ export type HaloPSAUser = {
   _importthirdpartyid?: string;
   _importtype?: string;
 
-  new_external_link?: any;
+  new_external_link?: unknown;
   import_details_id?: number;
   _isupdateimport?: boolean;
 };

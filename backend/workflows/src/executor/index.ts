@@ -1,12 +1,36 @@
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { ExecutorError } from '../errors.js';
-import { getNode } from '../registry/registry.js';
-import { getSupabase } from '../supabase.js';
-import type { GraphNode, NodeRunResult, RunContext, WorkflowGraph } from '../types.js';
-import { finalizeRun } from './finalize.js';
-import { runNode } from './run-node.js';
-import { topologicalSort } from './sort.js';
-import { validateForExecution } from './validate.js';
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ExecutorError } from "../errors.js";
+import { getNode } from "../registry/registry.js";
+import { getSupabase } from "../supabase.js";
+import type { NodeRunResult, RunContext, WorkflowGraph } from "../types.js";
+import { finalizeRun } from "./finalize.js";
+import { runNode } from "./run-node.js";
+import { topologicalSort } from "./sort.js";
+import { validateForExecution } from "./validate.js";
+import z from "zod";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
+
+const WorkflowGraphSchema = z
+  .object({
+    nodes: z.array(
+      z.object({
+        id: z.string(),
+        ref: z.string(),
+        category: z.enum(["param", "source", "transform", "sink"]),
+        params: z.any(),
+      }),
+    ),
+    edges: z.array(
+      z.object({
+        id: z.string(),
+        sourceNodeId: z.string(),
+        sourcePinKey: z.string(),
+        targetNodeId: z.string(),
+        targetPinKey: z.string(),
+      }),
+    ),
+  })
+  .catch({ nodes: [], edges: [] });
 
 function getDownstreamNodeIds(nodeId: string, graph: WorkflowGraph): string[] {
   const downstream: string[] = [];
@@ -33,45 +57,49 @@ export async function executeRun(runId: string): Promise<void> {
 
   // 1. Fetch task_run row
   const { data: run, error: fetchError } = await supabase
-    .from('task_runs')
-    .select('*')
-    .eq('id', runId)
+    .from("task_runs")
+    .select("*")
+    .eq("id", runId)
     .single();
 
   if (fetchError || !run) {
-    throw new ExecutorError(`task_run not found: ${runId}`, undefined, fetchError);
+    throw new ExecutorError(
+      `task_run not found: ${runId}`,
+      undefined,
+      fetchError,
+    );
   }
 
   // 2. Mark running
   await supabase
-    .from('task_runs')
+    .from("task_runs")
     .update({
-      status: 'running',
+      status: "running",
       started_at: startedAt.toISOString(),
     })
-    .eq('id', runId);
+    .eq("id", runId);
 
   // 3. Parse workflow_snapshot
-  const graph = run.workflow_snapshot as any as WorkflowGraph;
+  const graph = WorkflowGraphSchema.parse(run.workflow_snapshot);
 
   // 4. Validate
   const validation = validateForExecution(graph);
   if (!validation.valid) {
     Logger.error({
-      module: 'workflows',
-      context: 'executor',
+      module: "workflows",
+      context: "executor",
       message: `run ${runId} failed validation`,
       meta: { errors: validation.errors },
     });
     await supabase
-      .from('task_runs')
+      .from("task_runs")
       .update({
-        status: 'failed',
+        status: "failed",
         completed_at: new Date().toISOString(),
         duration_ms: new Date().getTime() - startedAt.getTime(),
-        error: validation.errors.join('; '),
+        error: validation.errors.join("; "),
       })
-      .eq('id', runId);
+      .eq("id", runId);
     return;
   }
 
@@ -81,15 +109,17 @@ export async function executeRun(runId: string): Promise<void> {
     tenant_id: run.tenant_id,
     triggered_by: run.triggered_by,
     triggered_by_user: run.triggered_by_user ?? null,
-    seed: (run.seed as Record<string, unknown>) ?? {},
+    seed: isRecord(run.seed) ? run.seed : {},
     node_outputs: {},
   };
 
   // 6. Pre-resolve param nodes
   const seed = ctx.seed as { params?: Record<string, unknown> };
   for (const node of graph.nodes) {
-    if (node.category === 'param') {
-      const paramKey = node.params.paramKey as string | undefined;
+    if (node.category === "param") {
+      const paramKey = isRecord(node.params)
+        ? String(node.params["paramKey"])
+        : "";
       ctx.node_outputs[node.id] = {
         value: paramKey != null ? (seed.params?.[paramKey] ?? null) : null,
       };
@@ -104,24 +134,24 @@ export async function executeRun(runId: string): Promise<void> {
   const skippedIds = new Set<string>();
 
   for (const nodeId of orderedIds) {
-    const node = graph.nodes.find((n) => n.id === nodeId) as GraphNode;
+    const node = graph.nodes.find((n) => n.id === nodeId);
 
     // Param nodes are pre-resolved — no DB row
-    if (node.category === 'param') continue;
+    if (!node || node.category === "param") continue;
 
     // Skipped node
     if (skippedIds.has(nodeId)) {
       const nodeSpec = getNode(node.ref);
-      await supabase.from('task_run_nodes').insert({
+      await supabase.from("task_run_nodes").insert({
         tenant_id: ctx.tenant_id,
         run_id: runId,
         node_id: nodeId,
         node_ref: node.ref,
         node_label: nodeSpec.label,
-        status: 'skipped',
+        status: "skipped",
         category: node.category,
       });
-      results.push({ nodeId, status: 'skipped', category: node.category });
+      results.push({ nodeId, status: "skipped", category: node.category });
       continue;
     }
 
@@ -131,23 +161,28 @@ export async function executeRun(runId: string): Promise<void> {
       results.push(result);
 
       Logger.info({
-        module: 'workflows',
-        context: 'executor',
+        module: "workflows",
+        context: "executor",
         message: `node ${nodeId} (${node.ref}) completed`,
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err);
-      results.push({ nodeId, status: 'failed', error: errorMessage, category: node.category });
+      results.push({
+        nodeId,
+        status: "failed",
+        error: errorMessage,
+        category: node.category,
+      });
 
       Logger.error({
-        module: 'workflows',
-        context: 'executor',
+        module: "workflows",
+        context: "executor",
         message: `node ${nodeId} (${node.ref}) failed`,
         meta: { err },
       });
 
       // BFS downstream skips only for source/transform failures
-      if (node.category === 'source' || node.category === 'transform') {
+      if (node.category === "source" || node.category === "transform") {
         for (const downstreamId of getDownstreamNodeIds(nodeId, graph)) {
           skippedIds.add(downstreamId);
         }
@@ -159,8 +194,8 @@ export async function executeRun(runId: string): Promise<void> {
   await finalizeRun(runId, results, startedAt);
 
   Logger.info({
-    module: 'workflows',
-    context: 'executor',
+    module: "workflows",
+    context: "executor",
     message: `run ${runId} finalized`,
     meta: { results: results.length },
   });

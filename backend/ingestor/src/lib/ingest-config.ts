@@ -1,4 +1,4 @@
-import { IngestType } from "@workspace/core/types/ingest";
+import { IngestType } from "@workspace/shared/types/jobs/ingest";
 
 /** How stale ingest_sync_states entries can be and still satisfy a dependency.
  *  Keyed by IngestType. */

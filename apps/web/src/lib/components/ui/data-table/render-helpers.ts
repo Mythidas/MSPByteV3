@@ -78,6 +78,7 @@ export function renderComponent<
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	T extends Component<any>,
 	Props extends ComponentProps<T>,
+	// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 >(component: T, props: Props = {} as Props) {
 	return new RenderComponentConfig(component, props);
 }
@@ -106,6 +107,7 @@ export function renderComponent<
  * ```
  * @see {@link https://tanstack.com/table/latest/docs/guide/column-defs}
  */
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export function renderSnippet<TProps>(snippet: Snippet<[TProps]>, params: TProps = {} as TProps) {
 	return new RenderSnippetConfig(snippet, params);
 }

@@ -1,3 +1,5 @@
+import { isString } from "@workspace/shared/lib/utils/validators";
+
 export type LogLevel = "trace" | "info" | "warn" | "error" | "fatal";
 
 export type APIError = {
@@ -8,8 +10,8 @@ export type APIError = {
 };
 
 export type APIResponse<T> =
-  | { data: T; error?: undefined; meta?: Record<string, any> }
-  | { data?: undefined; error: APIError; meta?: Record<string, any> };
+  | { data: T; error?: undefined; meta?: Record<string, unknown> }
+  | { data?: undefined; error: APIError; meta?: Record<string, unknown> };
 
 export interface LogInfo {
   module: string;
@@ -77,7 +79,7 @@ export class Logger {
     };
   }
 
-  static response(body: APIResponse<any>, status: number): Response {
+  static response(body: APIResponse<unknown>, status: number): Response {
     if (status !== 200 && body.error) {
       console.error(
         format("error", {
@@ -91,8 +93,7 @@ export class Logger {
   }
 
   static isLogLevel(value: unknown): value is LogLevel {
-    return ["trace", "info", "warn", "error", "fatal"].includes(
-      value as LogLevel,
-    );
+    if (!isString(value)) return false;
+    return ["trace", "info", "warn", "error", "fatal"].includes(value);
   }
 }

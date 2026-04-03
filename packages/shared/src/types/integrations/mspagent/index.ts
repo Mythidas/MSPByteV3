@@ -1,4 +1,7 @@
-export type MSPAgentConfig = {
-  primaryPsa: string; // integration id, e.g. 'halopsa'
-  siteVariableName?: string; // DattoRMM site variable name (default: 'MSPSiteCode')
-};
+import z from "zod";
+
+export const MSPAgentConfigSchema = z.object({
+  primaryPsa: z.string(),
+  siteVariableName: z.string().default("MSPSiteCode").optional(),
+});
+export type MSPAgentConfig = z.infer<typeof MSPAgentConfigSchema>;

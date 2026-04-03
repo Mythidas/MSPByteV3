@@ -1,6 +1,6 @@
 export type MSGraphConditionalAccessPolicy = {
   id: string;
-  state: 'enabled' | 'disabled' | 'enabledForReportingButNotEnforced';
+  state: "enabled" | "disabled" | "enabledForReportingButNotEnforced";
   displayName: string;
   templateId?: string;
   createdDateTime: string;
@@ -30,15 +30,15 @@ export type MSGraphConditionalAccessPolicy = {
     signInRiskLevels?: string[];
   };
   grantControls?: {
-    operator: 'AND' | 'OR';
+    operator: "AND" | "OR";
     builtInControls?: string[];
     termsOfUse?: string[];
     customAuthenticationFactors?: string[];
   };
   sessionControls?: {
-    applicationEnforcedRestrictions?: any;
-    cloudAppSecurity?: any;
-    signInFrequency?: any;
-    persistentBrowser?: any;
+    applicationEnforcedRestrictions?: unknown;
+    cloudAppSecurity?: unknown;
+    signInFrequency?: unknown;
+    persistentBrowser?: unknown;
   };
 };

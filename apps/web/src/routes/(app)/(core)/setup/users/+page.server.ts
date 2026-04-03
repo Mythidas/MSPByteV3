@@ -1,5 +1,6 @@
 import { fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
+import { isString } from '@workspace/shared/lib/utils/validators';
 
 export const load: PageServerLoad = async ({ locals }) => {
   const { data: roles } = await locals.supabase
@@ -13,12 +14,21 @@ export const load: PageServerLoad = async ({ locals }) => {
 export const actions: Actions = {
   createUser: async ({ locals, request }) => {
     const formData = await request.formData();
-    const email = formData.get('email') as string;
-    const first_name = formData.get('first_name') as string;
-    const last_name = formData.get('last_name') as string;
-    const role_id = formData.get('role_id') as string;
+    const email = formData.get('email');
+    const first_name = formData.get('first_name');
+    const last_name = formData.get('last_name');
+    const role_id = formData.get('role_id');
 
-    if (!email || !first_name || !last_name || !role_id) {
+    if (
+      !email ||
+      !first_name ||
+      !last_name ||
+      !role_id ||
+      !isString(email) ||
+      !isString(first_name) ||
+      !isString(last_name) ||
+      !isString(role_id)
+    ) {
       return fail(400, { message: 'All fields are required' });
     }
 
@@ -41,9 +51,9 @@ export const actions: Actions = {
 
   deleteUser: async ({ locals, request }) => {
     const formData = await request.formData();
-    const id = formData.get('id') as string;
+    const id = formData.get('id');
 
-    if (!id) {
+    if (!id || !isString(id)) {
       return fail(400, { message: 'User ID required' });
     }
 

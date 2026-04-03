@@ -1,4 +1,6 @@
 import { supabase } from '$lib/utils/supabase.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
+import type { Json } from '@workspace/shared/types/schema';
 
 export type ComplianceFramework = { id: string; name: string };
 export type ComplianceCheck = {
@@ -18,6 +20,21 @@ export type ComplianceResult = {
   evaluated_at: string;
 };
 export type ComplianceLink = { id: string; name: string };
+
+function jsonToRecord(val: Json): Record<string, unknown> {
+  if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+    return val;
+  }
+  return {};
+}
+
+function jsonToRecordOrNull(val: Json): Record<string, unknown> | null {
+  if (val === null) return null;
+  if (typeof val === 'object' && !Array.isArray(val)) {
+    return val;
+  }
+  return null;
+}
 
 export function createM365ComplianceData(getTenantId: () => string | null) {
   let frameworks = $state<ComplianceFramework[]>([]);
@@ -57,13 +74,19 @@ export function createM365ComplianceData(getTenantId: () => string | null) {
         .eq('status', 'active'),
     ])
       .then(([fwRes, checkRes, resultRes, linkRes]) => {
-        frameworks = (fwRes.data ?? []) as ComplianceFramework[];
-        checks = (checkRes.data ?? []) as ComplianceCheck[];
-        results = (resultRes.data ?? []) as ComplianceResult[];
-        links = (linkRes.data ?? []) as ComplianceLink[];
+        frameworks = fwRes.data ?? [];
+        checks = (checkRes.data ?? []).map((r) => ({
+          ...r,
+          check_config: jsonToRecord(r.check_config),
+        }));
+        results = (resultRes.data ?? []).map((r) => ({
+          ...r,
+          detail: jsonToRecordOrNull(r.detail),
+        }));
+        links = (linkRes.data ?? []).map((l) => ({ id: l.id, name: l.name ?? '' }));
       })
       .catch((e) => {
-        error = e?.message ?? 'Failed to load compliance data';
+        error = parseSafeErrorMessage(e);
       })
       .finally(() => {
         loading = false;

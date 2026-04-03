@@ -1,9 +1,13 @@
-export type DattoRMMConfig = {
-  url: string; // API base URL
-  apiKey: string; // API key (encrypted)
-  apiSecretKey: string; // API secret key (encrypted)
-  siteVariableName?: string; // Configurable site variable name (default: "MSPSiteCode")
-};
+import z from "zod";
+
+export const DattoRMMConfigSchema = z.object({
+  url: z.string(),
+  apiKey: z.string(),
+  apiSecretKey: z.string(),
+  siteVariableName: z.string().default("MSPSiteCode").optional(),
+});
+
+export type DattoRMMConfig = z.infer<typeof DattoRMMConfigSchema>;
 
 export type DattoRMMPagination = {
   page: number;

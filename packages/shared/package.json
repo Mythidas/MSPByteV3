@@ -25,12 +25,14 @@
   "scripts": {
     "clean": "rm -rf dist",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
     "test": "vitest run"
   },
   "devDependencies": {
     "@types/minimatch": "^6.0.0",
     "@types/node": "^22.0.0",
     "@workspace/ts-config": "workspace:*",
+    "bullmq": "^5.72.0",
     "tsc-alias": "^1.8.16",
     "typescript": "^5.7.3",
     "vitest": "^4.0.18"

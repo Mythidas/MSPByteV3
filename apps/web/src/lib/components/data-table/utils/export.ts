@@ -1,6 +1,6 @@
-import ExcelJS from "exceljs";
-import type { DataTableColumn } from "../types";
-import { getNestedValue } from "./nested";
+import ExcelJS from 'exceljs';
+import type { DataTableColumn } from '../types';
+import { getNestedValue } from './nested';
 
 /**
  * Export data to CSV or XLSX format
@@ -8,7 +8,7 @@ import { getNestedValue } from "./nested";
 export async function exportData<T>(
   rows: T[],
   columns: DataTableColumn<T>[],
-  format: "csv" | "xlsx",
+  format: 'csv' | 'xlsx',
   visibleColumnKeys?: Set<string>
 ): Promise<void> {
   const exportColumns = columns.filter(
@@ -19,7 +19,7 @@ export async function exportData<T>(
 
   // Build data array
   const exportRows = rows.map((row) => {
-    const exportRow: Record<string, any> = {};
+    const exportRow: Record<string, unknown> = {};
     for (const col of exportColumns) {
       const value = getNestedValue(row, col.key);
       exportRow[col.title] = col.exportValue
@@ -29,22 +29,23 @@ export async function exportData<T>(
     return exportRow;
   });
 
-  if (format === "csv") {
+  if (format === 'csv') {
     exportCSV(exportRows, exportColumns);
   } else {
     await exportXLSX(exportRows, exportColumns);
   }
 }
 
-function escapeCSVValue(value: any): string {
+function escapeCSVValue(value: unknown): string {
   if (value === null || value === undefined) {
-    return "";
+    return '';
   }
-  const stringValue = String(value);
+  // eslint-disable-next-line @typescript-eslint/no-base-to-string
+  const stringValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
   // Escape double quotes and wrap in quotes if contains comma, newline, or quote
   if (
-    stringValue.includes(",") ||
-    stringValue.includes("\n") ||
+    stringValue.includes(',') ||
+    stringValue.includes('\n') ||
     stringValue.includes('"')
   ) {
     return `"${stringValue.replace(/"/g, '""')}"`;
@@ -53,47 +54,54 @@ function escapeCSVValue(value: any): string {
 }
 
 function exportCSV<T>(
-  rows: Record<string, any>[],
+  rows: Record<string, unknown>[],
   columns: DataTableColumn<T>[]
 ): void {
   const headers = columns.map((c) => escapeCSVValue(c.title));
   const csvContent = [
-    headers.join(","),
+    headers.join(','),
     ...rows.map((row) =>
-      columns.map((col) => escapeCSVValue(row[col.title])).join(",")
+      columns.map((col) => escapeCSVValue(row[col.title])).join(',')
     ),
-  ].join("\n");
+  ].join('\n');
 
-  downloadFile(csvContent, "export.csv", "text/csv;charset=utf-8;");
+  downloadFile(csvContent, 'export.csv', 'text/csv;charset=utf-8;');
 }
 
 async function exportXLSX<T>(
-  rows: Record<string, any>[],
+  rows: Record<string, unknown>[],
   columns: DataTableColumn<T>[]
 ): Promise<void> {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Data");
+  const sheet = workbook.addWorksheet('Data');
 
   // Headers with styling
   const headers = columns.map((c) => c.title);
   sheet.addRow(headers);
   sheet.getRow(1).font = { bold: true };
   sheet.getRow(1).fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FFE0E0E0" },
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FFE0E0E0' },
   };
 
   // Data rows
   for (const row of rows) {
-    sheet.addRow(headers.map((h) => row[h]));
+    sheet.addRow(headers.map((h) => {
+      const v = row[h];
+      if (v instanceof Date || typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+        return v;
+      }
+      return v != null ? JSON.stringify(v) : null;
+    }));
   }
 
   // Auto-width columns
   sheet.columns.forEach((col) => {
-    let maxLength = col.header?.toString().length || 10;
+    let maxLength = col.header?.toString().length ?? 10;
     col.eachCell?.({ includeEmpty: true }, (cell) => {
-      const cellLength = cell.value?.toString().length || 0;
+      // eslint-disable-next-line @typescript-eslint/no-base-to-string
+      const cellLength = cell.value != null ? String(cell.value).length : 0;
       if (cellLength > maxLength) {
         maxLength = cellLength;
       }
@@ -104,8 +112,8 @@ async function exportXLSX<T>(
   const buffer = await workbook.xlsx.writeBuffer();
   downloadFile(
     buffer,
-    "export.xlsx",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    'export.xlsx',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   );
 }
 
@@ -120,7 +128,7 @@ function downloadFile(
       : new Blob([content], { type: mimeType });
 
   const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
+  const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);

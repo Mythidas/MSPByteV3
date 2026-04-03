@@ -1,4 +1,4 @@
-import type { IntegrationId } from "@workspace/core/types/integrations";
+import { IntegrationId } from "@workspace/shared/types/integrations.js";
 import type { IngestorDefinition } from "./interfaces.js";
 
 class IntegrationRegistry {

@@ -1,4 +1,6 @@
 import { supabase } from '$lib/utils/supabase.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
+import type { AnyQueryBuilder } from '@workspace/shared/lib/utils/supabase-helper';
 import type { DirectoryStats, PolicyStats } from './types.js';
 
 export interface DirectoryAndPolicyStats {
@@ -19,7 +21,7 @@ export function createM365Directory(getParams: () => { tenantId: string; linkId:
     loading = true;
     error = null;
 
-    const applyScope = (q: any) => q.eq('tenant_id', tenantId).eq('link_id', linkId);
+    const applyScope = (q: AnyQueryBuilder): AnyQueryBuilder => q.eq('tenant_id', tenantId).eq('link_id', linkId);
 
     Promise.all([
       applyScope(
@@ -46,7 +48,7 @@ export function createM365Directory(getParams: () => { tenantId: string; linkId:
         };
       })
       .catch((e) => {
-        error = e?.message ?? 'Failed to load directory data';
+        error = parseSafeErrorMessage(e);
       })
       .finally(() => {
         loading = false;

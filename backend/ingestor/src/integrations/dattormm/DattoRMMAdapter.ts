@@ -1,12 +1,12 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { DattoRMMConnector } from "@workspace/shared/lib/connectors/DattoRMMConnector";
-import type {
+import { DattoRMMConnector } from "@workspace/shared/lib/integrations/dattormm/connector";
+import {
   AdapterContract,
   UpsertPayload,
-} from "@workspace/core/types/contracts/adapter";
-import type { JobContext } from "@workspace/core/types/job";
-import { IngestType as IT } from "@workspace/core/types/ingest";
+} from "@workspace/shared/types/jobs/contracts/adapter.js";
+import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 
 export class DattoRMMAdapter implements AdapterContract {
   readonly integrationId = "dattormm";
@@ -34,8 +34,8 @@ export class DattoRMMAdapter implements AdapterContract {
         throw new Error("DattoRMMAdapter: endpoints job requires link_id");
       }
 
-      const siteUid = ctx.metadata?.externalId as string | undefined;
-      if (!siteUid) {
+      const siteUid = String(ctx.metadata?.externalId);
+      if (!ctx.metadata?.externalId) {
         throw new Error(
           `DattoRMMAdapter: link ${ctx.linkId} has no external_id (Datto site UID)`,
         );
@@ -76,14 +76,7 @@ export class DattoRMMAdapter implements AdapterContract {
 
     if (!links || links.length === 0) return [];
 
-    const { data: sites, error: sitesError } = await connector.getSites();
-
-    if (sitesError || !sites) {
-      throw new Error(
-        `DattoRMMAdapter: getSites failed: ${sitesError?.message}`,
-      );
-    }
-
+    const sites = await connector.account.sites.list();
     const sitesByUid = new Map(sites.map((s) => [s.uid, s]));
     const rows: Record<string, unknown>[] = [];
 
@@ -131,11 +124,7 @@ export class DattoRMMAdapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const { data, error } = await connector.getDevices(siteUid);
-
-    if (error || !data) {
-      throw new Error(`DattoRMMAdapter: getDevices failed: ${error?.message}`);
-    }
+    const data = await connector.site.devices.list(siteUid);
 
     Logger.info({
       module: "DattoRMMAdapter",

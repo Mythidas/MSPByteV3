@@ -37,17 +37,17 @@ export type DattoRMMDevice = {
   udf: DattoRMMUdf;
 
   snmpEnabled: boolean;
-  deviceClass: "device" | string;
+  deviceClass: "device";
   portalUrl: string;
   warrantyDate: string;
 
   antivirus: {
     antivirusProduct: string;
-    antivirusStatus: "RunningAndUpToDate" | string;
+    antivirusStatus: "RunningAndUpToDate";
   };
 
   patchManagement: {
-    patchStatus: "NoPolicy" | string;
+    patchStatus: "NoPolicy";
     patchesApprovedPending: number;
     patchesNotApproved: number;
     patchesInstalled: number;

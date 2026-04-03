@@ -23,9 +23,9 @@ export type MSGraphGroup = {
   resourceBehaviorOptions: string[];
   resourceProvisioningOptions: string[];
   securityEnabled: boolean;
-  serviceProvisioningErrors?: any[]; // Only present on some objects
+  serviceProvisioningErrors?: unknown[]; // Only present on some objects
   theme: string | null;
   visibility: string | null;
-  onPremisesProvisioningErrors: any[];
+  onPremisesProvisioningErrors: unknown[];
   securityIdentifier?: string;
 };

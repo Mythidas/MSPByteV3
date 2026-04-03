@@ -2,10 +2,14 @@ import type { Job } from "bullmq";
 import { queueManager, QueueNames } from "../lib/queue.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { registry } from "../registry.js";
-import { INTEGRATIONS } from "@workspace/core/config/integrations";
 import { getAvailableDataTypes } from "../lib/ingest-state.js";
 import { LINK_DEBOUNCE_MS, ENRICH_DEBOUNCE_MS } from "../lib/ingest-config.js";
-import type { LinkJobData, EnrichJobData, OrchestrationJobData } from "../types.js";
+import type {
+  LinkJobData,
+  EnrichJobData,
+  OrchestrationJobData,
+} from "../types.js";
+import { INTEGRATIONS } from "@workspace/shared/config/integrations/integrations.js";
 
 export class OrchestrationWorker {
   private started = false;
@@ -18,11 +22,15 @@ export class OrchestrationWorker {
       { concurrency: 5 },
     );
     this.started = true;
-    Logger.info({ module: "OrchestrationWorker", context: "start", message: "Started" });
+    Logger.info({
+      module: "OrchestrationWorker",
+      context: "start",
+      message: "Started",
+    });
   }
 
   private async handleJob(job: Job<OrchestrationJobData>): Promise<void> {
-    const { tenantId, linkId, integrationId, ingestType } = job.data;
+    const { tenantId, linkId } = job.data;
 
     for (const def of registry.getAll()) {
       // Linkers
@@ -30,8 +38,9 @@ export class OrchestrationWorker {
         if (!linkId) continue; // linkers always need a linkId
         let depsOk = true;
         for (const dep of linker.dependencies) {
-          const depConfig = INTEGRATIONS[dep.integrationId as keyof typeof INTEGRATIONS]
-            ?.supportedTypes.find((t) => t.type === dep.ingestType);
+          const depConfig = INTEGRATIONS[
+            dep.integrationId
+          ]?.supportedTypes.find((t) => t.type === dep.ingestType);
           const depLinkId = depConfig?.scopeLevel === "tenant" ? null : linkId;
           const available = await getAvailableDataTypes({
             tenant_id: tenantId,
@@ -69,9 +78,11 @@ export class OrchestrationWorker {
       for (const enrichment of def.enrichments) {
         let depsOk = true;
         for (const dep of enrichment.dependencies) {
-          const depConfig = INTEGRATIONS[dep.integrationId as keyof typeof INTEGRATIONS]
-            ?.supportedTypes.find((t) => t.type === dep.ingestType);
-          const depLinkId = depConfig?.scopeLevel === "tenant" ? null : (linkId ?? null);
+          const depConfig = INTEGRATIONS[
+            dep.integrationId
+          ]?.supportedTypes.find((t) => t.type === dep.ingestType);
+          const depLinkId =
+            depConfig?.scopeLevel === "tenant" ? null : (linkId ?? null);
           const available = await getAvailableDataTypes({
             tenant_id: tenantId,
             link_id: depLinkId,

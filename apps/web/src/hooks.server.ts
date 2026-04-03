@@ -1,9 +1,9 @@
 import { PUBLIC_SUPABASE_URL, PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY } from '$env/static/public';
 import { createServerClient } from '@supabase/ssr';
-import { redirect, type Handle } from '@sveltejs/kit';
+import { type Handle } from '@sveltejs/kit';
 import { hasPermission } from '$lib/utils/permissions';
+import { isRecord } from '@workspace/shared/lib/utils/validators';
 import type { Database } from '@workspace/shared/types/schema';
-import type { Tables } from '@workspace/shared/types/database';
 import { getRoutePermission } from '$lib/config/routes';
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -36,14 +36,14 @@ export const handle: Handle = async ({ event, resolve }) => {
       .single();
 
     if (!error && profile) {
-      event.locals.user = profile as Tables<'public', 'users'>;
+      event.locals.user = profile;
 
       const [{ data: role }, { data: tenant }] = await Promise.all([
         event.locals.supabase.from('roles').select('*').eq('id', profile.role_id).single(),
         event.locals.supabase.from('tenants').select('*').eq('id', profile.tenant_id).single(),
       ]);
-      event.locals.role = (role as Tables<'public', 'roles'>) ?? null;
-      event.locals.tenant = (tenant as Tables<'public', 'tenants'>) ?? null;
+      event.locals.role = role ?? null;
+      event.locals.tenant = tenant ?? null;
     } else {
       await event.locals.supabase.auth.signOut();
       console.warn('No public.users row found for authenticated user', session.user);
@@ -56,21 +56,22 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   if (session.user) {
     if (isAuthRoute) {
-      throw redirect(303, '/home');
+      return new Response(null, { status: 303, headers: { Location: '/home' } });
     }
 
     // Permission guard
     const requiredPermission = getRoutePermission(pathname);
+    const attrs = event.locals.role?.attributes ?? null;
     if (
       requiredPermission &&
-      !hasPermission(event.locals.role?.attributes as Record<string, unknown>, requiredPermission)
+      !hasPermission(isRecord(attrs) ? attrs : null, requiredPermission)
     ) {
       const msg = encodeURIComponent('You do not have permission to access this page.');
-      throw redirect(303, `/error?code=403&message=${msg}`);
+      return new Response(null, { status: 303, headers: { Location: `/error?code=403&message=${msg}` } });
     }
   } else {
     if (!isAuthRoute && !isPublicRoute) {
-      throw redirect(303, '/auth/login');
+      return new Response(null, { status: 303, headers: { Location: '/auth/login' } });
     }
   }
 

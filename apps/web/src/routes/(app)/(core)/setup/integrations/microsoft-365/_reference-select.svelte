@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import SingleSelect from '$lib/components/single-select.svelte';
   import { supabase } from '$lib/utils/supabase';
-  import type { FieldReference } from '@workspace/core/types/contracts/schema-registry';
+  import type { FieldReference } from '@workspace/shared/types/jobs/contracts/schema-registry';
 
   let {
     ref,

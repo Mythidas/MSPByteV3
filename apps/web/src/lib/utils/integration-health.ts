@@ -1,5 +1,14 @@
-import { INTEGRATIONS } from '@workspace/core/config/integrations';
+import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
+import { INTEGRATION_IDS, type IntegrationId } from '@workspace/shared/types/integrations';
 import type { AppNotification } from '$lib/stores/notifications.svelte';
+
+function isIntegrationId(id: string): id is IntegrationId {
+  return (INTEGRATION_IDS as readonly string[]).includes(id);
+}
+
+function getIntegrationName(id: string): string {
+  return isIntegrationId(id) ? INTEGRATIONS[id].name : id;
+}
 
 type SyncIssueRow = {
   integration_id: string;
@@ -27,7 +36,7 @@ export function deriveNotificationsFromHealth(syncIssues: SyncIssueRow[]): AppNo
   const notifications: AppNotification[] = [];
 
   for (const [integrationId, rows] of byIntegration) {
-    const name = INTEGRATIONS[integrationId as keyof typeof INTEGRATIONS]?.name ?? integrationId;
+    const name = getIntegrationName(integrationId);
 
     // Auth errors take priority
     const authError = rows.find((r) => r.last_error_class === 'auth');
@@ -74,8 +83,7 @@ export function deriveNotificationsFromExpiry(integrations: ExpiryRow[]): AppNot
 
     const expiresAt = new Date(integration.credential_expiration).getTime();
     const daysRemaining = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
-    const name =
-      INTEGRATIONS[integration.id as keyof typeof INTEGRATIONS]?.name ?? integration.id;
+    const name = getIntegrationName(integration.id);
 
     if (daysRemaining <= 0) {
       notifications.push({
@@ -122,7 +130,7 @@ export function deriveIntegrationHealthStatus(syncStates: SyncIssueRow[]): Integ
 }
 
 export function getCredentialExpirationStatus(
-  expiresAt: string | null,
+  expiresAt: string | null
 ): CredentialExpirationStatus {
   if (!expiresAt) return 'ok';
   const now = Date.now();

@@ -1,42 +1,47 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { encryptSecret, decryptSecret } from '$lib/server/encryption';
-import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
-import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index.js';
+import { DattoRMMConnector } from '@workspace/shared/lib/integrations/dattormm/connector';
+import {
+  DattoRMMConfigSchema,
+  type DattoRMMConfig,
+} from '@workspace/shared/types/integrations/datto/index.js';
 import type { DattoRMMSite } from '@workspace/shared/types/integrations/datto/sites.js';
+import { isString } from '@workspace/shared/lib/utils/validators';
 
-async function getDattoSites(parent: () => Promise<any>): Promise<DattoRMMSite[]> {
+type PageParent = Parameters<PageServerLoad>[0]['parent'];
+async function getDattoSites(parent: PageParent): Promise<DattoRMMSite[]> {
   const { getIntegration } = await parent();
   const integration = await getIntegration;
   if (!integration) return [];
-  const config = integration.config as DattoRMMConfig;
+  const config = DattoRMMConfigSchema.parse(integration.config);
   if (!config?.url || !config?.apiKey || !config?.apiSecretKey) return [];
   const apiSecretKey = await decryptSecret(config.apiSecretKey);
   if (!apiSecretKey) return [];
   const connector = new DattoRMMConnector({ url: config.url, apiKey: config.apiKey, apiSecretKey });
-  const { data } = await connector.getSites();
-  return data ?? [];
+  return connector.account.sites.list().catch(() => []);
 }
 
-export const load: PageServerLoad = async ({ parent }) => {
+export const load: PageServerLoad = ({ parent }) => {
   return { getDattoSites: getDattoSites(parent) };
 };
 
 export const actions = {
   save: async ({ request, locals }) => {
     const formData = await request.formData();
-    const url = formData.get('url') as string;
-    const apiKey = formData.get('apiKey') as string;
-    const apiSecretKey = formData.get('apiSecretKey') as string;
-    const siteVariableName = (formData.get('siteVariableName') as string) || undefined;
+    const url = formData.get('url');
+    const apiKey = formData.get('apiKey');
+    const apiSecretKey = formData.get('apiSecretKey');
+    const siteVariableNameRaw = formData.get('siteVariableName');
+    const siteVariableName = isString(siteVariableNameRaw) ? siteVariableNameRaw : undefined;
 
-    if (!url || !apiKey) {
+    if (!isString(url) || !isString(apiKey)) {
       return fail(400, { error: 'URL and API Key are required' });
     }
 
     let encryptedSecret: string;
 
-    if (!apiSecretKey) {
+    if (!isString(apiSecretKey)) {
       const { data: existing } = await locals.supabase
         .from('integrations')
         .select('config')
@@ -45,21 +50,22 @@ export const actions = {
         .is('deleted_at', null)
         .single();
 
-      const existingSecret = (existing?.config as DattoRMMConfig)?.apiSecretKey;
-      if (!existingSecret) {
+      const existingConfig = DattoRMMConfigSchema.safeParse(existing?.config);
+      if (!existingConfig.success || !existingConfig.data.apiSecretKey) {
         return fail(400, { error: 'API Secret Key is required' });
       }
-      encryptedSecret = existingSecret;
+      encryptedSecret = existingConfig.data.apiSecretKey;
     } else {
       const connector = new DattoRMMConnector({ url, apiKey, apiSecretKey });
-      const { error: healthError } = await connector.checkHealth();
-      if (healthError) {
-        return fail(400, { error: `Connection failed: ${healthError}` });
+      const healthy = await connector.checkHealth();
+      if (!healthy) {
+        return fail(400, { error: 'Connection failed: unable to authenticate with DattoRMM' });
       }
       encryptedSecret = await encryptSecret(apiSecretKey);
     }
 
-    const credentialExpiration = (formData.get('credentialExpiration') as string) || null;
+    const credentialExpirationRaw = formData.get('credentialExpiration');
+    const credentialExpiration = isString(credentialExpirationRaw) ? credentialExpirationRaw : null;
     const config: DattoRMMConfig = { url, apiKey, apiSecretKey: encryptedSecret, siteVariableName };
 
     const { error } = await locals.supabase.from('integrations').upsert(
@@ -73,18 +79,18 @@ export const actions = {
 
   testConnection: async ({ request }) => {
     const formData = await request.formData();
-    const url = formData.get('url') as string;
-    const apiKey = formData.get('apiKey') as string;
-    const apiSecretKey = formData.get('apiSecretKey') as string;
+    const url = formData.get('url');
+    const apiKey = formData.get('apiKey');
+    const apiSecretKey = formData.get('apiSecretKey');
 
-    if (!url || !apiKey || !apiSecretKey) {
+    if (!isString(url) || !isString(apiKey) || !isString(apiSecretKey)) {
       return fail(400, { error: 'URL, API Key, and API Secret Key are required' });
     }
 
     const connector = new DattoRMMConnector({ url, apiKey, apiSecretKey });
-    const { error: healthError } = await connector.checkHealth();
-    if (healthError) {
-      return fail(400, { error: `Connection failed: ${healthError}` });
+    const healthy = await connector.checkHealth();
+    if (!healthy) {
+      return fail(400, { error: 'Connection failed: unable to authenticate with DattoRMM' });
     }
 
     return { success: true };
@@ -98,6 +104,6 @@ export const actions = {
       .eq('tenant_id', locals.tenant!.id);
 
     if (error) return fail(500, { error: error.message });
-    throw redirect(303, '/integrations');
+    return redirect(303, '/integrations');
   },
 } satisfies Actions;

@@ -1,8 +1,8 @@
-import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
-import { TenantCapabilityService } from '@workspace/shared/lib/services/microsoft/TenantCapabilityService';
-import { withRetry } from '@workspace/shared/lib/utils/retry';
+import { Microsoft365Connector } from '@workspace/shared/lib/integrations/microsoft-365/connector';
+import { TenantCapabilityService } from '@workspace/shared/lib/integrations/microsoft-365/tenant-capability-service';
+import { withRetry } from '@workspace/shared/lib/utils/fetch-with-retry';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { safeErrorMessage } from '@workspace/shared/lib/utils/errors';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
 import type { MSCapabilities } from '@workspace/shared/types/integrations/microsoft/capabilities';
 
 const DEFAULT_RETRY = { maxRetries: 5, baseDelayMs: 2_000, module: 'capabilities' } as const;
@@ -18,16 +18,14 @@ export async function probeCapabilities(
     const result = await withRetry(
       async () => {
         connector.clearTokenCache();
-        const r = await new TenantCapabilityService(connector).probe();
-        if (r.error) throw new Error(safeErrorMessage(r.error));
-        return r;
+        return new TenantCapabilityService(connector).probe();
       },
       maxRetries,
       { baseDelayMs, module: DEFAULT_RETRY.module, context }
     );
-    return result.data ?? null;
+    return result ?? null;
   } catch (err) {
-    Logger.warn({ module: DEFAULT_RETRY.module, context, message: safeErrorMessage(err) });
+    Logger.warn({ module: DEFAULT_RETRY.module, context, message: parseSafeErrorMessage(err) });
     return null;
   }
 }

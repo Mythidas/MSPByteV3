@@ -45,6 +45,7 @@
     "@supabase/postgrest-js": "^2.93.3",
     "@supabase/supabase-js": "^2.93.3",
     "turbo": "^2.8.1",
-    "typescript": "5.7.3"
+    "typescript": "5.7.3",
+    "zod": "^4.3.6"
   }
 }

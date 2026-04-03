@@ -8,16 +8,18 @@ import { LinkWorker } from "./workers/LinkWorker.js";
 import { EnrichWorker } from "./workers/EnrichWorker.js";
 import { OrchestrationWorker } from "./workers/OrchestrationWorker.js";
 import { registry } from "./registry.js";
-import { INTEGRATIONS } from "@workspace/core/config/integrations";
 
 // Side-effect imports — each registers itself with the registry
 import "./integrations/microsoft-365/index.js";
 import "./integrations/sophos-partner/index.js";
 import "./integrations/dattormm/index.js";
 import "./integrations/cove/index.js";
+import { INTEGRATIONS } from "@workspace/shared/config/integrations/integrations.js";
+import { parseSafeErrorMessage } from "@workspace/shared/lib/utils/validators.js";
 
-async function main() {
-  Logger.level = (process.env.LOG_LEVEL as any) || "info";
+function main() {
+  const logLevel = process.env.LOG_LEVEL;
+  Logger.level = Logger.isLogLevel(logLevel) ? logLevel : "info";
 
   Logger.info({
     module: "Ingestor",
@@ -68,10 +70,10 @@ async function main() {
   });
 
   const reconciler = new JobReconciler();
-  reconciler.start();
+  void reconciler.start();
 
   const scheduler = new JobScheduler();
-  scheduler.start();
+  void scheduler.start();
 
   Logger.info({
     module: "Ingestor",
@@ -100,21 +102,14 @@ async function main() {
       Logger.error({
         module: "Ingestor",
         context: "shutdown",
-        message: `Shutdown error: ${error}`,
+        message: `Shutdown error: ${parseSafeErrorMessage(error)}`,
       });
       process.exit(1);
     }
   };
 
-  process.on("SIGINT", () => shutdown("SIGINT"));
-  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => void shutdown("SIGINT"));
+  process.on("SIGTERM", () => void shutdown("SIGTERM"));
 }
 
-main().catch((error) => {
-  Logger.fatal({
-    module: "Ingestor",
-    context: "main",
-    message: `Fatal error: ${error}`,
-  });
-  process.exit(1);
-});
+main();

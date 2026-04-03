@@ -1,9 +1,11 @@
 import { getSupabase } from "../supabase.js";
 import { queueManager, QueueNames } from "../lib/queue.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { INTEGRATIONS } from "@workspace/core/config/integrations";
 import type { IngestJobData } from "../types.js";
-import type { IngestType } from "@workspace/core/types/ingest";
+import { IntegrationId } from "@workspace/shared/types/integrations.js";
+import { INTEGRATIONS } from "@workspace/shared/config/integrations/integrations.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
+import { parseSafeErrorMessage } from "@workspace/shared/lib/utils/validators.js";
 
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const JOB_RETENTION_DAYS = 7;
@@ -17,7 +19,7 @@ export class JobScheduler {
 
   start(): void {
     this.cleanupTimer = setInterval(
-      () => JobScheduler.cleanupOldJobs(),
+      () => void JobScheduler.cleanupOldJobs(),
       CLEANUP_INTERVAL_MS,
     );
     Logger.info({
@@ -46,8 +48,8 @@ export class JobScheduler {
     tenantId: string,
     siteId: string | null,
     linkId: string | null,
-    integrationId: string,
-    ingestType: string,
+    integrationId: IntegrationId,
+    ingestType: IngestType,
   ): Promise<void> {
     await JobScheduler._enqueue(
       tenantId,
@@ -66,8 +68,8 @@ export class JobScheduler {
     tenantId: string,
     siteId: string | null,
     linkId: string | null,
-    integrationId: string,
-    ingestType: string,
+    integrationId: IntegrationId,
+    ingestType: IngestType,
     delayMs: number,
   ): Promise<void> {
     await JobScheduler._enqueue(
@@ -87,14 +89,13 @@ export class JobScheduler {
     tenantId: string,
     siteId: string | null,
     linkId: string | null,
-    integrationId: string,
-    ingestType: string,
+    integrationId: IntegrationId,
+    ingestType: IngestType,
   ): Promise<void> {
     const rateMinutes =
-      INTEGRATIONS[
-        integrationId as keyof typeof INTEGRATIONS
-      ]?.supportedTypes.find((t) => t.type === ingestType)?.freshnessMinutes ??
-      120;
+      INTEGRATIONS[integrationId]?.supportedTypes.find(
+        (t) => t.type === ingestType,
+      )?.freshnessMinutes ?? 120;
 
     const delayMs = rateMinutes * 60 * 1000;
     await JobScheduler._enqueue(
@@ -117,8 +118,8 @@ export class JobScheduler {
     tenantId: string,
     siteId: string | null,
     linkId: string | null,
-    integrationId: string,
-    ingestType: string,
+    integrationId: IntegrationId,
+    ingestType: IngestType,
     delayMs: number,
   ): Promise<void> {
     const queueName = QueueNames.ingest(integrationId, ingestType);
@@ -127,7 +128,7 @@ export class JobScheduler {
     const jobData: IngestJobData = {
       tenantId,
       integrationId,
-      ingestType: ingestType as IngestType,
+      ingestType: ingestType,
       linkId,
       siteId,
     };
@@ -152,7 +153,7 @@ export class JobScheduler {
       Logger.error({
         module: "JobScheduler",
         context: "cleanupOldJobs",
-        message: `Error cleaning up old jobs: ${(error as any).message}`,
+        message: `Error cleaning up old jobs: ${parseSafeErrorMessage(error)}`,
       });
       return 0;
     }

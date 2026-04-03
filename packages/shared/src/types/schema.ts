@@ -2847,6 +2847,7 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
@@ -2864,6 +2865,7 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
+    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
@@ -2892,4 +2894,4 @@ export const Constants = {
   views: {
     Enums: {},
   },
-} as const
+} as const;

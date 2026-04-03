@@ -1,12 +1,11 @@
-import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { SophosPartnerConnector } from "@workspace/shared/lib/connectors/SophosConnector";
-import type {
+import { SophosPartnerConnector } from "@workspace/shared/lib/integrations/sophos-partner/connector";
+import {
   AdapterContract,
   UpsertPayload,
-} from "@workspace/core/types/contracts/adapter";
-import type { JobContext } from "@workspace/core/types/job";
-import { IngestType as IT } from "@workspace/core/types/ingest";
+} from "@workspace/shared/types/jobs/contracts/adapter.js";
+import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 
 export class SophosPartnerAdapter implements AdapterContract {
   readonly integrationId = "sophos-partner";
@@ -33,16 +32,24 @@ export class SophosPartnerAdapter implements AdapterContract {
         throw new Error("SophosPartnerAdapter: endpoints job requires link_id");
       }
 
-      const sophosTenantId = ctx.metadata?.externalId as string | undefined;
-      if (!sophosTenantId) {
+      const sophosApiHost =
+        ctx.metadata?.apiHost && typeof ctx.metadata?.apiHost === "string"
+          ? ctx.metadata?.apiHost
+          : undefined;
+      const sophosTenantId =
+        ctx.metadata?.externalId && typeof ctx.metadata?.externalId === "string"
+          ? ctx.metadata?.externalId
+          : undefined;
+      if (!sophosTenantId || !sophosApiHost) {
         throw new Error(
-          `SophosPartnerAdapter: link ${ctx.linkId} has no external_id`,
+          `SophosPartnerAdapter: link ${ctx.linkId} has no external_id or apiHost`,
         );
       }
 
       return this.fetchEndpoints(
         connector,
         sophosTenantId,
+        sophosApiHost,
         ctx.linkId,
         ctx.siteId ?? null,
         tenantId,
@@ -60,13 +67,7 @@ export class SophosPartnerAdapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const { data: sophosTenantsData, error: tenantsError } =
-      await connector.getTenants();
-    if (tenantsError || !sophosTenantsData) {
-      throw new Error(
-        `SophosPartnerAdapter: getTenants failed: ${tenantsError?.message}`,
-      );
-    }
+    const sophosTenantsData = await connector.partner.tenants.list();
 
     Logger.info({
       module: "SophosPartnerAdapter",
@@ -97,39 +98,16 @@ export class SophosPartnerAdapter implements AdapterContract {
   private async fetchEndpoints(
     connector: SophosPartnerConnector,
     sophosTenantId: string,
+    sophosApiHost: string,
     linkId: string,
     siteId: string | null,
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const supabase = getSupabase();
-
-    const { data: sophossite, error: siteError } = await (
-      supabase.schema("vendors").from("sophos_sites" as any) as any
-    )
-      .select("api_host")
-      .eq("external_id", sophosTenantId)
-      .eq("tenant_id", tenantId)
-      .single();
-
-    if (siteError || !sophossite) {
-      throw new Error(
-        `SophosPartnerAdapter: failed to load sophos_sites for link ${linkId}: ${siteError?.message}`,
-      );
-    }
-
-    const apiHost = (sophossite as any).api_host as string;
-
-    const { data, error } = await connector.getEndpoints({
-      apiHost,
+    const data = await connector.endpoint.endpoints.list({
+      apiHost: sophosApiHost,
       tenantId: sophosTenantId,
     });
-
-    if (error || !data) {
-      throw new Error(
-        `SophosPartnerAdapter: getEndpoints failed: ${error?.message}`,
-      );
-    }
 
     Logger.info({
       module: "SophosPartnerAdapter",
@@ -137,6 +115,7 @@ export class SophosPartnerAdapter implements AdapterContract {
       message: `Fetched ${data.length} endpoints for Sophos tenant ${sophosTenantId}`,
     });
 
+    // TODO: Tamper protection codes
     const rows: Record<string, unknown>[] = data.map((ep) => ({
       tenant_id: tenantId,
       external_id: ep.id,
@@ -156,6 +135,7 @@ export class SophosPartnerAdapter implements AdapterContract {
       needs_upgrade: ep.packages?.protection?.status === "upgradable",
       tamper_protection_enabled: ep.tamperProtectionEnabled ?? false,
       last_heartbeat_at: ep.lastSeenAt ?? null,
+      tamper_protection_codes: [],
     }));
 
     return [

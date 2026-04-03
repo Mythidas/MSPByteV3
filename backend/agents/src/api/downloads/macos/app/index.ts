@@ -7,8 +7,8 @@ const __dirname = dirname(__filename);
 const PROJECT_ROOT = path.resolve(__dirname, "../../../../../../../");
 const INSTALLERS_DIR = path.join(PROJECT_ROOT, "assets/installers/dmg");
 
-export default async function (fastify: FastifyInstance) {
-  fastify.get("/", async (req, reply) => {
+export default function (fastify: FastifyInstance) {
+  fastify.get("/", (req, reply) => {
     const fileName = "MSPAgent_0.1.14.dmg";
 
     try {

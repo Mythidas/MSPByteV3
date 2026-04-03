@@ -92,7 +92,7 @@ export interface HaloUser {
   inactive: boolean;
   colour: string;
   isimportantcontact: boolean;
-  customfields: any[];
+  customfields: unknown[];
   site: HaloSite;
   // ... plus the rest
 }
@@ -173,6 +173,6 @@ export interface HaloPSATicket {
   user: HaloUser;
   tickettype: HaloTicketType;
   extra_actions: HaloExtraAction[];
-  attachments: any[];
+  attachments: unknown[];
   // keep extending as needed
 }

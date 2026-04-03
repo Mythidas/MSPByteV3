@@ -1,10 +1,11 @@
-import { getSupabase, getSupabaseHelper } from "../../supabase.js";
-import { Logger } from "@workspace/shared/lib/utils/logger";
-import type {
+import {
   LinkerContract,
   LinkerDependency,
-} from "@workspace/core/types/contracts/linker";
-import { IngestType } from "@workspace/core/types/ingest";
+} from "@workspace/shared/types/jobs/contracts/linker.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
+import { getSupabase, getSupabaseHelper } from "../../supabase.js";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { M365PoliciesSchema } from "@workspace/shared/config/integrations/microsoft-365/policies.js";
 
 export class M365PoliciesLinker implements LinkerContract {
   readonly linkerType = "m365-link-policies";
@@ -24,7 +25,7 @@ export class M365PoliciesLinker implements LinkerContract {
     const helper = getSupabaseHelper();
     const syncStartTime = new Date().toISOString();
 
-    const { data: policies, error } = await supabase
+    const { data, error } = await supabase
       .schema("vendors")
       .from("m365_policies")
       .select("id,conditions")
@@ -40,6 +41,7 @@ export class M365PoliciesLinker implements LinkerContract {
       return;
     }
 
+    const policies = M365PoliciesSchema.parse(data);
     if (!policies || policies.length === 0) return;
 
     // Collect all external IDs referenced in policy conditions
@@ -51,16 +53,18 @@ export class M365PoliciesLinker implements LinkerContract {
     const excludeRoleTemplateIds: string[] = [];
 
     for (const policy of policies) {
-      const users = (policy.conditions as any)?.users ?? {};
-      for (const uid of users.includeUsers ?? []) {
+      const users = policy.conditions?.users;
+      for (const uid of users?.includeUsers ?? []) {
         if (uid !== "All") includeUserExtIds.push(uid);
       }
-      for (const uid of users.excludeUsers ?? []) excludeUserExtIds.push(uid);
-      for (const gid of users.includeGroups ?? []) includeGroupExtIds.push(gid);
-      for (const gid of users.excludeGroups ?? []) excludeGroupExtIds.push(gid);
-      for (const rid of users.includeRoles ?? [])
+      for (const uid of users?.excludeUsers ?? []) excludeUserExtIds.push(uid);
+      for (const gid of users?.includeGroups ?? [])
+        includeGroupExtIds.push(gid);
+      for (const gid of users?.excludeGroups ?? [])
+        excludeGroupExtIds.push(gid);
+      for (const rid of users?.includeRoles ?? [])
         includeRoleTemplateIds.push(rid);
-      for (const rid of users.excludeRoles ?? [])
+      for (const rid of users?.excludeRoles ?? [])
         excludeRoleTemplateIds.push(rid);
     }
 
@@ -82,10 +86,10 @@ export class M365PoliciesLinker implements LinkerContract {
         allUserExtIds,
         "external_id",
         500,
-        (q: any) => q.eq("link_id", linkId).eq("tenant_id", tenantId),
+        (q) => void q.eq("link_id", linkId).eq("tenant_id", tenantId),
       );
       identityIdMap = new Map(
-        (result.data ?? []).map((r: any) => [r.external_id, r.id]),
+        (result.data ?? []).map((r) => [r.external_id, r.id]),
       );
     }
 
@@ -97,10 +101,10 @@ export class M365PoliciesLinker implements LinkerContract {
         allGroupExtIds,
         "external_id",
         500,
-        (q: any) => q.eq("link_id", linkId).eq("tenant_id", tenantId),
+        (q) => void q.eq("link_id", linkId).eq("tenant_id", tenantId),
       );
       groupIdMap = new Map(
-        (result.data ?? []).map((r: any) => [r.external_id, r.id]),
+        (result.data ?? []).map((r) => [r.external_id, r.id]),
       );
     }
 
@@ -114,13 +118,13 @@ export class M365PoliciesLinker implements LinkerContract {
         500,
       );
       roleIdMap = new Map(
-        (result.data ?? []).map((r: any) => [r.template_id, r.id]),
+        (result.data ?? []).map((r) => [r.template_id, r.id]),
       );
     }
 
-    const userRows: any[] = [];
-    const groupRows: any[] = [];
-    const roleRows: any[] = [];
+    const userRows = [];
+    const groupRows = [];
+    const roleRows = [];
     const base = {
       tenant_id: tenantId,
       link_id: linkId,
@@ -128,9 +132,9 @@ export class M365PoliciesLinker implements LinkerContract {
     };
 
     for (const policy of policies) {
-      const users = (policy.conditions as any)?.users ?? {};
+      const users = policy.conditions?.users;
 
-      for (const uid of users.includeUsers ?? []) {
+      for (const uid of users?.includeUsers ?? []) {
         if (uid === "All") continue;
         const identityId = identityIdMap.get(uid);
         if (!identityId) continue;
@@ -141,7 +145,7 @@ export class M365PoliciesLinker implements LinkerContract {
           included: true,
         });
       }
-      for (const uid of users.excludeUsers ?? []) {
+      for (const uid of users?.excludeUsers ?? []) {
         const identityId = identityIdMap.get(uid);
         if (!identityId) continue;
         userRows.push({
@@ -151,7 +155,7 @@ export class M365PoliciesLinker implements LinkerContract {
           included: false,
         });
       }
-      for (const gid of users.includeGroups ?? []) {
+      for (const gid of users?.includeGroups ?? []) {
         const groupId = groupIdMap.get(gid);
         if (!groupId) continue;
         groupRows.push({
@@ -161,7 +165,7 @@ export class M365PoliciesLinker implements LinkerContract {
           included: true,
         });
       }
-      for (const gid of users.excludeGroups ?? []) {
+      for (const gid of users?.excludeGroups ?? []) {
         const groupId = groupIdMap.get(gid);
         if (!groupId) continue;
         groupRows.push({
@@ -171,7 +175,7 @@ export class M365PoliciesLinker implements LinkerContract {
           included: false,
         });
       }
-      for (const rid of users.includeRoles ?? []) {
+      for (const rid of users?.includeRoles ?? []) {
         const roleId = roleIdMap.get(rid);
         if (!roleId) continue;
         roleRows.push({
@@ -181,7 +185,7 @@ export class M365PoliciesLinker implements LinkerContract {
           included: true,
         });
       }
-      for (const rid of users.excludeRoles ?? []) {
+      for (const rid of users?.excludeRoles ?? []) {
         const roleId = roleIdMap.get(rid);
         if (!roleId) continue;
         roleRows.push({

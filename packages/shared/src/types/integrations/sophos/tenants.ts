@@ -2,7 +2,7 @@ export type SophosPartnerTenant = {
   id: string;
   name: string;
   showAs: string;
-  status: "active" | "inactive" | string; // refine if there are only specific statuses
+  status: "active" | "inactive"; // refine if there are only specific statuses
   apiHost: string;
   contact: {
     email: string;
@@ -23,7 +23,7 @@ export type SophosPartnerTenant = {
     code: string;
   }[];
   dataRegion: string;
-  billingType: "usage" | "subscription" | string; // adjust if known fixed values
+  billingType: "usage" | "subscription"; // adjust if known fixed values
   organization: {
     id: string;
   };

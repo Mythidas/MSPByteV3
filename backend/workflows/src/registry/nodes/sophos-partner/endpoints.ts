@@ -1,7 +1,8 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { registerNode } from "../../registry.js";
-import type { RunContext, RunSeed } from "../../../types.js";
+import type { RunContext } from "../../../types.js";
+import { SeedSchema } from "../../../config.js";
 
 registerNode({
   ref: "Sophos.Endpoints.Query",
@@ -20,18 +21,18 @@ registerNode({
   ],
   paramSchema: [],
   async execute(_input, ctx: RunContext) {
-    const seed = ctx.seed as unknown as RunSeed;
-    let entities: unknown[] = [];
+    const seed = SeedSchema.parse(ctx.seed);
+    let entities = [];
 
     switch (seed.scope_type) {
       case "entity_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
           "sophos_endpoints",
-          seed.entity_ids!,
-          "id" as never,
+          seed.entity_ids,
+          "id",
           500,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
@@ -40,10 +41,10 @@ registerNode({
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
           "sophos_endpoints",
-          seed.link_ids!,
-          "link_id" as never,
+          seed.link_ids,
+          "link_id",
           500,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
@@ -52,10 +53,10 @@ registerNode({
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
           "sophos_endpoints",
-          seed.site_ids!,
-          "site_id" as never,
+          seed.site_ids,
+          "site_id",
           500,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
@@ -64,14 +65,14 @@ registerNode({
         const { data } = await supabaseHelper.selectAll(
           "vendors",
           "sophos_endpoints",
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
       }
     }
 
-    const tagged = (entities as Record<string, unknown>[]).map((e) => ({
+    const tagged = entities.map((e) => ({
       ...e,
       _entityType: "sophos_endpoint",
     }));

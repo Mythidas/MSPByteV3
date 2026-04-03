@@ -1,7 +1,10 @@
-import type { AdapterContract, UpsertPayload } from "@workspace/core/types/contracts/adapter";
-import type { LinkerContract } from "@workspace/core/types/contracts/linker";
-import type { EnrichmentContract } from "@workspace/core/types/contracts/enrichment";
-import type { IntegrationId } from "@workspace/core/types/integrations";
+import { IntegrationId } from "@workspace/shared/types/integrations.js";
+import {
+  AdapterContract,
+  UpsertPayload,
+} from "@workspace/shared/types/jobs/contracts/adapter.js";
+import { EnrichmentContract } from "@workspace/shared/types/jobs/contracts/enrichment.js";
+import { LinkerContract } from "@workspace/shared/types/jobs/contracts/linker.js";
 import type { IngestJobData } from "./types.js";
 
 // ─── Processed Row ─────────────────────────────────────────────────────────

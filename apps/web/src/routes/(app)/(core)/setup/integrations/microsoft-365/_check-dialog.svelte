@@ -12,13 +12,13 @@
   import { Plus, Trash2 } from '@lucide/svelte';
   import type { Tables } from '@workspace/shared/types/database';
   import { authStore } from '$lib/stores/auth.svelte';
-  import type { Integration } from '@workspace/core/types/integrations';
+  import type { Integration } from '@workspace/shared/types/integrations';
   import type {
     CheckCondition,
     ConditionLogic,
     ConditionOperator,
     CheckConfig,
-  } from '@workspace/core/types/contracts/compliance';
+  } from '@workspace/shared/types/jobs/contracts/compliance';
   import {
     getFlatTrackableFields,
     getOperatorsForField,

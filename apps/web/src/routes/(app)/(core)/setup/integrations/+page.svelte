@@ -6,8 +6,8 @@
   import SearchBar from '$lib/components/search-bar.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
   import { SquareArrowRight } from 'lucide-svelte';
-  import { INTEGRATIONS } from '@workspace/core/config/integrations';
-  import type { IntegrationId } from '@workspace/core/types/integrations';
+  import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
+  import type { IntegrationId } from '@workspace/shared/types/integrations';
 
   const { data }: PageProps = $props();
 

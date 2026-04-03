@@ -1,17 +1,23 @@
 import { getSupabase } from "../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { registry } from "../registry.js";
-import { INTEGRATIONS } from "@workspace/core/config/integrations";
 import { JobScheduler } from "./JobScheduler.js";
+import { INTEGRATIONS } from "@workspace/shared/config/integrations/integrations.js";
+import { IntegrationId } from "@workspace/shared/types/integrations.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
+import { parseSafeErrorMessage } from "@workspace/shared/lib/utils/validators.js";
 
 const RECONCILE_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
 export class JobReconciler {
   private timer: ReturnType<typeof setInterval> | null = null;
 
-  start(): void {
-    this.reconcile();
-    this.timer = setInterval(() => this.reconcile(), RECONCILE_INTERVAL_MS);
+  async start(): Promise<void> {
+    await this.reconcile();
+    this.timer = setInterval(
+      () => void this.reconcile(),
+      RECONCILE_INTERVAL_MS,
+    );
     Logger.info({
       module: "JobReconciler",
       context: "start",
@@ -93,7 +99,7 @@ export class JobReconciler {
       Logger.error({
         module: "JobReconciler",
         context: "reconcile",
-        message: `Reconcile error: ${err}`,
+        message: `Reconcile error: ${parseSafeErrorMessage(err)}`,
       });
     }
   }
@@ -102,15 +108,15 @@ export class JobReconciler {
     tenantId: string,
     linkId: string | null,
     siteId: string | null,
-    integrationId: string,
-    ingestType: string,
+    integrationId: IntegrationId,
+    ingestType: IngestType,
     freshnessMinutes: number,
   ): Promise<void> {
     const supabase = getSupabase();
     const freshnessMs = freshnessMinutes * 60 * 1000;
 
     let q = supabase
-      .from("ingest_sync_states" as any)
+      .from("ingest_sync_states")
       .select("last_synced_at")
       .eq("tenant_id", tenantId)
       .eq("integration_id", integrationId)
@@ -146,8 +152,7 @@ export class JobReconciler {
       return;
     }
 
-    const age =
-      Date.now() - new Date((data as any).last_synced_at as any).getTime();
+    const age = Date.now() - new Date(data.last_synced_at).getTime();
 
     if (age >= freshnessMs) {
       await JobScheduler.enqueueNow(

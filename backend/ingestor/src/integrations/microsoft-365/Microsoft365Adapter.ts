@@ -1,16 +1,25 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { Microsoft365Connector } from "@workspace/shared/lib/connectors/Microsoft365Connector";
-import { SkuCatalog } from "@workspace/shared/lib/services/microsoft/SkuCatalog";
-import { PowerShellRunner } from "@workspace/shared/lib/utils/PowerShellRunner";
-import type {
-  AdapterContract,
-  UpsertPayload,
-} from "@workspace/core/types/contracts/adapter";
-import type { JobContext } from "@workspace/core/types/job";
+import { Microsoft365Connector } from "@workspace/shared/lib/integrations/microsoft-365/connector";
 import type { MSCapabilities } from "@workspace/shared/types/integrations/microsoft/capabilities.js";
 import type { MSGraphIdentity } from "@workspace/shared/types/integrations/microsoft/identity.js";
-import { IngestType as IT } from "@workspace/core/types/ingest";
+import {
+  AdapterContract,
+  UpsertPayload,
+} from "@workspace/shared/types/jobs/contracts/adapter.js";
+import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
+import { SkuCatalogService } from "@workspace/shared/lib/integrations/microsoft-365/sku-catalog-service.js";
+import { PowerShellRunnerService } from "@workspace/shared/lib/integrations/microsoft-365/powershell-runner-service.js";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
+import z from "zod";
+
+const MSCapabilitiesSchema = z
+  .object({
+    signInActivity: z.boolean(),
+    conditionalAccess: z.boolean(),
+  })
+  .catch({ signInActivity: false, conditionalAccess: false });
 
 export class Microsoft365Adapter implements AdapterContract {
   readonly integrationId = "microsoft-365";
@@ -36,8 +45,12 @@ export class Microsoft365Adapter implements AdapterContract {
 
     const domainMap = new Map<string, string | null>();
     for (const l of siteLinks ?? []) {
-      for (const domain of (l.meta as any)?.domains ?? []) {
-        domainMap.set((domain as string).toLowerCase(), l.site_id!);
+      const domains =
+        isRecord(l.meta) && Array.isArray(l.meta.domains)
+          ? l.meta.domains.map((d) => (typeof d === "string" ? d : ""))
+          : [];
+      for (const domain of domains) {
+        domainMap.set(domain.toLowerCase(), l.site_id);
       }
     }
 
@@ -54,9 +67,16 @@ export class Microsoft365Adapter implements AdapterContract {
     }
 
     const mspTenantId = ctx.credentials?.tenantId ?? "";
-    const gdapTenantId = (ctx.metadata?.externalId as string) ?? "";
-    const capabilities = (ctx.metadata?.capabilities as MSCapabilities) ?? {};
-    const defaultDomain = (ctx.metadata?.defaultDomain as string) ?? "";
+    const gdapTenantId =
+      ctx.metadata?.externalId && typeof ctx.metadata?.externalId === "string"
+        ? ctx.metadata?.externalId
+        : "";
+    const capabilities = MSCapabilitiesSchema.parse(ctx.metadata?.capabilities);
+    const defaultDomain =
+      ctx.metadata?.defaultDomain &&
+      typeof ctx.metadata?.defaultDomain === "string"
+        ? ctx.metadata?.defaultDomain
+        : "";
 
     const baseConnector = new Microsoft365Connector({
       tenantId: mspTenantId,
@@ -94,11 +114,10 @@ export class Microsoft365Adapter implements AdapterContract {
         return this.fetchLicenses(connector, linkId, tenantId, now);
 
       case IT.M365ExchangeConfig: {
-        if (
-          !((ctx.metadata?.roles as string[]) ?? []).includes(
-            "Exchange Administrator",
-          )
-        ) {
+        const roles = Array.isArray(ctx.metadata?.roles)
+          ? ctx.metadata?.roles.map((r) => (typeof r === "string" ? r : ""))
+          : [];
+        if (!roles.includes("Exchange Administrator")) {
           Logger.warn({
             module: "Microsoft365Adapter",
             context: "fetchExchangeConfig",
@@ -133,7 +152,7 @@ export class Microsoft365Adapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const select: (keyof MSGraphIdentity)[] = [
+    const selectFields: (keyof MSGraphIdentity)[] = [
       "id",
       "displayName",
       "userType",
@@ -147,7 +166,7 @@ export class Microsoft365Adapter implements AdapterContract {
     ];
 
     if (capabilities.signInActivity) {
-      select.push("signInActivity");
+      selectFields.push("signInActivity");
     } else {
       Logger.warn({
         module: "Microsoft365Adapter",
@@ -156,20 +175,17 @@ export class Microsoft365Adapter implements AdapterContract {
       });
     }
 
-    const { data, error } = await connector.getIdentities(
-      { select: select as any },
-      true,
-    );
-    if (error || !data)
-      throw new Error(`Microsoft365 getIdentities failed: ${error?.message}`);
+    const identities = await connector.users.listAll({
+      $select: selectFields.join(","),
+    });
 
     Logger.info({
       module: "Microsoft365Adapter",
       context: "fetchIdentities",
-      message: `Fetched ${data.identities.length} identities`,
+      message: `Fetched ${identities.length} identities`,
     });
 
-    const rows = data.identities.map((u: MSGraphIdentity) => {
+    const rows = identities.map((u: MSGraphIdentity) => {
       const domain = u.userPrincipalName?.split("@")[1]?.toLowerCase();
       const siteId = domain ? (domainMap.get(domain) ?? null) : null;
       return {
@@ -206,17 +222,15 @@ export class Microsoft365Adapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const { data, error } = await connector.getGroups(undefined, true);
-    if (error || !data)
-      throw new Error(`Microsoft365 getGroups failed: ${error?.message}`);
+    const groups = await connector.groups.listAll();
 
     Logger.info({
       module: "Microsoft365Adapter",
       context: "fetchGroups",
-      message: `Fetched ${data.groups.length} groups`,
+      message: `Fetched ${groups.length} groups`,
     });
 
-    const rows = data.groups.map((g: any) => ({
+    const rows = groups.map((g) => ({
       tenant_id: tenantId,
       external_id: g.id,
       link_id: linkId,
@@ -254,22 +268,16 @@ export class Microsoft365Adapter implements AdapterContract {
       return [];
     }
 
-    const { data, error } = await connector.getConditionalAccessPolicies(
-      undefined,
-      true,
-    );
-    if (error || !data)
-      throw new Error(
-        `Microsoft365 getConditionalAccessPolicies failed: ${error?.message}`,
-      );
+    const policies =
+      await connector.identity.conditionalAccess.policies.listAll();
 
     Logger.info({
       module: "Microsoft365Adapter",
       context: "fetchPolicies",
-      message: `Fetched ${data.policies.length} conditional access policies`,
+      message: `Fetched ${policies.length} conditional access policies`,
     });
 
-    const rows = data.policies.map((p: any) => {
+    const rows = policies.map((p) => {
       return {
         tenant_id: tenantId,
         external_id: p.id,
@@ -300,21 +308,16 @@ export class Microsoft365Adapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const { data, error } = await connector.getSubscribedSkus(undefined, true);
-    if (error || !data)
-      throw new Error(
-        `Microsoft365 getSubscribedSkus failed: ${error?.message}`,
-      );
-
-    const skuNames = await SkuCatalog.resolve();
+    const skus = await connector.subscribedSkus.listAll();
+    const skuNames = await SkuCatalogService.resolve();
 
     Logger.info({
       module: "Microsoft365Adapter",
       context: "fetchLicenses",
-      message: `Fetched ${data.skus.length} subscribed SKUs`,
+      message: `Fetched ${skus.length} subscribed SKUs`,
     });
 
-    const rows = data.skus.map((sku: any) => {
+    const rows = skus.map((sku) => {
       const friendlyName =
         skuNames.get(sku.skuPartNumber) || sku.skuPartNumber || sku.skuId;
       return {
@@ -334,7 +337,7 @@ export class Microsoft365Adapter implements AdapterContract {
         warning_units: sku.prepaidUnits?.warning ?? 0,
         locked_out_units: sku.prepaidUnits?.lockedOut ?? 0,
         service_plan_names: (sku.servicePlans ?? []).map(
-          (s: any) => s.servicePlanName,
+          (s) => s.servicePlanName,
         ),
       };
     });
@@ -372,7 +375,7 @@ export class Microsoft365Adapter implements AdapterContract {
       );
     }
 
-    const orgConfig = await PowerShellRunner.runExchangeOnline(
+    const orgConfig = await PowerShellRunnerService.runExchangeOnline(
       clientId,
       certPem,
       defaultDomain || gdapTenantId,
@@ -385,10 +388,9 @@ export class Microsoft365Adapter implements AdapterContract {
       message: `Fetched Exchange org config for tenant ${gdapTenantId}`,
     });
 
-    const rejectDirectSend =
-      (orgConfig as any)?.RejectDirectSend === true ||
-      (orgConfig as any)?.RejectDirectSend === "True";
-
+    const exchangeConfig = z
+      .object({ RejectDirectSend: z.boolean().default(false) })
+      .parse(orgConfig);
     const externalId = `org-config-${linkId ?? gdapTenantId}`;
 
     return [
@@ -402,7 +404,7 @@ export class Microsoft365Adapter implements AdapterContract {
             last_seen_at: now,
             created_at: now,
             updated_at: now,
-            reject_direct_send: rejectDirectSend,
+            reject_direct_send: exchangeConfig.RejectDirectSend,
           },
         ],
         onConflict: "tenant_id,link_id,external_id",

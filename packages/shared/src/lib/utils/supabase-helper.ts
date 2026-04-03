@@ -1,5 +1,6 @@
-import { APIResponse, Logger } from "@workspace/shared/lib/utils/logger";
-import {
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import type { APIResponse } from "@workspace/shared/lib/utils/logger";
+import type {
   Schemas,
   TableOrView,
   PaginationOptions,
@@ -10,9 +11,28 @@ import {
   TablesInsert,
   TablesUpdate,
 } from "@workspace/shared/types/database";
-import { Database } from "@workspace/shared/types/schema";
-import { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@workspace/shared/types/schema";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { PostgrestFilterBuilder } from "@supabase/postgrest-js";
+
+// Generic query builder type for dynamic/multi-schema queries where table type is not statically known.
+// Use only at integration boundaries — prefer typed queries when the schema is known.
+export type AnyQueryBuilder = PostgrestFilterBuilder<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any
+>;
 
 type RowType<
   S extends Schemas,
@@ -27,6 +47,7 @@ type QueryBuilder<
   S extends Schemas,
   T extends TableOrView<S>,
 > = PostgrestFilterBuilder<
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any,
   Database["public"],
   RowType<S, T>,
@@ -54,17 +75,18 @@ export class SupabaseHelper {
   async selectAll<S extends Schemas, T extends TableOrView<S>>(
     schema: S,
     table: T,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: AnyQueryBuilder) => void,
     select?: (keyof Tables<S, T>)[],
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
-      let query = this.supabase
+      const query = this.supabase
         .schema(schema)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         .from(table as Extract<T, string>)
         .select(select?.join(",") ?? "*", { count: "exact" });
 
       if (modifyQuery) {
-        modifyQuery(query as any);
+        modifyQuery(query);
       }
 
       const allRows: Tables<S, T>[] = [];
@@ -76,7 +98,8 @@ export class SupabaseHelper {
 
         if (error) throw new Error(error.message);
 
-        allRows.push(...(data as any[]));
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+        if (data) allRows.push(...(data as unknown as Tables<S, T>[]));
         if (allRows.length >= (count ?? 0)) break;
       }
 
@@ -96,7 +119,7 @@ export class SupabaseHelper {
     schema: S,
     table: T,
     pagination: PaginationOptions,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: AnyQueryBuilder) => void,
     select?: (keyof Tables<S, T>)[],
   ): Promise<APIResponse<DataResponse<Tables<S, T>>>> {
     try {
@@ -105,16 +128,13 @@ export class SupabaseHelper {
 
       let query = this.supabase
         .schema(schema)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         .from(table as Extract<T, string>)
         .select(select?.join(",") ?? "*", { count: "exact" }) // includes count in response
         .range(from, to);
 
       if (pagination.filters) {
-        this.paginatedFilters(
-          query as any,
-          pagination.filters,
-          pagination.filterMap,
-        );
+        this.paginatedFilters(query, pagination.filters, pagination.filterMap);
       }
 
       if (pagination.globalFields && pagination.globalSearch) {
@@ -135,7 +155,7 @@ export class SupabaseHelper {
       }
 
       if (modifyQuery) {
-        modifyQuery(query as any);
+        modifyQuery(query);
       }
 
       const { data, count, error } = await query;
@@ -144,7 +164,8 @@ export class SupabaseHelper {
 
       return {
         data: {
-          rows: (data as Tables<S, T>[]) ?? [],
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          rows: (data as unknown as Tables<S, T>[]) ?? [],
           total: count ?? 0,
         },
       };
@@ -157,16 +178,18 @@ export class SupabaseHelper {
     }
   }
 
-  private paginatedFilters<S extends Schemas, T extends TableOrView<S>>(
-    query: QueryBuilder<S, T>,
+  private paginatedFilters(
+    query: AnyQueryBuilder,
     filters: Filters,
     map?: Record<string, string>,
-  ): QueryBuilder<S, T> {
+  ): AnyQueryBuilder {
     for (const [key, filterOrFilters] of Object.entries(filters)) {
       const filterValues = Array.isArray(filterOrFilters)
         ? filterOrFilters
         : [filterOrFilters];
-      for (let { op, value } of filterValues) {
+      for (const filterEntry of filterValues) {
+        const { op } = filterEntry;
+        let value = filterEntry.value;
         if (value === undefined || value === null || value === "") continue;
 
         const column = map
@@ -180,13 +203,13 @@ export class SupabaseHelper {
           case "not.neq":
           case "not.eq":
           case "not.is":
-            query = query.filter(column as string, op, value);
+            query = query.filter(column, op, value);
             break;
           case "like":
           case "ilike":
           case "not.like":
           case "not.ilike":
-            query = query.filter(column as string, op, `%${value}%`);
+            query = query.filter(column, op, `%${String(value)}%`);
             break;
 
           case "gte":
@@ -197,7 +220,7 @@ export class SupabaseHelper {
           case "not.lte":
           case "not.gt":
           case "not.lt":
-            query = query.filter(column as string, op, value);
+            query = query.filter(column, op, value);
             break;
 
           case "ov":
@@ -212,35 +235,33 @@ export class SupabaseHelper {
                 typeof value !== "string" ||
                 (!value.startsWith("[") && !value.startsWith("{"))
               ) {
-                value = `{"${value}"}`;
+                value = `{"${String(value)}"}`;
               }
             } else {
-              value = `{${value.join(",")}}`;
+              value = `{${(value as unknown[]).join(",")}}`;
             }
 
-            query = query.filter(column as string, op, value);
+            query = query.filter(column, op, value);
             break;
 
           case "in":
           case "not.in":
             if (!Array.isArray(value)) {
-              value = `("${value}")`;
+              value = `("${String(value)}")`;
             } else {
-              value = `(${value.join(",")})`;
+              value = `(${(value as unknown[]).join(",")})`;
             }
 
-            query = query.filter(column as string, op, value);
+            query = query.filter(column, op, value);
             break;
 
           case "bt":
             if (Array.isArray(value)) {
-              query = query
-                .gte(column as any, value[0])
-                .lte(column as any, value[1]);
+              query = query.gte(column, value[0]).lte(column, value[1]);
             }
             break;
           default:
-            throw new Error(`Unsupported operator: ${op}`);
+            throw new Error("Unsupported operator");
         }
       }
     }
@@ -253,24 +274,28 @@ export class SupabaseHelper {
     table: T,
     rows: TablesInsert<S, T>[],
     batchSize = 100,
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: AnyQueryBuilder) => void,
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
       const allResults: Tables<S, T>[] = [];
 
       for (let i = 0; i < rows.length; i += batchSize) {
         const chunk = rows.slice(i, i + batchSize);
-        let query = this.supabase
+        const query = this.supabase
           .schema(schema)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>);
 
         if (modifyQuery) {
-          modifyQuery(query as any);
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          modifyQuery(query as unknown as AnyQueryBuilder);
         }
 
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
         const { data, error } = await query.insert(chunk as any).select();
         if (error) throw new Error(error.message);
-        if (data) allResults.push(...(data as Tables<S, T>[]));
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+        if (data) allResults.push(...(data as unknown as Tables<S, T>[]));
       }
 
       return { data: allResults };
@@ -289,25 +314,28 @@ export class SupabaseHelper {
     rows: (TablesUpdate<S, T> | TablesInsert<S, T>)[],
     batchSize = 100,
     conflict?: (keyof Tables<S, T>)[],
-    modifyQuery?: (query: QueryBuilder<S, T>) => void,
+    modifyQuery?: (query: AnyQueryBuilder) => void,
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
       const allResults: Tables<S, T>[] = [];
 
       for (let i = 0; i < rows.length; i += batchSize) {
         const chunk = rows.slice(i, i + batchSize);
-        let query = this.supabase
+        const query = this.supabase
           .schema(schema)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .upsert(chunk as any, { onConflict: conflict?.join(",") ?? "" });
 
         if (modifyQuery) {
-          modifyQuery(query as any);
+          modifyQuery(query);
         }
 
         const { data, error } = await query.select();
         if (error) throw new Error(error.message);
-        if (data) allResults.push(...(data as Tables<S, T>[]));
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+        if (data) allResults.push(...(data as unknown as Tables<S, T>[]));
       }
 
       return { data: allResults };
@@ -332,15 +360,19 @@ export class SupabaseHelper {
       const allResults: Tables<S, T>[] = [];
       for (let i = 0; i < ids.length; i += batchSize) {
         const chunk = ids.slice(i, i + batchSize);
-        let query = this.supabase
+        const query = this.supabase
           .schema(schema)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>)
           .select("*")
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .in(String(idColumn), chunk as any[]);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
         if (modifyQuery) modifyQuery(query as any);
         const { data, error } = await query;
         if (error) throw new Error(error.message);
-        if (data) allResults.push(...(data as Tables<S, T>[]));
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+        if (data) allResults.push(...(data as unknown as Tables<S, T>[]));
       }
       return { data: allResults };
     } catch (err) {
@@ -364,8 +396,11 @@ export class SupabaseHelper {
         const chunk = ids.slice(i, i + batchSize);
         const { error } = await this.supabase
           .schema(schema)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .update(row as any)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .in("id", chunk as any);
         if (error) throw new Error(error.message);
       }
@@ -392,11 +427,15 @@ export class SupabaseHelper {
     try {
       for (let i = 0; i < values.length; i += batchSize) {
         const chunk = values.slice(i, i + batchSize);
-        let query = this.supabase
+        const query = this.supabase
           .schema(schema)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .update(row as any)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .in(String(whereColumn), chunk as any);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
         if (modifyQuery) modifyQuery(query as any);
         const { error } = await query;
         if (error) throw new Error(error.message);
@@ -421,11 +460,14 @@ export class SupabaseHelper {
     try {
       for (let i = 0; i < ids.length; i += batchSize) {
         const chunk = ids.slice(i, i + batchSize);
-        let query = this.supabase
+        const query = this.supabase
           .schema(schema)
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>)
           .delete()
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
           .in("id", chunk as any);
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
         if (modifyQuery) modifyQuery(query as any);
         const { error } = await query;
         if (error) throw new Error(error.message);

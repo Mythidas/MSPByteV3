@@ -8,7 +8,7 @@
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
   import type { Tables } from '@workspace/shared/types/database';
-  import { INTEGRATIONS } from '@workspace/core/config/integrations';
+  import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
   import FrameworkSheet from './_framework-sheet.svelte';
   import CheckDialog from './_check-dialog.svelte';
   import Switch from '$lib/components/ui/switch/switch.svelte';

@@ -1,33 +1,45 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { encryptSecret, decryptSecret } from '$lib/server/encryption';
-import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
-import type { SophosPartnerConfig, SophosPartnerTenant } from '@workspace/shared/types/integrations/sophos/index.js';
+import { SophosPartnerConnector } from '@workspace/shared/lib/integrations/sophos-partner/connector';
+import {
+  SophosPartnerConfigSchema,
+  type SophosPartnerConfig,
+  type SophosPartnerTenant,
+} from '@workspace/shared/types/integrations/sophos/index.js';
+import { isString } from '@workspace/shared/lib/utils/validators';
 
-async function getTenants(parent: () => Promise<any>): Promise<SophosPartnerTenant[]> {
-  const { getIntegration } = await parent();
-  const integration = await getIntegration;
+async function getTenants(locals: App.Locals): Promise<SophosPartnerTenant[]> {
+  const { data: integration } = await locals.supabase
+    .from('integrations')
+    .select('config')
+    .eq('id', 'sophos-partner')
+    .single();
   if (!integration) return [];
-  const config = integration.config as SophosPartnerConfig;
+  const config = SophosPartnerConfigSchema.parse(integration.config);
   if (!config?.clientId || !config?.clientSecret) return [];
+
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
   const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret });
-  const { data } = await connector.getTenants();
-  return data ?? [];
+  try {
+    return await connector.partner.tenants.list();
+  } catch {
+    return [];
+  }
 }
 
-export const load: PageServerLoad = async ({ parent }) => {
-  return { getTenants: getTenants(parent) };
+export const load: PageServerLoad = ({ locals }) => {
+  return { getTenants: getTenants(locals) };
 };
 
 export const actions = {
   save: async ({ request, locals }) => {
     const formData = await request.formData();
-    const clientId = formData.get('clientId') as string;
-    const clientSecret = formData.get('clientSecret') as string;
+    const clientId = formData.get('clientId');
+    const clientSecret = formData.get('clientSecret');
 
-    if (!clientId) {
+    if (!clientId || !isString(clientId) || !isString(clientSecret)) {
       return fail(400, { error: 'Client ID is required' });
     }
 
@@ -42,26 +54,33 @@ export const actions = {
         .is('deleted_at', null)
         .single();
 
-      const existingSecret = (existing?.config as SophosPartnerConfig)?.clientSecret;
+      const existingConfig = SophosPartnerConfigSchema.parse(existing?.config);
+      const existingSecret = existingConfig?.clientSecret;
       if (!existingSecret) {
         return fail(400, { error: 'Client Secret is required' });
       }
       encryptedSecret = existingSecret;
     } else {
       const connector = new SophosPartnerConnector({ clientId, clientSecret });
-      const { error: healthError } = await connector.checkHealth();
-      if (healthError) {
-        return fail(400, { error: `Connection failed: ${healthError}` });
+      const healthy = await connector.checkHealth();
+      if (!healthy) {
+        return fail(400, { error: 'Connection failed' });
       }
       encryptedSecret = await encryptSecret(clientSecret);
     }
 
-    const credentialExpiration = (formData.get('credentialExpiration') as string) || null;
+    const credentialExpiration = formData.get('credentialExpiration') || null;
     const config: SophosPartnerConfig = { clientId, clientSecret: encryptedSecret };
 
     const { error } = await locals.supabase.from('integrations').upsert(
-      { id: 'sophos-partner', tenant_id: locals.tenant!.id, config, deleted_at: null, credential_expiration: credentialExpiration },
-      { onConflict: 'id,tenant_id' },
+      {
+        id: 'sophos-partner',
+        tenant_id: locals.tenant!.id,
+        config,
+        deleted_at: null,
+        credential_expiration: isString(credentialExpiration) ? credentialExpiration : null,
+      },
+      { onConflict: 'id,tenant_id' }
     );
 
     if (error) return fail(500, { error: error.message });
@@ -70,17 +89,17 @@ export const actions = {
 
   testConnection: async ({ request }) => {
     const formData = await request.formData();
-    const clientId = formData.get('clientId') as string;
-    const clientSecret = formData.get('clientSecret') as string;
+    const clientId = formData.get('clientId');
+    const clientSecret = formData.get('clientSecret');
 
-    if (!clientId || !clientSecret) {
+    if (!clientId || !clientSecret || !isString(clientId) || !isString(clientSecret)) {
       return fail(400, { error: 'Client ID and Client Secret are required' });
     }
 
     const connector = new SophosPartnerConnector({ clientId, clientSecret });
-    const { error: healthError } = await connector.checkHealth();
-    if (healthError) {
-      return fail(400, { error: `Connection failed: ${healthError}` });
+    const healthy = await connector.checkHealth();
+    if (!healthy) {
+      return fail(400, { error: 'Connection failed' });
     }
 
     return { success: true };
@@ -94,6 +113,6 @@ export const actions = {
       .eq('tenant_id', locals.tenant!.id);
 
     if (error) return fail(500, { error: error.message });
-    throw redirect(303, '/integrations');
+    return redirect(303, '/integrations');
   },
 } satisfies Actions;

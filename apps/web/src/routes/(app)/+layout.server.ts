@@ -1,6 +1,6 @@
 import { redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
-import type { IntegrationId } from '@workspace/core/types/integrations';
+import { INTEGRATION_IDS, type IntegrationId } from '@workspace/shared/types/integrations';
 import {
   deriveNotificationsFromHealth,
   deriveNotificationsFromExpiry,
@@ -8,7 +8,7 @@ import {
 
 export const load: LayoutServerLoad = async ({ locals }) => {
   if (!locals.user || !locals.role || !locals.tenant) {
-    throw redirect(303, '/auth/login');
+    return redirect(303, '/auth/login');
   }
 
   const tenantId = locals.tenant.id;
@@ -43,7 +43,9 @@ export const load: LayoutServerLoad = async ({ locals }) => {
     user: locals.user,
     role: locals.role,
     tenant: locals.tenant,
-    activeIntegrations: activeIntegrations?.map((ai) => ai.id as IntegrationId) ?? [],
+    activeIntegrations: (activeIntegrations?.map((ai) => ai.id) ?? []).filter(
+      (id): id is IntegrationId => (INTEGRATION_IDS as readonly string[]).includes(id)
+    ),
     notifications,
   };
 };

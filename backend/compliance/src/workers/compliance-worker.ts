@@ -1,8 +1,8 @@
 import { Worker, type Job } from "bullmq";
-import { QueueNames } from "@workspace/core/config/queue-names";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { evaluateLink, evaluateTenant } from "../evaluator";
 import { redis } from "../redis";
+import { CoreQueueNames } from "@workspace/shared/config/queue-names";
 
 const MODULE = "compliance";
 const CONTEXT = "compliance-worker";
@@ -13,8 +13,8 @@ export class ComplianceWorker {
   private worker: Worker<ComplianceJobPayload, unknown, string>;
 
   constructor() {
-    this.worker = new Worker(
-      QueueNames.ComplianceEval,
+    this.worker = new Worker<ComplianceJobPayload, unknown, string>(
+      CoreQueueNames.ComplianceEval,
       (job) => this.process(job),
       {
         connection: redis,
@@ -37,7 +37,7 @@ export class ComplianceWorker {
     Logger.info({
       module: MODULE,
       context: CONTEXT,
-      message: `listening on ${QueueNames.ComplianceEval}`,
+      message: `listening on ${CoreQueueNames.ComplianceEval}`,
     });
   }
 

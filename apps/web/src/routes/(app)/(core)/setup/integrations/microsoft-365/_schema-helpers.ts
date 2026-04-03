@@ -1,8 +1,8 @@
 import type {
   SchemaFields,
   FieldDefinition,
-} from '@workspace/core/types/contracts/schema-registry';
-import type { ConditionOperator } from '@workspace/core/types/contracts/compliance';
+} from '@workspace/shared/types/jobs/contracts/schema-registry';
+import type { ConditionOperator } from '@workspace/shared/types/jobs/contracts/compliance';
 
 export type FlatField = {
   key: string;

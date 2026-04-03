@@ -1,4 +1,6 @@
 import { supabase } from '$lib/utils/supabase.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
+import type { AnyQueryBuilder } from '@workspace/shared/lib/utils/supabase-helper';
 import type { IdentityStats } from './types.js';
 
 export function createM365Identities(getParams: () => { tenantId: string; linkId: string } | null) {
@@ -14,34 +16,34 @@ export function createM365Identities(getParams: () => { tenantId: string; linkId
     loading = true;
     error = null;
 
-    const applyScope = (q: any) => q.eq('tenant_id', tenantId).eq('link_id', linkId);
+    const applyScope = (q: AnyQueryBuilder): AnyQueryBuilder => q.eq('tenant_id', tenantId).eq('link_id', linkId);
     const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
 
     Promise.all([
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true }),
       ),
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('enabled', false),
       ),
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('mfa_enforced', false),
       ),
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('enabled', true)
           .or(`last_sign_in_at.is.null,last_sign_in_at.lt.${sixtyDaysAgo}`)
@@ -50,14 +52,14 @@ export function createM365Identities(getParams: () => { tenantId: string; linkId
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('type', 'Member'),
       ),
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('type', 'Guest'),
       ),
@@ -73,7 +75,7 @@ export function createM365Identities(getParams: () => { tenantId: string; linkId
         };
       })
       .catch((e) => {
-        error = e?.message ?? 'Failed to load identity data';
+        error = parseSafeErrorMessage(e);
       })
       .finally(() => {
         loading = false;

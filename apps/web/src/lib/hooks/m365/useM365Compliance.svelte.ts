@@ -1,4 +1,5 @@
 import { supabase } from '$lib/utils/supabase.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
 import type { ComplianceStats } from './types.js';
 
 const SEVERITY_ORDER: Record<string, number> = {
@@ -23,23 +24,22 @@ export function createM365Compliance(getParams: () => { tenantId: string; linkId
     error = null;
 
     Promise.all([
-      (supabase as any)
+      supabase
         .from('compliance_results')
         .select('framework_check_id, status, evaluated_at')
         .eq('tenant_id', tenantId)
         .eq('link_id', linkId)
         .order('evaluated_at', { ascending: false }),
-      (supabase as any)
+      supabase
         .from('compliance_framework_checks')
         .select('id, name, severity')
         .eq('tenant_id', tenantId),
     ])
       .then(([resultsRes, checksRes]) => {
-        const results = (resultsRes.data ?? []) as {
-          framework_check_id: string;
-          status: string;
-        }[];
-        const checks = (checksRes.data ?? []) as { id: string; name: string; severity: string }[];
+        type ResultRow = { framework_check_id: string; status: string };
+        type CheckRow = { id: string; name: string; severity: string };
+        const results: ResultRow[] = resultsRes.data ?? [];
+        const checks: CheckRow[] = checksRes.data ?? [];
 
         const seen = new Set<string>();
         let pass = 0, fail = 0, total = 0;
@@ -61,7 +61,7 @@ export function createM365Compliance(getParams: () => { tenantId: string; linkId
         data = { pass, fail, total, topFailing };
       })
       .catch((e) => {
-        error = e?.message ?? 'Failed to load compliance data';
+        error = parseSafeErrorMessage(e);
       })
       .finally(() => {
         loading = false;

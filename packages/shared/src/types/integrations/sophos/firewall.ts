@@ -2,8 +2,8 @@ export type SophosPartnerFirewall = {
   id: string;
   cluster: {
     id: string;
-    mode: "activeActive" | "activePassive" | string;
-    status: "primary" | "secondary" | string;
+    mode: "activeActive" | "activePassive";
+    status: "primary" | "secondary";
     peers: {
       id: string;
       serialNumber: string;
@@ -23,8 +23,8 @@ export type SophosPartnerFirewall = {
   firmwareVersion: string | null;
   model: string | null;
   status: {
-    managing: "approved" | "approvalPending" | "rejected" | string;
-    reporting: "approved" | "approvalPending" | "rejected" | string;
+    managing: "approved" | "approvalPending" | "rejected";
+    reporting: "approved" | "approvalPending" | "rejected";
     connected: boolean;
     suspended: boolean;
   };
@@ -36,18 +36,18 @@ export type SophosPartnerFirewall = {
   };
   createdBy: {
     id: string;
-    type: "user" | "system" | string;
+    type: "user" | "system";
     name: string;
-    accountType: "tenant" | "partner" | string;
+    accountType: "tenant" | "partner";
     accountId: string;
   };
   createdAt: string; // ISO 8601 date string
   updatedAt: string; // ISO 8601 date string
   updatedBy: {
     id: string;
-    type: "user" | "system" | string;
+    type: "user" | "system";
     name: string;
-    accountType: "tenant" | "partner" | string;
+    accountType: "tenant" | "partner";
     accountId: string;
   };
   firmware?: SophosPartnerFirewallFirmware;
@@ -55,8 +55,8 @@ export type SophosPartnerFirewall = {
 
 export type SophosPartnerFirewallFirmware = {
   id: string;
-  serialNumber: string;
-  firmwareVersion: string;
+  serialNumber?: string;
+  firmwareVersion?: string;
   upgradeToVersion: string[];
   newestFirmware: string;
 };
@@ -65,7 +65,7 @@ export type SophosPartnerFirewallLicense = {
   serialNumber: string;
   owner: {
     id: string;
-    type: "partner" | "tenant" | string; // flexible if more possible
+    type: "partner" | "tenant"; // flexible if more possible
   };
   partner: {
     id: string;
@@ -75,7 +75,7 @@ export type SophosPartnerFirewallLicense = {
     id: string;
   };
   model: string;
-  modelType: "hardware" | "virtual" | string;
+  modelType: "hardware" | "virtual";
   lastSeenAt: string;
   endDate: string;
   licenses: {
@@ -89,7 +89,7 @@ export type SophosPartnerFirewallLicense = {
     startDate: string; // ISO date
     endDate: string; // ISO date
     perpetual: boolean;
-    type: "usage" | "perpetual" | string;
+    type: "usage" | "perpetual";
     quantity: number;
     usage: {
       current: {

@@ -1,18 +1,18 @@
-import dotenv from 'dotenv';
-import path, { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
-import Fastify from 'fastify';
-import cors from '@fastify/cors';
-import multipart from '@fastify/multipart';
-import autoload from '@fastify/autoload';
-import fastifyStatic from '@fastify/static';
-import { Logger } from '@workspace/shared/lib/utils/logger';
+import dotenv from "dotenv";
+import path, { dirname, join } from "path";
+import { fileURLToPath } from "url";
+import Fastify from "fastify";
+import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
+import autoload from "@fastify/autoload";
+import fastifyStatic from "@fastify/static";
+import { Logger } from "@workspace/shared/lib/utils/logger";
 
 // Compute __dirname equivalent
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-dotenv.config({ path: join(__dirname, '../.env') });
+dotenv.config({ path: join(__dirname, "../.env") });
 
 // Initialize Fastify server
 const fastify = Fastify({ logger: false });
@@ -31,32 +31,33 @@ await fastify.register(multipart, {
 });
 
 await fastify.register(autoload, {
-  dir: join(__dirname, 'api'),
+  dir: join(__dirname, "api"),
   options: {},
 });
 
-const PROJECT_ROOT = path.resolve(__dirname, '../../../../');
+const PROJECT_ROOT = path.resolve(__dirname, "../../../../");
 await fastify.register(fastifyStatic, {
-  root: path.join(PROJECT_ROOT, 'backend/agents/assets/installers/scripts'),
-  prefix: '/installers/', // optional
+  root: path.join(PROJECT_ROOT, "backend/agents/assets/installers/scripts"),
+  prefix: "/installers/", // optional
   decorateReply: true, // <-- this enables reply.sendFile()
 });
 
-const port = process.env.PORT || 3001;
-await fastify.listen({ port: port as number, host: '0.0.0.0' });
+const port = Number(process.env.PORT || 3001);
+await fastify.listen({ port: port, host: "0.0.0.0" });
 
-Logger.level = (process.env.LOG_LEVEL as any) ?? 'info';
+const logLevel = process.env.LOG_LEVEL ?? "info";
+Logger.level = Logger.isLogLevel(logLevel) ? logLevel : "info";
 Logger.info({
-  module: 'app',
-  context: 'startup',
+  module: "app",
+  context: "startup",
   message: `Server listening on port ${port}`,
 });
 
 // Graceful shutdown handlers
 async function shutdown(signal: string) {
   Logger.info({
-    module: 'app',
-    context: 'shutdown',
+    module: "app",
+    context: "shutdown",
     message: `Received ${signal}, shutting down gracefully...`,
   });
 
@@ -64,13 +65,19 @@ async function shutdown(signal: string) {
   await fastify.close();
 
   Logger.info({
-    module: 'app',
-    context: 'shutdown',
-    message: 'Shutdown complete',
+    module: "app",
+    context: "shutdown",
+    message: "Shutdown complete",
   });
 
   process.exit(0);
 }
 
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+process.on("SIGTERM", () => {
+  void shutdown("SIGTERM");
+  return;
+});
+process.on("SIGINT", () => {
+  void shutdown("SIGINT");
+  return;
+});

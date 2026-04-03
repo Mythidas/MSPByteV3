@@ -12,7 +12,6 @@ const config = {
     }),
     alias: {
       '@workspace/shared': path.resolve('../..', 'packages/shared/src'),
-      '@workspace/core': path.resolve('../..', 'packages/core/src'),
     },
   },
 };

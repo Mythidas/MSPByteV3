@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 const ALGORITHM = "aes-256-gcm";
 
 export default class Encryption {
-  static async encrypt(text: string, key: string) {
+  static encrypt(text: string, key: string) {
     const iv = crypto.randomBytes(12);
     const cipher = crypto.createCipheriv(
       ALGORITHM,
@@ -24,7 +24,7 @@ export default class Encryption {
     ].join(":");
   }
 
-  static async decrypt(encryptedText: string, key: string) {
+  static decrypt(encryptedText: string, key: string) {
     const [ivB64, tagB64, dataB64] = encryptedText.split(":");
     if (!ivB64 || !tagB64 || !dataB64) return undefined;
 

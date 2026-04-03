@@ -5,7 +5,8 @@ import { ExecutorError } from "../../../errors.js";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { getSupabase } from "../../../supabase.js";
 import { TablesInsert } from "@workspace/shared/types/database.js";
-import { getTypeMap } from "@workspace/core/types/integrations.js";
+import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
+import { isJson, isRecord } from "@workspace/shared/lib/utils/validators.js";
 
 registerNode({
   ref: "Generic.CreateAlert",
@@ -38,9 +39,11 @@ registerNode({
     },
   ],
   async execute(input, ctx: RunContext) {
-    const entities = input.entities as Record<string, unknown>[];
-    const alertDefinitionId = input.alert_definition_id as string;
-    const entityType = (entities[0] as any)?._entityType as string | undefined;
+    const entities = Array.isArray(input.entities)
+      ? input.entities.map((e) => (isRecord(e) ? e : {}))
+      : [];
+    const alertDefinitionId = String(input.alert_definition_id);
+    const entityType = String(entities[0]._entityType);
     const { data: alertDefinition } = await getSupabase()
       .schema("public")
       .from("alert_definitions")
@@ -60,23 +63,22 @@ registerNode({
       );
     }
 
-    const entityIds = entities.map((e) => e.id as string);
-    const entityMap = new Map(entities.map((e) => [e.id as string, e]));
+    const entityIds = entities.map((e) => String(e.id));
+    const entityMap = new Map(entities.map((e) => [e.id, e]));
     let recordsInserted = 0;
     let recordsUpdated = 0;
-    let recordsFailed = 0;
 
     try {
       // 1. Fetch open alerts for these entities
       const { data: openAlerts, error: fetchError } =
         await supabaseHelper.batchSelect(
           "public",
-          "alerts" as any,
+          "alerts",
           entityIds,
-          "entity_id" as never,
+          "entity_id",
           500,
-          (q: any) =>
-            q
+          (q) =>
+            void q
               .eq("definition_id", alertDefinitionId)
               .eq("entity_type", entityType)
               .is("resolved_at", null),
@@ -84,14 +86,12 @@ registerNode({
 
       if (fetchError || !openAlerts) {
         throw new ExecutorError(
-          `Generic.CreateAlert: failed to fetch open alerts: ${fetchError}`,
+          `Generic.CreateAlert: failed to fetch open alerts: ${fetchError.message}`,
         );
       }
 
       // 2. Split: entities with no open alert → insert; with open alert → update last_seen_at
-      const alreadyOpenIds = new Set(
-        openAlerts.map((a: any) => a.entity_id as string),
-      );
+      const alreadyOpenIds = new Set(openAlerts.map((a) => a.entity_id));
       const toInsert = entityIds.filter((id) => !alreadyOpenIds.has(id));
       const toUpdate = entityIds.filter((id) => alreadyOpenIds.has(id));
 
@@ -106,26 +106,26 @@ registerNode({
             tenant_id: ctx.tenant_id,
             message: hydrateMessageTemplate(
               alertDefinition.message_template,
-              ent,
+              isRecord(ent) ? ent : {},
             ),
             status: "active",
             entity_id: id,
             entity_type: entityType,
             last_seen_at: now,
-            metadata: ent,
-            site_id: ent?.site_id ?? null,
-            link_id: ent?.link_id ?? null,
-          } as TablesInsert<"public", "alerts">;
+            metadata: isJson(ent) ? ent : {},
+            site_id: String(ent?.site_id),
+            link_id: String(ent?.link_id),
+          } satisfies TablesInsert<"public", "alerts">;
         });
 
         const { error: insertError } = await supabaseHelper.batchInsert(
           "public",
-          "alerts" as any,
-          rows as any,
+          "alerts",
+          rows,
         );
         if (insertError)
           throw new ExecutorError(
-            `Generic.CreateAlert: insert failed: ${insertError}`,
+            `Generic.CreateAlert: insert failed: ${insertError.message}`,
           );
         recordsInserted = toInsert.length;
       }
@@ -134,20 +134,20 @@ registerNode({
       if (toUpdate.length > 0) {
         const { error: updateError } = await supabaseHelper.batchUpdateWhere(
           "public",
-          "alerts" as any,
+          "alerts",
           toUpdate,
-          "entity_id" as never,
-          { last_seen_at: new Date().toISOString() } as any,
+          "entity_id",
+          { last_seen_at: new Date().toISOString() },
           500,
-          (q: any) =>
-            q
+          (q) =>
+            void q
               .eq("definition_id", alertDefinitionId)
               .eq("entity_type", entityType)
               .is("resolved_at", null),
         );
         if (updateError)
           throw new ExecutorError(
-            `Generic.CreateAlert: update failed: ${updateError}`,
+            `Generic.CreateAlert: update failed: ${updateError.message}`,
           );
         recordsUpdated = toUpdate.length;
       }
@@ -158,7 +158,6 @@ registerNode({
         message: `Processed ${entityIds.length} entities: ${recordsInserted} inserted, ${recordsUpdated} updated`,
       });
     } catch (err) {
-      recordsFailed = entityIds.length;
       throw err instanceof ExecutorError ? err : new ExecutorError(String(err));
     }
 
@@ -167,13 +166,15 @@ registerNode({
         input_count: entities.length,
         records_inserted: recordsInserted,
         records_updated: recordsUpdated,
-        records_failed: recordsFailed,
       },
     };
   },
 });
 
-const hydrateMessageTemplate = (template: string, entity: any): string => {
+const hydrateMessageTemplate = (
+  template: string,
+  entity: Record<string, unknown>,
+): string => {
   if (template.length === 0 || typeof entity !== "object") return "";
 
   let idx = 0;
@@ -184,7 +185,7 @@ const hydrateMessageTemplate = (template: string, entity: any): string => {
     if (nextStart === -1 || nextEnd === -1) break;
 
     const key = template.substring(nextStart + 2, nextEnd);
-    finalValue = finalValue.replace(`{{${key}}}`, entity[key] ?? "Unknown");
+    finalValue = finalValue.replace(`{{${key}}}`, String(entity[key]));
     idx = nextEnd;
   }
 

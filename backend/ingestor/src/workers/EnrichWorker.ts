@@ -1,10 +1,15 @@
 import type { Job } from "bullmq";
 import { queueManager, QueueNames } from "../lib/queue.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { startIngestJob, completeIngestJob, failIngestJob } from "../lib/ingest-state.js";
+import {
+  startIngestJob,
+  completeIngestJob,
+  failIngestJob,
+} from "../lib/ingest-state.js";
 import { PipelineTracker } from "../lib/tracker.js";
 import type { EnrichJobData } from "../types.js";
 import type { IngestorDefinition } from "../interfaces.js";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
 
 export class EnrichWorker {
   constructor(
@@ -53,12 +58,21 @@ export class EnrichWorker {
 
     try {
       await tracker.trackSpan("enrichment_run", () =>
-        enrichment.run({ tenantId, linkId: linkId ?? undefined })
+        enrichment.run({ tenantId, linkId: linkId ?? undefined }),
       );
-      await completeIngestJob(dbJob.id, { metrics: tracker.toJSON() });
+      const json = tracker.toJSON();
+      await completeIngestJob(dbJob.id, {
+        metrics: isRecord(json) ? json : {},
+      });
     } catch (err) {
-      tracker.trackError(err as Error);
-      await failIngestJob(dbJob.id, { error: err, metrics: tracker.toJSON() });
+      if (err instanceof Error) {
+        tracker.trackError(err);
+      }
+      const json = tracker.toJSON();
+      await failIngestJob(dbJob.id, {
+        error: err,
+        metrics: isRecord(json) ? json : {},
+      });
       throw err;
     }
   }

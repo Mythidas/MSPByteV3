@@ -1,6 +1,15 @@
-import type { FilterOperator, TableFilter } from "../types";
-import { getNestedValue } from "./nested";
-import { OPERATOR_LABELS } from "./operators";
+import type { FilterOperator, TableFilter } from '../types';
+import { OPERATOR_LABELS, OPERATOR_MAP } from './operators';
+
+const ALL_OPERATORS = new Set<string>(Object.values(OPERATOR_MAP).flat());
+
+function isFilterOperator(s: string): s is FilterOperator {
+  return ALL_OPERATORS.has(s);
+}
+
+function parseJsonSafe(s: string): unknown {
+  return JSON.parse(s) as unknown;
+}
 
 /**
  * Generate a unique ID for a filter
@@ -22,7 +31,7 @@ export function serializeFilters(filters: TableFilter[]): string {
       const value = encodeURIComponent(JSON.stringify(f.value));
       return `${id}|${field}|${operator}|${value}`;
     })
-    .join(";");
+    .join(';');
 }
 
 /**
@@ -32,17 +41,18 @@ export function deserializeFilters(str: string): TableFilter[] {
   if (!str) return [];
 
   try {
-    return str.split(";").map((part) => {
-      const [id, field, operator, value] = part.split("|");
+    return str.split(';').map((part) => {
+      const [id, field, operator, value] = part.split('|');
+      const op = decodeURIComponent(operator);
       return {
         id: decodeURIComponent(id),
         field: decodeURIComponent(field),
-        operator: decodeURIComponent(operator) as FilterOperator,
-        value: JSON.parse(decodeURIComponent(value)),
+        operator: isFilterOperator(op) ? op : 'eq',
+        value: parseJsonSafe(decodeURIComponent(value)),
       };
     });
   } catch (error) {
-    console.error("Failed to deserialize filters:", error);
+    console.error('Failed to deserialize filters:', error);
     return [];
   }
 }
@@ -57,12 +67,12 @@ export function getOperatorLabel(operator: FilterOperator): string {
 /**
  * Format filter value for display
  */
-export function formatFilterValue(value: any): string {
+export function formatFilterValue(value: unknown): string {
   if (Array.isArray(value)) {
-    return value.join(", ");
+    return value.map(String).join(', ');
   }
-  if (typeof value === "boolean") {
-    return value ? "Yes" : "No";
+  if (typeof value === 'boolean') {
+    return value ? 'Yes' : 'No';
   }
   if (value instanceof Date) {
     return value.toLocaleDateString();

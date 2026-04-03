@@ -1,70 +1,72 @@
-export type PinKind = 'input' | 'output';
-export type Cardinality = 'single' | 'array';
-export type NodeCategory = 'param' | 'source' | 'transform' | 'sink';
+import { Json } from "@workspace/shared/types/schema";
 
-export interface PinDefinition {
+export type PinKind = "input" | "output";
+export type Cardinality = "single" | "array";
+export type NodeCategory = "param" | "source" | "transform" | "sink";
+
+export type PinDefinition = {
   key: string;
   kind: PinKind;
   dataType: string;
   cardinality: Cardinality;
   optional?: boolean;
-}
+};
 
-export interface ParamSchemaItem {
+export type ParamSchemaItem = {
   key: string;
   label: string;
   dataType: string;
   cardinality: Cardinality;
   required: boolean;
-}
+};
 
-export interface GraphNode {
+export type GraphNode = {
   id: string;
   ref: string;
   category: NodeCategory;
   params: Record<string, unknown>;
-}
+};
 
-export interface EdgeDefinition {
+export type EdgeDefinition = {
   id: string;
   sourceNodeId: string;
   sourcePinKey: string;
   targetNodeId: string;
   targetPinKey: string;
-}
+};
 
-export interface WorkflowGraph {
+export type WorkflowGraph = {
   nodes: GraphNode[];
   edges: EdgeDefinition[];
-}
+};
 
-export interface RunContext {
+export type RunContext = {
   run_id: string;
   tenant_id: string;
   triggered_by: string;
   triggered_by_user: string | null;
   seed: Record<string, unknown>;
   node_outputs: Record<string, Record<string, unknown>>;
-}
+};
 
-export interface NodeOutput {
+export type NodeOutput = {
   [pinKey: string]: unknown;
   _metrics?: Record<string, unknown>;
-}
+};
 
-export interface ValidationResult {
+export type ValidationResult = {
   valid: boolean;
   errors: string[];
-}
+};
 
-export interface NodeRunResult {
+export type NodeRunResult = {
   nodeId: string;
-  status: 'completed' | 'failed' | 'skipped';
+  status: "completed" | "failed" | "skipped";
   error?: string;
   category: NodeCategory;
-}
+};
 
-export interface NodeSpec {
+export type NodeSpec = {
   ref: string;
   label: string;
   description: string;
@@ -74,23 +76,26 @@ export interface NodeSpec {
   pins: PinDefinition[];
   paramSchema: ParamSchemaItem[];
   affectedEntitiesPin?: string;
-  execute: (input: Record<string, unknown>, ctx: RunContext) => Promise<Record<string, unknown>>;
-}
+  execute: (
+    input: Record<string, unknown>,
+    ctx: RunContext,
+  ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+};
 
-export interface RunSeed {
-  scope_type: 'entity_ids' | 'site_ids' | 'link_ids' | 'all';
+export type RunSeed = {
+  scope_type: "entity_ids" | "site_ids" | "link_ids" | "all";
   entity_ids?: string[];
   entity_type?: string;
   site_ids?: string[];
   link_ids?: string[];
-  params: Record<string, unknown>;
-}
+  params: Json;
+};
 
-export interface WorkflowRunJobPayload {
+export type WorkflowRunJobPayload = {
   run_id: string;
   priority?: number;
-}
+};
 
-export interface SchedulerJobPayload {
+export type SchedulerJobPayload = {
   tick_at: string;
-}
+};

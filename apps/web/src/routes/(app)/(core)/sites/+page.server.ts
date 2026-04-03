@@ -1,20 +1,20 @@
 import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { decryptSecret } from '$lib/server/encryption';
-import { DattoRMMConnector } from '@workspace/shared/lib/connectors/DattoRMMConnector';
-import { CoveConnector } from '@workspace/shared/lib/connectors/CoveConnector';
-import { SophosPartnerConnector } from '@workspace/shared/lib/connectors/SophosConnector';
-import { HaloPSAConnector } from '@workspace/shared/lib/connectors/HaloPSAConnector';
-import type { DattoRMMConfig } from '@workspace/shared/types/integrations/datto/index.js';
-import type { CoveConnectorConfig } from '@workspace/shared/types/integrations/cove/index.js';
-import type { SophosPartnerConfig } from '@workspace/shared/types/integrations/sophos/index.js';
-import type { HaloPSAConfig } from '@workspace/shared/types/integrations/halopsa/index.js';
+import { DattoRMMConnector } from '@workspace/shared/lib/integrations/dattormm/connector';
+import { CoveConnector } from '@workspace/shared/lib/integrations/cove/connector';
+import { SophosPartnerConnector } from '@workspace/shared/lib/integrations/sophos-partner/connector';
+import { HaloPSAConnector } from '@workspace/shared/lib/integrations/halopsa/connector';
+import { DattoRMMConfigSchema } from '@workspace/shared/types/integrations/datto/index.js';
+import { CoveConnectorConfigSchema } from '@workspace/shared/types/integrations/cove/index.js';
+import { SophosPartnerConfigSchema } from '@workspace/shared/types/integrations/sophos/index.js';
+import { HaloPSAConfigSchema } from '@workspace/shared/types/integrations/halopsa/index.js';
 
 export type ExternalResource = { id: string; name: string };
 
 async function getMappedExternalIds(
   locals: App.Locals,
-  integrationId: string,
+  integrationId: string
 ): Promise<Set<string>> {
   const { data } = await locals.supabase
     .from('integration_links')
@@ -34,15 +34,17 @@ async function getDattoResources(locals: App.Locals): Promise<ExternalResource[]
     .is('deleted_at', null)
     .single();
   if (!integration) return [];
-  const config = integration.config as DattoRMMConfig;
+  const config = DattoRMMConfigSchema.parse(integration.config);
   if (!config?.url || !config?.apiKey || !config?.apiSecretKey) return [];
   const apiSecretKey = await decryptSecret(config.apiSecretKey);
   if (!apiSecretKey) return [];
-  const [{ data }, mapped] = await Promise.all([
-    new DattoRMMConnector({ url: config.url, apiKey: config.apiKey, apiSecretKey }).getSites(),
+  const [sites, mapped] = await Promise.all([
+    new DattoRMMConnector({ url: config.url, apiKey: config.apiKey, apiSecretKey }).account.sites
+      .list()
+      .catch(() => []),
     getMappedExternalIds(locals, 'dattormm'),
   ]);
-  return (data ?? []).filter((s) => !mapped.has(s.uid)).map((s) => ({ id: s.uid, name: s.name }));
+  return sites.filter((s) => !mapped.has(s.uid)).map((s) => ({ id: s.uid, name: s.name }));
 }
 
 async function getCoveResources(locals: App.Locals): Promise<ExternalResource[]> {
@@ -54,22 +56,23 @@ async function getCoveResources(locals: App.Locals): Promise<ExternalResource[]>
     .is('deleted_at', null)
     .single();
   if (!integration) return [];
-  const config = integration.config as CoveConnectorConfig;
+  const config = CoveConnectorConfigSchema.parse(integration.config);
   if (!config?.server || !config?.clientId || !config?.clientSecret || config?.partnerId == null)
     return [];
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const [{ data }, mapped] = await Promise.all([
+  const [customers, mapped] = await Promise.all([
     new CoveConnector({
       server: config.server,
       partnerId: config.partnerId,
       clientId: config.clientId,
       clientSecret,
-    }).getCustomers(),
+    }).partner.children
+      .list()
+      .catch(() => []),
     getMappedExternalIds(locals, 'cove'),
   ]);
-  return (data ?? [])
-    .flatMap((c) => c)
+  return customers
     .filter((c) => !mapped.has(String(c.Info.Id)))
     .map((c) => ({ id: String(c.Info.Id), name: c.Info.Name }));
 }
@@ -83,15 +86,16 @@ async function getSophosResources(locals: App.Locals): Promise<ExternalResource[
     .is('deleted_at', null)
     .single();
   if (!integration) return [];
-  const config = integration.config as SophosPartnerConfig;
+  const config = SophosPartnerConfigSchema.parse(integration.config);
   if (!config?.clientId || !config?.clientSecret) return [];
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const [{ data }, mapped] = await Promise.all([
-    new SophosPartnerConnector({ clientId: config.clientId, clientSecret }).getTenants(),
+  const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret });
+  const [tenants, mapped] = await Promise.all([
+    connector.partner.tenants.list().catch(() => []),
     getMappedExternalIds(locals, 'sophos-partner'),
   ]);
-  return (data ?? []).filter((t) => !mapped.has(t.id)).map((t) => ({ id: t.id, name: t.name }));
+  return tenants.filter((t) => !mapped.has(t.id)).map((t) => ({ id: t.id, name: t.name }));
 }
 
 async function getHaloResources(locals: App.Locals): Promise<ExternalResource[]> {
@@ -103,20 +107,22 @@ async function getHaloResources(locals: App.Locals): Promise<ExternalResource[]>
     .is('deleted_at', null)
     .single();
   if (!integration) return [];
-  const config = integration.config as HaloPSAConfig;
+  const config = HaloPSAConfigSchema.parse(integration.config);
   if (!config?.url || !config?.clientId || !config?.clientSecret) return [];
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const [{ data }, mapped] = await Promise.all([
-    new HaloPSAConnector({ url: config.url, clientId: config.clientId, clientSecret }).getSites(),
+  const [sites, mapped] = await Promise.all([
+    new HaloPSAConnector({ url: config.url, clientId: config.clientId, clientSecret }).site
+      .list()
+      .catch(() => []),
     getMappedExternalIds(locals, 'halopsa'),
   ]);
-  return (data ?? [])
+  return sites
     .filter((s) => !mapped.has(String(s.id)))
     .map((s) => ({ id: String(s.id), name: s.clientsite_name }));
 }
 
-export const load: PageServerLoad = async ({ locals }) => ({
+export const load: PageServerLoad = ({ locals }) => ({
   dattoResources: getDattoResources(locals),
   coveResources: getCoveResources(locals),
   sophosResources: getSophosResources(locals),
@@ -126,12 +132,12 @@ export const load: PageServerLoad = async ({ locals }) => ({
 export const actions: Actions = {
   createSite: async ({ locals, request }) => {
     const formData = await request.formData();
-    const name = (formData.get('name') as string)?.trim();
-    if (!name) return fail(400, { message: 'Site name is required' });
+    const name = formData.get('name');
+    if (!name || typeof name !== 'string') return fail(400, { message: 'Site name is required' });
 
     const { data: site, error: siteError } = await locals.supabase
       .from('sites')
-      .insert({ name, tenant_id: locals.tenant!.id })
+      .insert({ name: name.trim(), tenant_id: locals.tenant!.id })
       .select('id')
       .single();
     if (siteError) return fail(500, { message: siteError.message });
@@ -140,9 +146,11 @@ export const actions: Actions = {
     const toUpsert = [];
 
     for (const integrationId of MAPPABLE) {
-      const externalId = (formData.get(`${integrationId}_external_id`) as string)?.trim();
-      const externalName = (formData.get(`${integrationId}_external_name`) as string)?.trim();
-      if (!externalId) continue;
+      const externalId = formData.get(`${integrationId}_external_id`);
+      const externalName = formData.get(`${integrationId}_external_name`);
+      if (!externalId || typeof externalId !== 'string' || typeof externalName !== 'string')
+        continue;
+
       toUpsert.push({
         integration_id: integrationId,
         tenant_id: locals.tenant!.id,

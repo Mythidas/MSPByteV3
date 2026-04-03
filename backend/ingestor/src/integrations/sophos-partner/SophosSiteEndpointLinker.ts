@@ -1,13 +1,10 @@
-import { getSupabase } from "../../supabase.js";
-import { Logger } from "@workspace/shared/lib/utils/logger";
-import { Microsoft365Connector } from "@workspace/shared/lib/connectors/Microsoft365Connector";
-import type {
+import {
   LinkerContract,
   LinkerDependency,
-} from "@workspace/core/types/contracts/linker";
-import { IngestType } from "@workspace/core/types/ingest";
-import Encryption from "@workspace/shared/lib/utils/encryption.js";
-import { SophosPartnerConnector } from "@workspace/shared/lib/connectors/SophosConnector.js";
+} from "@workspace/shared/types/jobs/contracts/linker.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
+import { getSupabase } from "../../supabase.js";
+import { Logger } from "@workspace/shared/lib/utils/logger";
 
 export class SophosSiteEndpointsLinker implements LinkerContract {
   readonly linkerType = "sophos-site-endpoints";
@@ -59,7 +56,7 @@ export class SophosSiteEndpointsLinker implements LinkerContract {
       .eq("tenant_id", tenantId)
       .eq("link_id", linkId);
 
-    const rows: any[] = [];
+    const rows = [];
     for (const role of endpointRows ?? []) {
       rows.push({
         tenant_id: tenantId,

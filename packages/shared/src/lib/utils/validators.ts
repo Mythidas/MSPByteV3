@@ -1,5 +1,8 @@
-import { Json } from "@workspace/shared/types/schema";
+import type { Json } from "@workspace/shared/types/schema";
 
+export function isString(value: unknown): value is string {
+  return typeof value === "string";
+}
 export function isJson(value: unknown): value is Json {
   if (
     value === null ||
@@ -15,10 +18,17 @@ export function isJson(value: unknown): value is Json {
   }
 
   if (typeof value === "object") {
-    return Object.values(value as Record<string, unknown>).every(
-      (v) => v === undefined || isJson(v),
-    );
+    return Object.values(value).every((v) => v === undefined || isJson(v));
   }
 
   return false;
+}
+
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+export function parseSafeErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
 }

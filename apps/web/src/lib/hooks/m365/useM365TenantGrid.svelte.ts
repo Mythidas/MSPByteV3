@@ -1,4 +1,5 @@
 import { supabase } from '$lib/utils/supabase.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
 
 export function createM365TenantGrid(getTenantId: () => string | null) {
   let links = $state<{ id: string; name: string }[]>([]);
@@ -12,21 +13,21 @@ export function createM365TenantGrid(getTenantId: () => string | null) {
     loading = true;
     error = null;
 
-    (supabase as any)
-      .from('integration_links')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .eq('integration_id', 'microsoft-365')
-      .eq('status', 'active')
-      .then((res: any) => {
-        links = (res.data ?? []) as { id: string; name: string }[];
-      })
-      .catch((e: any) => {
-        error = e?.message ?? 'Failed to load tenants';
-      })
-      .finally(() => {
+    void (async () => {
+      try {
+        const res = await supabase
+          .from('integration_links')
+          .select('id, name')
+          .eq('tenant_id', tenantId)
+          .eq('integration_id', 'microsoft-365')
+          .eq('status', 'active');
+        links = (res.data ?? []).map((l) => ({ id: l.id, name: l.name ?? '' }));
+      } catch (e) {
+        error = parseSafeErrorMessage(e);
+      } finally {
         loading = false;
-      });
+      }
+    })();
   });
 
   return {

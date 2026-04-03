@@ -1,7 +1,8 @@
 <script lang="ts">
   import SingleSelect from '$lib/components/single-select.svelte';
   import { scopeStore } from '$lib/stores/scope.svelte';
-  import { INTEGRATIONS, type IntegrationId } from '@workspace/core/config/integrations';
+  import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
+  import type { IntegrationId } from '@workspace/shared/types/integrations';
   import { supabase } from '$lib/utils/supabase';
   import { authStore } from '$lib/stores/auth.svelte';
   import FadeIn from '$lib/components/transition/fade-in.svelte';

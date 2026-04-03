@@ -3,7 +3,8 @@ import { registerNode } from "../../registry.js";
 import type { RunContext } from "../../../types.js";
 import { ExecutorError } from "../../../errors.js";
 import { getSupabase } from "../../../supabase.js";
-import { getTypeMap } from "@workspace/core/types/integrations.js";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
+import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
 
 registerNode({
   ref: "Generic.RemoveTag",
@@ -30,11 +31,13 @@ registerNode({
     },
   ],
   async execute(input, ctx: RunContext) {
-    const entities = input.entities as unknown[];
-    const tag_definition_id = input.tag_definition_id as string;
-    const entityType = (entities[0] as any)?._entityType as string | undefined;
+    const entities = Array.isArray(input.entities)
+      ? input.entities.map((e) => (isRecord(e) ? e : {}))
+      : [];
+    const tagDefinitionId = String(input.tag_definition_id);
+    const entityType = String(entities[0]._entityType);
 
-    if (!tag_definition_id) {
+    if (!tagDefinitionId) {
       throw new ExecutorError(`Generic.RemoveTag: missing tag_definition_id`);
     }
 
@@ -47,10 +50,10 @@ registerNode({
     Logger.info({
       module: "workflows",
       context: "Generic.RemoveTag",
-      message: `Would remove tag ${tag_definition_id} from ${entities.length} entities`,
+      message: `Would remove tag ${tagDefinitionId} from ${entities.length} entities`,
     });
 
-    const entityIds = entities.map((e: any) => e.id) as string[];
+    const entityIds = entities.map((e) => String(e.id));
 
     try {
       if (entityIds.length > 0) {
@@ -59,12 +62,12 @@ registerNode({
           .from("tags")
           .delete()
           .in("entity_id", entityIds)
-          .eq("definition_id", tag_definition_id)
+          .eq("definition_id", tagDefinitionId)
           .eq("entity_type", entityType)
           .eq("tenant_id", ctx.tenant_id);
         if (error)
           throw new ExecutorError(
-            `Generic.RemoveTags: delete failed: ${error}`,
+            `Generic.RemoveTags: delete failed: ${error.message}`,
           );
       }
     } catch (err) {

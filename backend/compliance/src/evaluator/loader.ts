@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import type { Json } from "@workspace/shared/types/schema";
 
 export type ComplianceCheckRow = {
   id: string;
@@ -7,7 +8,7 @@ export type ComplianceCheckRow = {
   name: string;
   description: string | null;
   severity: string;
-  check_config: Record<string, unknown>;
+  check_config: Json;
   sort_order: number;
   tenant_id: string;
   on_pass_workflow_id: string | null;
@@ -26,7 +27,7 @@ export async function loadAssignmentsForLink(
   linkId: string,
 ): Promise<AssignmentGroup[]> {
   // 0. Resolve integration_id for this link
-  const { data: linkRow, error: linkError } = await (supabase as any)
+  const { data: linkRow, error: linkError } = await supabase
     .from("integration_links")
     .select("integration_id")
     .eq("id", linkId)
@@ -36,7 +37,7 @@ export async function loadAssignmentsForLink(
   const integrationId = linkRow.integration_id;
 
   // 1. Fetch frameworks for this integration only
-  const { data: frameworks, error: fwError } = await (supabase as any)
+  const { data: frameworks, error: fwError } = await supabase
     .from("compliance_frameworks")
     .select("id, name")
     .eq("tenant_id", tenantId)
@@ -46,12 +47,12 @@ export async function loadAssignmentsForLink(
   if (!frameworks || frameworks.length === 0) return [];
 
   const frameworkNames = new Map<string, string>(
-    (frameworks as { id: string; name: string }[]).map((f) => [f.id, f.name]),
+    frameworks.map((f) => [f.id, f.name]),
   );
   const integrationFrameworkIds = Array.from(frameworkNames.keys());
 
   // 2. Query assignments — filtered to this integration's frameworks from the start
-  const { data: assignments, error: assignError } = await (supabase as any)
+  const { data: assignments, error: assignError } = await supabase
     .from("compliance_assignments")
     .select("framework_id, link_id")
     .eq("tenant_id", tenantId)
@@ -63,7 +64,7 @@ export async function loadAssignmentsForLink(
 
   // Link-level row wins over tenant-level (null link_id)
   const byFramework = new Map<string, { hasLinkLevel: boolean }>();
-  for (const row of assignments as { framework_id: string; link_id: string | null }[]) {
+  for (const row of assignments) {
     const existing = byFramework.get(row.framework_id);
     const isLinkLevel = row.link_id === linkId;
     if (!existing) {
@@ -77,7 +78,7 @@ export async function loadAssignmentsForLink(
   if (assignedIds.length === 0) return [];
 
   // 3. Fetch checks
-  const { data: checks, error: checkError } = await (supabase as any)
+  const { data: checks, error: checkError } = await supabase
     .from("compliance_framework_checks")
     .select("id, framework_id, check_type_id, name, description, severity, check_config, sort_order, tenant_id, on_pass_workflow_id, on_fail_workflow_id, on_change_workflow_id")
     .in("framework_id", assignedIds)
@@ -88,7 +89,7 @@ export async function loadAssignmentsForLink(
 
   // 4. Group by framework
   const grouped = new Map<string, ComplianceCheckRow[]>();
-  for (const check of (checks ?? []) as ComplianceCheckRow[]) {
+  for (const check of checks ?? []) {
     const list = grouped.get(check.framework_id) ?? [];
     list.push(check);
     grouped.set(check.framework_id, list);
@@ -105,7 +106,7 @@ export async function loadAssignmentsForTenant(
   tenantId: string,
 ): Promise<Map<string, AssignmentGroup[]>> {
   // Get all distinct link_ids with assignments
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("compliance_assignments")
     .select("link_id")
     .eq("tenant_id", tenantId)
@@ -113,7 +114,7 @@ export async function loadAssignmentsForTenant(
 
   if (error) throw new Error(`loadAssignmentsForTenant failed: ${error.message}`);
 
-  const linkIds = [...new Set((data as { link_id: string }[]).map((r) => r.link_id))];
+  const linkIds = [...new Set((data ?? []).map((r) => r.link_id).filter((id): id is string => id !== null))];
 
   const result = new Map<string, AssignmentGroup[]>();
   await Promise.all(

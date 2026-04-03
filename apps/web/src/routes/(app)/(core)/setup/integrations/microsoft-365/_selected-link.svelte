@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { CONSENT_VERSION, MS_CAPABILITIES } from '@workspace/shared/config/microsoft';
+  import { CONSENT_VERSION, MS_CAPABILITIES } from '@workspace/shared/config/integrations/microsoft-365';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import Button from '$lib/components/ui/button/button.svelte';

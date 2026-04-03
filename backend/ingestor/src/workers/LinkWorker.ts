@@ -11,6 +11,7 @@ import {
 import { ENRICH_DEBOUNCE_MS } from "../lib/ingest-config.js";
 import type { LinkJobData, EnrichJobData } from "../types.js";
 import type { IngestorDefinition } from "../interfaces.js";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
 
 export class LinkWorker {
   constructor(
@@ -56,11 +57,22 @@ export class LinkWorker {
     const tracker = new PipelineTracker();
 
     try {
-      await tracker.trackSpan("linker_run", () => linker.run({ tenantId, linkId }));
-      await completeIngestJob(dbJob.id, { metrics: tracker.toJSON() });
+      await tracker.trackSpan("linker_run", () =>
+        linker.run({ tenantId, linkId }),
+      );
+      const json = tracker.toJSON();
+      await completeIngestJob(dbJob.id, {
+        metrics: isRecord(json) ? json : {},
+      });
     } catch (err) {
-      tracker.trackError(err as Error);
-      await failIngestJob(dbJob.id, { error: err, metrics: tracker.toJSON() });
+      if (err instanceof Error) {
+        tracker.trackError(err);
+      }
+      const json = tracker.toJSON();
+      await failIngestJob(dbJob.id, {
+        error: err,
+        metrics: isRecord(json) ? json : {},
+      });
       throw err;
     }
 
@@ -72,7 +84,9 @@ export class LinkWorker {
     });
 
     for (const enrichment of this.def.enrichments) {
-      const depsOk = enrichment.dependencies.every((dep) => available.has(dep.ingestType));
+      const depsOk = enrichment.dependencies.every((dep) =>
+        available.has(dep.ingestType),
+      );
 
       if (depsOk) {
         await queueManager.addJob(

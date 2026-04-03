@@ -1,4 +1,5 @@
 import { supabase } from '$lib/utils/supabase.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
 import type { LicenseStats } from './types.js';
 
 export function createM365Licenses(getParams: () => { tenantId: string; linkId: string } | null) {
@@ -28,7 +29,8 @@ export function createM365Licenses(getParams: () => { tenantId: string; linkId: 
         .not('friendly_name', 'ilike', '%Microsoft Power Apps for Developer%'),
     ])
       .then(([res]) => {
-        const licenses = (res.data ?? []) as { total_units: number; consumed_units: number }[];
+        type LicenseRow = { total_units: number | null; consumed_units: number | null };
+        const licenses: LicenseRow[] = res.data ?? [];
         data = {
           totalSKUs: licenses.length,
           totalConsumed: licenses.reduce((acc, l) => acc + (l.consumed_units ?? 0), 0),
@@ -39,7 +41,7 @@ export function createM365Licenses(getParams: () => { tenantId: string; linkId: 
         };
       })
       .catch((e) => {
-        error = e?.message ?? 'Failed to load license data';
+        error = parseSafeErrorMessage(e);
       })
       .finally(() => {
         loading = false;

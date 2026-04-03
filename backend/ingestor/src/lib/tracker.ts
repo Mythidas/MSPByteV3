@@ -1,5 +1,5 @@
-import { PerformanceTracker } from '@workspace/shared/lib/utils/performance.js';
-import type { PerformanceSpan } from '@workspace/shared/lib/utils/performance.js';
+import { PerformanceTracker } from "@workspace/shared/lib/utils/performance.js";
+import type { PerformanceSpan } from "@workspace/shared/lib/utils/performance.js";
 
 export interface TrackerCounters {
   db_queries: number;
@@ -35,8 +35,8 @@ export class PipelineTracker {
   private entitiesUnchanged = 0;
   private errorDetails: TrackerError | undefined;
 
-  async trackSpan<T>(name: string, fn: () => Promise<T>): Promise<T> {
-    return this.perf.trackSpan(name, fn);
+  async trackSpan<T>(name: string, fn: () => Promise<T> | T): Promise<T> {
+    return this.perf.trackSpan(name, async () => await fn());
   }
 
   trackSpanSync<T>(name: string, fn: () => T): T {

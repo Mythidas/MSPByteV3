@@ -2,9 +2,9 @@
   import type { PageData } from './$types.js';
   import { supabase } from '$lib/utils/supabase.js';
   import { toast } from 'svelte-sonner';
-  import { INTEGRATIONS } from '@workspace/core/config/integrations.js';
+  import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations.js';
   import { formatDate } from '$lib/utils/format.js';
-  import type { IntegrationId } from '@workspace/core/types/integrations.js';
+  import type { IntegrationId } from '@workspace/shared/types/integrations';
   import InlineEdit from '$lib/components/fields/inline-edit.svelte';
   import * as Card from '$lib/components/ui/card/index.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';

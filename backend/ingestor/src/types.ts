@@ -1,4 +1,5 @@
-import type { IngestType } from "@workspace/core/types/ingest";
+import { IntegrationId } from "@workspace/shared/types/integrations";
+import { IngestType } from "@workspace/shared/types/jobs/ingest";
 
 // ============================================================================
 // JOB DATA (BullMQ queue payload — maps to ingest_jobs table)
@@ -6,7 +7,7 @@ import type { IngestType } from "@workspace/core/types/ingest";
 
 export type IngestJobData = {
   tenantId: string;
-  integrationId: string;
+  integrationId: IntegrationId;
   ingestType: IngestType;
   linkId: string | null;
   siteId: string | null;

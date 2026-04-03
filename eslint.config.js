@@ -42,6 +42,7 @@ export default tseslint.config(
       "**/node_modules/**",
       "**/.turbo/**",
       "**/build/**",
+      "**/.svelte-kit/**",
       "**/*.js",
       "**/*.mjs",
     ],

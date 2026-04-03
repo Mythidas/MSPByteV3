@@ -1,10 +1,10 @@
 import { QueueEvents, Queue, Job } from "bullmq";
-import { QueueNames } from "@workspace/core/config/queue-names";
-import { JobOptions } from "@workspace/core/config/job-options";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import type { DataReadyEvent } from "@workspace/core/types/event";
 import { redis } from "../redis";
 import { complianceEvalQueue } from "../queues";
+import { JobOptions } from "@workspace/shared/config/job-options";
+import { DataReadyEvent } from "@workspace/shared/types/jobs/event";
+import { CoreQueueNames } from "@workspace/shared/config/queue-names";
 
 const MODULE = "compliance";
 const CONTEXT = "listener";
@@ -14,12 +14,15 @@ export type Listener = { close(): Promise<void> };
 export function startListener(): Listener {
   const connection = redis;
 
-  const queueEvents = new QueueEvents(QueueNames.IngestRealtime, {
+  const queueEvents = new QueueEvents(CoreQueueNames.IngestRealtime, {
     connection,
   });
-  const realtimeQueue = new Queue<DataReadyEvent>(QueueNames.IngestRealtime, {
-    connection,
-  });
+  const realtimeQueue = new Queue<DataReadyEvent>(
+    CoreQueueNames.IngestRealtime,
+    {
+      connection,
+    },
+  );
 
   queueEvents.on("added", (e) => {
     void queueEventCallback({ ...e, realtimeQueue });
@@ -29,7 +32,7 @@ export function startListener(): Listener {
   Logger.info({
     module: MODULE,
     context: CONTEXT,
-    message: `listening on ${QueueNames.IngestRealtime}`,
+    message: `listening on ${CoreQueueNames.IngestRealtime}`,
   });
 
   return {

@@ -1,11 +1,12 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { Microsoft365Connector } from "@workspace/shared/lib/connectors/Microsoft365Connector";
-import type {
+import { Microsoft365Connector } from "@workspace/shared/lib/integrations/microsoft-365/connector";
+import {
   LinkerContract,
   LinkerDependency,
-} from "@workspace/core/types/contracts/linker";
-import { IngestType } from "@workspace/core/types/ingest";
+} from "@workspace/shared/types/jobs/contracts/linker.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
 
 export class M365IdentityRolesLinker implements LinkerContract {
   readonly linkerType = "m365-identity-roles";
@@ -29,8 +30,9 @@ export class M365IdentityRolesLinker implements LinkerContract {
       .eq("tenant_id", tenantId)
       .single();
 
-    const config = (integration?.config as any) ?? {};
-    const mspTenantId = config?.tenantId ?? "";
+    const config = isRecord(integration?.config) ? integration.config : {};
+    const mspTenantId =
+      typeof config?.tenantId === "string" ? config.tenantId : "";
 
     const clientId = process.env.MICROSOFT_CLIENT_ID;
     const clientSecret = process.env.MICROSOFT_CLIENT_SECRET;
@@ -78,34 +80,34 @@ export class M365IdentityRolesLinker implements LinkerContract {
       .eq("link_id", linkId);
 
     const identityMap = new Map<string, string>(
-      (identityRows ?? []).map((r: any) => [r.external_id, r.id]),
+      (identityRows ?? []).map((r) => [r.external_id, r.id]),
     );
 
     // Load roles from global definitions (same across all tenants)
     const { data: roleRows } = await supabase
       .schema("definitions")
-      .from("m365_roles" as any)
+      .from("m365_roles")
       .select("id, template_id");
 
-    const rows: any[] = [];
-    for (const role of (roleRows as any[]) ?? []) {
-      const { data, error } = await connector.getRoleMembers(
-        role.template_id,
-        undefined,
-        true,
-      );
-
-      if (error) {
+    const rows = [];
+    for (const role of roleRows ?? []) {
+      let members: Record<string, unknown>[];
+      try {
+        members = (
+          await connector.directoryRoles.members(role.template_id, true)
+        ).map((v) => (isRecord(v) ? v : {}));
+      } catch (err) {
         Logger.warn({
           module: "M365IdentityRolesLinker",
           context: "run",
-          message: `Failed to get members for role ${role.template_id} link ${linkId}: ${error.message}`,
+          message: `Failed to get members for role ${role.template_id} link ${linkId}: ${err instanceof Error ? err.message : String(err)}`,
         });
         continue;
       }
 
-      for (const member of data?.members ?? []) {
-        const identityId = identityMap.get(member.id);
+      for (const member of members) {
+        const id = typeof member.id === "string" ? member.id : "";
+        const identityId = identityMap.get(id);
         if (!identityId) continue;
 
         rows.push({

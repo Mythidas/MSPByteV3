@@ -20,6 +20,7 @@ export type TooltipPayload = ExtractSnippetParams<
 >["payload"][number];
 
 // Helper to extract item config from a payload.
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unnecessary-type-assertion */
 export function getPayloadConfigFromPayload(
 	config: ChartConfig,
 	payload: TooltipPayload,
@@ -50,6 +51,7 @@ export function getPayloadConfigFromPayload(
 
 	return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
 }
+/* eslint-enable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unnecessary-type-assertion */
 
 type ChartContextValue = {
 	config: ChartConfig;

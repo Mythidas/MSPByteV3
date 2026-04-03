@@ -1,20 +1,31 @@
-import type { Job } from "bullmq";
+import { type Job } from "bullmq";
 import { queueManager, QueueNames, getRealtimeQueue } from "../lib/queue.js";
-import { publishEvent } from "@workspace/core/lib/event-bus";
-import type { DataReadyEvent } from "@workspace/core/types/event";
-import { Logger } from "@workspace/shared/lib/utils/logger";
-import { JobScheduler } from "../scheduler/JobScheduler.js";
-import { startIngestJob, completeIngestJob, failIngestJob } from "../lib/ingest-state.js";
+import { INTEGRATIONS } from "@workspace/shared/config/integrations/integrations.js";
+import { resolveCredentials } from "@workspace/shared/lib/credentials.js";
+import { publishEvent } from "@workspace/shared/lib/event-bus.js";
+import { Logger } from "@workspace/shared/lib/utils/logger.js";
+import { AdapterContract } from "@workspace/shared/types/jobs/contracts/adapter.js";
+import { DataReadyEvent } from "@workspace/shared/types/jobs/event.js";
+import {
+  IngestTrigger,
+  IngestType,
+} from "@workspace/shared/types/jobs/ingest.js";
+import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import { IngestorDefinition } from "../interfaces.js";
+import {
+  startIngestJob,
+  completeIngestJob,
+  failIngestJob,
+} from "../lib/ingest-state.js";
 import { PipelineTracker } from "../lib/tracker.js";
 import { getSupabase } from "../supabase.js";
-import { resolveCredentials } from "@workspace/core/lib/credentials";
-import { INTEGRATIONS } from "@workspace/core/config/integrations";
-import type { IngestJobData, OrchestrationJobData } from "../types.js";
-import type { AdapterContract } from "@workspace/core/types/contracts/adapter";
-import type { IngestorDefinition } from "../interfaces.js";
-import type { IngestType } from "@workspace/core/types/ingest";
-import type { JobContext } from "@workspace/core/types/job";
-import type { IntegrationId } from "@workspace/core/types/integrations";
+import { IngestJobData, OrchestrationJobData } from "../types.js";
+import { JobScheduler } from "../scheduler/JobScheduler.js";
+import {
+  isRecord,
+  parseSafeErrorMessage,
+} from "@workspace/shared/lib/utils/validators.js";
+import { SupabaseHelper } from "@workspace/shared/lib/utils/supabase-helper.js";
 
 export class SyncWorker {
   private started = false;
@@ -79,11 +90,14 @@ export class SyncWorker {
             .single(),
       );
 
-      const config = (integrationRow?.config as Record<string, string>) ?? {};
+      const config = isRecord(integrationRow?.config)
+        ? (integrationRow.config as Record<string, unknown>)
+        : {};
 
       // 2. Resolve credentials (decrypt sensitive fields)
-      const credentials = await tracker.trackSpan("resolve_credentials", () =>
-        resolveCredentials(integrationId as IntegrationId, config),
+      const credentials = await tracker.trackSpan<Record<string, string>>(
+        "resolve_credentials",
+        () => resolveCredentials(integrationId, config),
       );
 
       // 3. Load link record if linkId is present
@@ -101,7 +115,9 @@ export class SyncWorker {
         );
 
         if (link) {
-          linkMeta = (link.meta as Record<string, unknown>) ?? {};
+          linkMeta = isRecord(link.meta)
+            ? (link.meta as Record<string, unknown>)
+            : {};
           linkExternalId = link.external_id ?? undefined;
         }
       }
@@ -115,7 +131,7 @@ export class SyncWorker {
         jobId,
         ingestType,
         integrationId,
-        trigger: "scheduled" as any,
+        trigger: IngestTrigger.Scheduled,
         credentials,
         metadata: { externalId: linkExternalId, ...linkMeta },
       };
@@ -133,40 +149,41 @@ export class SyncWorker {
       });
 
       // 6. Generic DB upsert
-      const typeConfig = INTEGRATIONS[
-        integrationId as keyof typeof INTEGRATIONS
-      ]?.supportedTypes.find((t) => t.type === ingestType);
-      const dbSchema = typeConfig?.db?.schema ?? "vendors";
-
+      const typeConfig = INTEGRATIONS[integrationId]?.supportedTypes.find(
+        (t) => t.type === ingestType,
+      );
       await tracker.trackSpan("db_upsert", async () => {
         for (const payload of payloads) {
-          if (payload.rows.length === 0) continue;
+          if (payload.rows.length === 0 || !typeConfig?.db?.schema) continue;
+          await new SupabaseHelper(supabase).batchUpsert(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+            typeConfig?.db?.schema as any,
+            payload.table,
+            payload.rows,
+            200,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
+            payload.onConflict as any,
+          );
 
-          for (let i = 0; i < payload.rows.length; i += 200) {
-            const chunk = payload.rows.slice(i, i + 200);
-            const { error } = await (
-              (supabase.schema as any)(dbSchema).from(payload.table) as any
-            ).upsert(chunk, { onConflict: payload.onConflict });
-
-            if (error) {
-              throw new Error(
-                `Upsert ${payload.table} failed: ${error.message}`,
-              );
-            }
-
-            tracker.trackUpsert();
-          }
+          tracker.trackUpsert();
         }
       });
 
       // 7. Stale pruning (only for types with a DB route)
       if (typeConfig?.db) {
-        const { schema, table } = typeConfig.db;
+        const { table } = typeConfig.db;
         const allExternalIds = payloads
-          .flatMap((p) => p.rows.map((r) => r.external_id as string))
+          .flatMap((p) => p.rows.map((r) => String(r.external_id)))
           .filter(Boolean);
         await tracker.trackSpan("prune_stale", () =>
-          this.pruneStale(schema, table, tenantId, linkId, allExternalIds),
+          this.pruneStale(
+            "vendors",
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-unsafe-argument
+            table as any,
+            tenantId,
+            linkId,
+            allExternalIds,
+          ),
         );
       }
 
@@ -178,7 +195,8 @@ export class SyncWorker {
       }
 
       // 9. Write sync state
-      await completeIngestJob(jobId, { metrics: tracker.toJSON() });
+      const json = tracker.toJSON();
+      await completeIngestJob(jobId, { metrics: isRecord(json) ? json : {} });
 
       // 9b. Notify downstream consumers (compliance, workflows)
       await publishEvent(getRealtimeQueue(), {
@@ -217,24 +235,27 @@ export class SyncWorker {
         message: `[${jobId}] Ingest completed for ${integrationId}:${ingestType}`,
       });
     } catch (error) {
-      tracker.trackError(error as Error);
+      if (error instanceof Error) {
+        tracker.trackError(error);
+      }
       try {
+        const json = tracker.toJSON();
         await failIngestJob(jobId, {
           error,
-          metrics: tracker.toJSON(),
+          metrics: isRecord(json) ? json : {},
         });
       } catch (updateError) {
         Logger.error({
           module: "SyncWorker",
           context: "handleJob",
-          message: `Failed to update ingest_job: ${updateError}`,
+          message: `Failed to update ingest_job: ${parseSafeErrorMessage(updateError)}`,
         });
       }
 
       Logger.error({
         module: "SyncWorker",
         context: "handleJob",
-        message: `[${jobId}] Ingest failed for ${integrationId}:${ingestType}: ${(error as Error).message}`,
+        message: `[${jobId}] Ingest failed for ${integrationId}:${ingestType}: ${parseSafeErrorMessage(error)}`,
       });
 
       throw error;
@@ -255,7 +276,10 @@ export class SyncWorker {
     let offset = 0;
 
     while (true) {
-      let query = ((supabase.schema as any)(schema).from(table) as any)
+      let query = supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+        .schema(schema as any)
+        .from(table)
         .select("id, external_id")
         .eq("tenant_id", tenantId)
         .range(offset, offset + PAGE_SIZE - 1);
@@ -266,12 +290,14 @@ export class SyncWorker {
 
       const { data, error } = await query;
       if (error)
-        throw new Error(`Prune fetch ${table} failed: ${error.message}`);
+        throw new Error(
+          `Prune fetch ${String(table)} failed: ${error.message}`,
+        );
       if (!data || data.length === 0) break;
 
       for (const row of data) {
-        if (!survivingIds.has(row.external_id)) {
-          staleIds.push(row.id);
+        if (!survivingIds.has(String(row.external_id))) {
+          staleIds.push(String(row.id));
         }
       }
 
@@ -283,19 +309,22 @@ export class SyncWorker {
 
     for (let i = 0; i < staleIds.length; i += 500) {
       const chunk = staleIds.slice(i, i + 500);
-      const { error } = await (
-        (supabase.schema as any)(schema).from(table) as any
-      )
+      const { error } = await supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-unsafe-type-assertion
+        .schema(schema as any)
+        .from(table)
         .delete()
         .in("id", chunk);
       if (error)
-        throw new Error(`Delete stale ${table} failed: ${error.message}`);
+        throw new Error(
+          `Delete stale ${String(table)} failed: ${error.message}`,
+        );
     }
 
     Logger.info({
       module: "SyncWorker",
       context: "pruneStale",
-      message: `Deleted ${staleIds.length} stale rows from ${schema}.${table}`,
+      message: `Deleted ${staleIds.length} stale rows from ${schema}.${String(table)}`,
     });
   }
 }

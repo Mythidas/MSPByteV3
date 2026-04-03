@@ -1,24 +1,27 @@
-import { getAllDbRoutedTypes } from "@workspace/core/types/integrations";
+import { getAllDbRoutedTypes } from "@workspace/shared/config/integrations/integrations";
 import { getCheckType } from "./checkTypeRegistry";
 import { supabase } from "../lib/supabase";
 import type { ComplianceCheckRow } from "./loader";
+import z from "zod";
 
 export type CheckStatus = "pass" | "fail" | "unknown";
-
 export type CheckRunResult = {
   frameworkCheckId: string;
   status: CheckStatus;
-  detail: Record<string, unknown>;
+  detail: { error?: string };
   onPassWorkflowId: string | null;
   onFailWorkflowId: string | null;
   onChangeWorkflowId: string | null;
 };
 
+const CheckConfigSchema = z.object({ table: z.string() }).catch({ table: "" });
 const ALLOWED_TABLES = new Set<string>(
-  getAllDbRoutedTypes().flatMap(({ db }) => [
-    `${db.schema}.${db.table}`,
-    db.table,
-  ]),
+  getAllDbRoutedTypes().flatMap(
+    ({ db }: { db: { schema: string; table: string } }) => [
+      `${db.schema}.${db.table}`,
+      db.table,
+    ],
+  ),
 );
 
 export async function runCheck(
@@ -27,7 +30,7 @@ export async function runCheck(
   tenantId: string,
 ): Promise<CheckRunResult> {
   try {
-    const tableValue = (check.check_config as Record<string, unknown>).table;
+    const tableValue = CheckConfigSchema.parse(check.check_config).table;
     const workflowIds = {
       onPassWorkflowId: check.on_pass_workflow_id,
       onFailWorkflowId: check.on_fail_workflow_id,
@@ -53,10 +56,19 @@ export async function runCheck(
     }
 
     const evaluator = getCheckType(check.check_type_id).evaluator;
-    const result = await evaluator.evaluate(check.check_config, { tenantId, linkId, supabase });
+    const result = await evaluator.evaluate(check.check_config, {
+      tenantId,
+      linkId,
+      supabase,
+    });
 
     const status: CheckStatus = result.passed ? "pass" : "fail";
-    return { frameworkCheckId: check.id, status, detail: result.detail ?? {}, ...workflowIds };
+    return {
+      frameworkCheckId: check.id,
+      status,
+      detail: result.detail ?? {},
+      ...workflowIds,
+    };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return {

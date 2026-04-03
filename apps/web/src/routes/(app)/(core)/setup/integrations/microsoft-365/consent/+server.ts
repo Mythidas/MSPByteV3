@@ -1,15 +1,19 @@
 import { redirect } from '@sveltejs/kit';
 import { MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET } from '$env/static/private';
-import { Microsoft365Connector } from '@workspace/shared/lib/connectors/Microsoft365Connector';
-import { Microsoft365RoleManager } from '@workspace/shared/lib/services/microsoft/RoleManager';
-import { REQUIRED_DIRECTORY_ROLES, CONSENT_VERSION } from '@workspace/shared/config/microsoft';
+import { Microsoft365Connector } from '@workspace/shared/lib/integrations/microsoft-365/connector';
+import {
+  REQUIRED_DIRECTORY_ROLES,
+  CONSENT_VERSION,
+} from '@workspace/shared/config/integrations/microsoft-365';
+import { Microsoft365RoleManagerService } from '@workspace/shared/lib/integrations/microsoft-365/role-manager-service';
 import { Logger } from '@workspace/shared/lib/utils/logger';
 import { writeAuditLog, writeDiagnosticLog } from '@workspace/shared/lib/utils/audit';
-import { safeErrorMessage } from '@workspace/shared/lib/utils/errors';
-import { withRetry } from '@workspace/shared/lib/utils/retry';
 import { probeCapabilities } from '../_capabilities';
 import type { RequestHandler } from './$types';
-import type { Tables } from '@workspace/shared/types/database';
+import { withRetry } from '@workspace/shared/lib/utils/fetch-with-retry';
+import { isRecord, parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
+import z from 'zod';
+import type { MSGraphDomain } from '@workspace/shared/types/integrations/microsoft/domains';
 
 const RETRY_OPTS = { maxRetries: 5, baseDelayMs: 2_000, module: 'consent' } as const;
 
@@ -30,17 +34,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     );
   }
 
-  let state: { mspbyteTenantId?: string; gdapTenantId?: string };
-  try {
-    state = JSON.parse(stateRaw);
-  } catch {
-    return redirect(
-      302,
-      `/integrations/microsoft-365?error=${encodeURIComponent('Failed to parse consent flow state')}`
-    );
-  }
-
-  const { mspbyteTenantId, gdapTenantId } = state;
+  const { mspbyteTenantId, gdapTenantId } = z
+    .object({ mspbyteTenantId: z.string().optional(), gdapTenantId: z.string().optional() })
+    .parse(stateRaw);
 
   // Build connectors. For GDAP tenant consent, scope the connector to that tenant.
   const partnerConnector = new Microsoft365Connector({
@@ -60,7 +56,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     ({ assigned, failed } = await withRetry(
       () => {
         tenantConnector.clearTokenCache();
-        return new Microsoft365RoleManager(tenantConnector).ensureDirectoryRoles(
+        return new Microsoft365RoleManagerService(tenantConnector).ensureDirectoryRoles(
           REQUIRED_DIRECTORY_ROLES
         );
       },
@@ -75,7 +71,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     Logger.warn({
       module: 'consent',
       context: 'ensureDirectoryRoles',
-      message: `All retries exhausted for ${logTarget}: ${safeErrorMessage(err)}`,
+      message: `All retries exhausted for ${logTarget}: ${parseSafeErrorMessage(err)}`,
     });
   }
 
@@ -117,15 +113,12 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     // Both lookups are retried to handle propagation delays; failure is non-fatal.
     let domains: string[] = [];
     let defaultDomain = '';
-    let capabilities: unknown = undefined;
 
     try {
-      const result = await withRetry(
+      const allDomains = await withRetry<MSGraphDomain[]>(
         async () => {
           tenantConnector.clearTokenCache();
-          const r = await tenantConnector.getTenantDomains(undefined, true);
-          if (r.error) throw new Error(safeErrorMessage(r.error));
-          return r;
+          return tenantConnector.domains.listAll();
         },
         RETRY_OPTS.maxRetries,
         {
@@ -134,56 +127,54 @@ export const GET: RequestHandler = async ({ url, locals }) => {
           context: 'getTenantDomains',
         }
       );
-      domains = (result.data?.domains ?? [])
-        .filter((d: any) => d.isVerified)
-        .map((d: any) => d.id as string)
+      domains = allDomains
+        .filter((d) => d.isVerified)
+        .map((d) => d.id)
         .filter(Boolean);
-      defaultDomain = (result.data?.domains ?? []).find((d: any) => d.isDefault)?.id ?? '';
+      defaultDomain = allDomains.find((d) => d.isDefault)?.id ?? '';
     } catch (err) {
       Logger.warn({
         module: 'consent',
         context: 'getTenantDomains',
-        message: `Could not fetch domains for ${gdapTenantId}: ${safeErrorMessage(err)}`,
+        message: `Could not fetch domains for ${gdapTenantId}: ${parseSafeErrorMessage(err)}`,
       });
     }
 
-    capabilities = await probeCapabilities(tenantConnector, {
+    const capabilities = await probeCapabilities(tenantConnector, {
       context: `probe:${gdapTenantId}`,
     });
 
     let userCount = 0;
     try {
-      const identitiesResult = await withRetry(
+      const identities = await withRetry(
         async () => {
           tenantConnector.clearTokenCache();
-          const r = await tenantConnector.getIdentities({ select: ['id'] }, true);
-          if (r.error) throw new Error(safeErrorMessage(r.error));
-          return r;
+          return tenantConnector.users.listAll({ $select: 'id' });
         },
         RETRY_OPTS.maxRetries,
         { baseDelayMs: RETRY_OPTS.baseDelayMs, module: RETRY_OPTS.module, context: 'getUserCount' }
       );
-      userCount = identitiesResult.data?.identities.length ?? 0;
+      userCount = identities.length;
     } catch (err) {
       Logger.warn({
         module: 'consent',
         context: 'getUserCount',
-        message: `Could not fetch user count for ${gdapTenantId}: ${safeErrorMessage(err)}`,
+        message: `Could not fetch user count for ${gdapTenantId}: ${parseSafeErrorMessage(err)}`,
       });
     }
 
     const { data: existingResult } = await locals.supabase
       .from('integration_links')
-      .select('*')
+      .select('id, meta')
       .eq('integration_id', 'microsoft-365')
-      .eq('tenant_id', locals.tenant.id)
+      .eq('tenant_id', locals.tenant?.id ?? '')
       .eq('external_id', gdapTenantId)
       .is('site_id', null)
       .single();
 
-    const existing = existingResult as Tables<'public', 'integration_links'>;
+    const meta = isRecord(existingResult?.meta) ? existingResult?.meta : {};
     const updatedMeta = {
-      ...((existing?.meta as any) ?? {}),
+      ...meta,
       consentVersion: CONSENT_VERSION,
       domains,
       defaultDomain,
@@ -192,7 +183,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       ...(capabilities ? { capabilities, capabilitiesCheckedAt: new Date().toISOString() } : {}),
     };
 
-    if (existing) {
+    if (existingResult) {
       await locals.supabase
         .from('integration_links')
         .update({
@@ -200,7 +191,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
           meta: updatedMeta,
           updated_at: new Date().toISOString(),
         })
-        .eq('id', existing.id);
+        .eq('id', existingResult.id);
     }
 
     return redirect(
@@ -227,11 +218,11 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     Logger.error({
       module: 'consent',
       context: 'upsertIntegration',
-      message: safeErrorMessage(error.message),
+      message: parseSafeErrorMessage(error.message),
     });
     return redirect(
       302,
-      `/integrations/microsoft-365?error=${encodeURIComponent(safeErrorMessage(error.message))}`
+      `/integrations/microsoft-365?error=${encodeURIComponent(parseSafeErrorMessage(error.message))}`
     );
   }
 

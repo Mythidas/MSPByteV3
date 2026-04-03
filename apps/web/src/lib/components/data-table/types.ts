@@ -4,6 +4,7 @@ import type {
   Tables,
   FilterOperations,
 } from '@workspace/shared/types/database';
+import type { AnyQueryBuilder } from '@workspace/shared/lib/utils/supabase-helper';
 import type { Component, Snippet } from 'svelte';
 
 export type FilterOperator = FilterOperations;
@@ -12,6 +13,7 @@ export interface TableFilter {
   id: string;
   field: string;
   operator: FilterOperator;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   value: any;
 }
 
@@ -20,7 +22,7 @@ export type FilterConfig = {
   type: 'text' | 'select' | 'date' | 'number' | 'boolean';
   operators: FilterOperator[];
   defaultOperator?: FilterOperator;
-  options?: { label: string; value: any }[];
+  options?: { label: string; value: unknown }[];
   placeholder?: string;
   multiple?: boolean;
 };
@@ -28,9 +30,13 @@ export type FilterConfig = {
 export type DataTableColumn<TData> = {
   key: string;
   title: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cell?: Snippet<[{ row: TData; value: any }]>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cellComponent?: Component<{ value: any; row?: TData; [key: string]: any }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   cellProps?: Record<string, any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   exportValue?: (context: { row: TData; value: any }) => string | number | boolean | null;
   sortable?: boolean;
   searchable?: boolean;
@@ -49,7 +55,7 @@ export interface TableView {
   filters: Omit<TableFilter, 'id'>[];
   sort?: { field: string; dir: 'asc' | 'desc' };
   isDefault?: boolean;
-  modifyQuery?: (query: any) => void;
+  modifyQuery?: (query: AnyQueryBuilder) => void;
 }
 
 export interface RowAction<TData> {
@@ -64,7 +70,7 @@ export interface DataTableProps<S extends Schemas, T extends TableOrView<S>> {
   schema: S;
   table: T;
   columns: DataTableColumn<Tables<S, T>>[];
-  modifyQuery?: (query: any) => void;
+  modifyQuery?: (query: AnyQueryBuilder) => void;
 
   // Features
   enableRowSelection?: boolean;

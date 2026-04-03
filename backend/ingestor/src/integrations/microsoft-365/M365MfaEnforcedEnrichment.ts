@@ -1,11 +1,14 @@
+import {
+  M365PoliciesConditionsSchema,
+  M365PoliciesGrantConrolsSchema,
+} from "@workspace/shared/config/integrations/microsoft-365/policies.js";
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import type {
+import {
   EnrichmentContract,
   EnrichmentDependency,
-} from "@workspace/core/types/contracts/enrichment";
-import { IngestType } from "@workspace/core/types/ingest";
-import type { MSGraphConditionalAccessPolicy } from "@workspace/shared/types/integrations/microsoft/policies.js";
+} from "@workspace/shared/types/jobs/contracts/enrichment.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 const CHUNK = 500;
 
@@ -49,7 +52,7 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
 
     const { data: roleRows } = await supabase
       .schema("definitions")
-      .from("m365_roles" as any)
+      .from("m365_roles")
       .select("id, template_id");
 
     const { data: identityGroupRows } = await supabase
@@ -67,25 +70,27 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
       .eq("link_id", linkId);
 
     // Filter to MFA + all-apps policies
-    type PolicyConditions = MSGraphConditionalAccessPolicy["conditions"];
     const mfaPolicies = (policyRows ?? [])
       .filter((r) => {
         if (r.policy_state !== "enabled") return false;
-        if (!(r.grant_controls as any)?.builtInControls?.includes("mfa"))
-          return false;
-        const cond = r.conditions as unknown as PolicyConditions | null;
+        const grantControls = M365PoliciesGrantConrolsSchema.parse(
+          r.grant_controls,
+        );
+        if (!grantControls?.builtInControls?.includes("mfa")) return false;
+        const conditions = M365PoliciesConditionsSchema.parse(r.conditions);
         return (
-          cond?.applications?.includeApplications?.includes("All") ?? false
+          conditions?.applications?.includeApplications?.includes("All") ??
+          false
         );
       })
-      .map((r) => r.conditions as unknown as PolicyConditions);
+      .map((r) => M365PoliciesConditionsSchema.parse(r.conditions));
 
     // Build lookup maps
     const groupIdToExternal = new Map<string, string>(
       (groupRows ?? []).map((g) => [g.id, g.external_id ?? ""]),
     );
     const roleIdToTemplate = new Map<string, string>(
-      ((roleRows as any[]) ?? []).map((r) => [r.id, r.template_id ?? ""]),
+      (roleRows ?? []).map((r) => [r.id, r.template_id ?? ""]),
     );
 
     const identityGroups = new Map<string, Set<string>>();

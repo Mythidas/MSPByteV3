@@ -1,15 +1,20 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { encryptSecret, decryptSecret } from '$lib/server/encryption';
-import { CoveConnector } from '@workspace/shared/lib/connectors/CoveConnector';
-import type { CoveConnectorConfig } from '@workspace/shared/types/integrations/cove/index.js';
+import { CoveConnector } from '@workspace/shared/lib/integrations/cove/connector';
+import {
+  CoveConnectorConfigSchema,
+  type CoveConnectorConfig,
+} from '@workspace/shared/types/integrations/cove/index.js';
 import type { CoveChildPartner } from '@workspace/shared/types/integrations/cove/partners.js';
+import { isString } from '@workspace/shared/lib/utils/validators';
 
-async function getCustomers(parent: () => Promise<any>): Promise<CoveChildPartner[]> {
+type PageParent = Parameters<PageServerLoad>[0]['parent'];
+async function getCustomers(parent: PageParent): Promise<CoveChildPartner[]> {
   const { getIntegration } = await parent();
   const integration = await getIntegration;
   if (!integration) return [];
-  const config = integration.config as CoveConnectorConfig;
+  const config = CoveConnectorConfigSchema.parse(integration.config);
   if (!config?.server || !config?.clientId || !config?.clientSecret || config?.partnerId == null) return [];
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
@@ -19,23 +24,23 @@ async function getCustomers(parent: () => Promise<any>): Promise<CoveChildPartne
     clientId: config.clientId,
     clientSecret,
   });
-  const { data } = await connector.getCustomers();
-  return (data ?? []).flatMap((c) => c);
+  const data = await connector.partner.children.list().catch(() => []);
+  return data;
 }
 
-export const load: PageServerLoad = async ({ parent }) => {
+export const load: PageServerLoad = ({ parent }) => {
   return { getCustomers: getCustomers(parent) };
 };
 
 export const actions = {
   save: async ({ request, locals }) => {
     const formData = await request.formData();
-    const server = formData.get('server') as string;
-    const partnerIdRaw = formData.get('partnerId') as string;
-    const clientId = formData.get('clientId') as string;
-    const clientSecret = formData.get('clientSecret') as string;
+    const server = formData.get('server');
+    const partnerIdRaw = formData.get('partnerId');
+    const clientId = formData.get('clientId');
+    const clientSecret = formData.get('clientSecret');
 
-    if (!server || !clientId || !partnerIdRaw) {
+    if (!isString(server) || !isString(clientId) || !isString(partnerIdRaw)) {
       return fail(400, { error: 'Server URL, Partner ID, and Client ID are required' });
     }
 
@@ -46,7 +51,7 @@ export const actions = {
 
     let encryptedSecret: string;
 
-    if (!clientSecret) {
+    if (!isString(clientSecret)) {
       const { data: existing } = await locals.supabase
         .from('integrations')
         .select('config')
@@ -55,21 +60,22 @@ export const actions = {
         .is('deleted_at', null)
         .single();
 
-      const existingSecret = (existing?.config as CoveConnectorConfig)?.clientSecret;
-      if (!existingSecret) {
+      const existingConfig = CoveConnectorConfigSchema.safeParse(existing?.config);
+      if (!existingConfig.success || !existingConfig.data.clientSecret) {
         return fail(400, { error: 'Client Secret is required' });
       }
-      encryptedSecret = existingSecret;
+      encryptedSecret = existingConfig.data.clientSecret;
     } else {
       const connector = new CoveConnector({ server, partnerId, clientId, clientSecret });
-      const result = await connector.checkHealth();
-      if (!result.data) {
+      const healthy = await connector.checkHealth();
+      if (!healthy) {
         return fail(400, { error: 'Connection failed: unable to authenticate with Cove' });
       }
       encryptedSecret = await encryptSecret(clientSecret);
     }
 
-    const credentialExpiration = (formData.get('credentialExpiration') as string) || null;
+    const credentialExpirationRaw = formData.get('credentialExpiration');
+    const credentialExpiration = isString(credentialExpirationRaw) ? credentialExpirationRaw : null;
     const config: CoveConnectorConfig = { server, partnerId, clientId, clientSecret: encryptedSecret };
 
     const { error } = await locals.supabase.from('integrations').upsert(
@@ -83,12 +89,12 @@ export const actions = {
 
   testConnection: async ({ request }) => {
     const formData = await request.formData();
-    const server = formData.get('server') as string;
-    const partnerIdRaw = formData.get('partnerId') as string;
-    const clientId = formData.get('clientId') as string;
-    const clientSecret = formData.get('clientSecret') as string;
+    const server = formData.get('server');
+    const partnerIdRaw = formData.get('partnerId');
+    const clientId = formData.get('clientId');
+    const clientSecret = formData.get('clientSecret');
 
-    if (!server || !partnerIdRaw || !clientId || !clientSecret) {
+    if (!isString(server) || !isString(partnerIdRaw) || !isString(clientId) || !isString(clientSecret)) {
       return fail(400, { error: 'All fields are required for connection test' });
     }
 
@@ -98,8 +104,8 @@ export const actions = {
     }
 
     const connector = new CoveConnector({ server, partnerId, clientId, clientSecret });
-    const result = await connector.checkHealth();
-    if (!result.data) {
+    const healthy = await connector.checkHealth();
+    if (!healthy) {
       return fail(400, { error: 'Connection failed: unable to authenticate with Cove' });
     }
 
@@ -114,6 +120,6 @@ export const actions = {
       .eq('tenant_id', locals.tenant!.id);
 
     if (error) return fail(500, { error: error.message });
-    throw redirect(303, '/integrations');
+    return redirect(303, '/integrations');
   },
 } satisfies Actions;

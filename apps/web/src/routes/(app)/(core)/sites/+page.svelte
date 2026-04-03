@@ -3,11 +3,11 @@
   import { supabase } from '$lib/utils/supabase.js';
   import type { Tables } from '@workspace/shared/types/database';
   import { toast } from 'svelte-sonner';
-  import { INTEGRATIONS } from '@workspace/core/config/integrations.js';
+  import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations.js';
   import Badge from '$lib/components/ui/badge/badge.svelte';
   import { Button } from '$lib/components/ui/button/index.js';
   import { formatDate } from '$lib/utils/format';
-  import type { IntegrationId } from '@workspace/core/types/integrations.js';
+  import type { IntegrationId } from '@workspace/shared/types/integrations';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import type { PageData } from './$types.js';
   import CreateSiteSheet from './_create-site-sheet.svelte';

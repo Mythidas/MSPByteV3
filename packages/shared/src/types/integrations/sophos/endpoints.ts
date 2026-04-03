@@ -10,15 +10,15 @@ export type SophosPartnerEndpoint = {
   };
   type: string;
   health: {
-    overall: "good" | "bad" | string;
+    overall: "good" | "bad";
     threats: {
-      status: "good" | "bad" | string;
+      status: "good" | "bad";
     };
     services: {
-      status: "good" | "bad" | string;
+      status: "good" | "bad";
       serviceDetails: {
         name: string;
-        status: "running" | "stopped" | string;
+        status: "running" | "stopped";
       }[];
     };
   };
@@ -32,14 +32,14 @@ export type SophosPartnerEndpoint = {
   }[];
   hostname: string;
   lockdown: {
-    status: "enabled" | "disabled" | "unavailable" | string;
+    status: "enabled" | "disabled" | "unavailable";
   };
   packages?: {
     ztna?: {
-      status: "assigned" | "unassigned" | string;
+      status: "assigned" | "unassigned";
     };
     encryption?: {
-      status: "assigned" | "unassigned" | string;
+      status: "assigned" | "unassigned";
       available?: {
         id: string;
         name: string;
@@ -47,7 +47,7 @@ export type SophosPartnerEndpoint = {
     };
     protection?: {
       name: string;
-      status: "assigned" | "unassigned" | string;
+      status: "assigned" | "unassigned" | "upgradable";
       available?: {
         id: string;
         name: string;
@@ -56,7 +56,7 @@ export type SophosPartnerEndpoint = {
     };
   };
   isolation: {
-    status: "isolated" | "notIsolated" | string;
+    status: "isolated" | "notIsolated";
   };
   lastSeenAt: string; // ISO timestamp
   mdrManaged: boolean;
@@ -64,7 +64,7 @@ export type SophosPartnerEndpoint = {
   ipv4Addresses?: string[];
   assignedProducts: {
     code: string;
-    status: "installed" | "notInstalled" | string;
+    status: "installed" | "notInstalled";
     version: string;
   }[];
   associatedPerson: {

@@ -1,9 +1,9 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { registerNode } from "../../registry.js";
-import type { RunContext } from "../../../types.js";
 import { ExecutorError } from "../../../errors.js";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
-import { getTypeMap } from "@workspace/core/types/integrations.js";
+import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
+import { isRecord } from "@workspace/shared/lib/utils/validators.js";
 
 registerNode({
   ref: "Generic.ResolveAlert",
@@ -35,10 +35,12 @@ registerNode({
       required: true,
     },
   ],
-  async execute(input, _ctx: RunContext) {
-    const entities = input.entities as Record<string, unknown>[];
-    const alertDefinitionId = input.alert_definition_id as string;
-    const entityType = (entities[0] as any)?._entityType as string | undefined;
+  async execute(input) {
+    const entities = Array.isArray(input.entities)
+      ? input.entities.map((e) => (isRecord(e) ? e : {}))
+      : [];
+    const alertDefinitionId = String(input.alert_definition_id);
+    const entityType = String(entities[0]._entityType);
 
     if (!entityType || !(entityType in getTypeMap())) {
       throw new ExecutorError(
@@ -46,7 +48,7 @@ registerNode({
       );
     }
 
-    const entityIds = entities.map((e) => e.id as string);
+    const entityIds = entities.map((e) => String(e.id));
     let recordsResolved = 0;
 
     try {
@@ -54,12 +56,12 @@ registerNode({
       const { data: openAlerts, error: fetchError } =
         await supabaseHelper.batchSelect(
           "public",
-          "alerts" as any,
+          "alerts",
           entityIds,
-          "entity_id" as never,
+          "entity_id",
           500,
-          (q: any) =>
-            q
+          (q) =>
+            void q
               .eq("definition_id", alertDefinitionId)
               .eq("entity_type", entityType)
               .is("resolved_at", null),
@@ -67,23 +69,23 @@ registerNode({
 
       if (fetchError || !openAlerts) {
         throw new ExecutorError(
-          `Generic.ResolveAlert: failed to fetch open alerts: ${fetchError}`,
+          `Generic.ResolveAlert: failed to fetch open alerts: ${fetchError.message}`,
         );
       }
 
       // 2. Resolve by alert row ID
-      const resolvedIds = openAlerts.map((a: any) => a.id as string);
+      const resolvedIds = openAlerts.map((a) => a.id);
 
       if (resolvedIds.length > 0) {
         const { error: updateError } = await supabaseHelper.batchUpdate(
           "public",
-          "alerts" as any,
+          "alerts",
           resolvedIds,
-          { resolved_at: new Date().toISOString() } as any,
+          { resolved_at: new Date().toISOString() },
         );
         if (updateError)
           throw new ExecutorError(
-            `Generic.ResolveAlert: update failed: ${updateError}`,
+            `Generic.ResolveAlert: update failed: ${updateError.message}`,
           );
         recordsResolved = resolvedIds.length;
       }

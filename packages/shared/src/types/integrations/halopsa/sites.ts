@@ -13,7 +13,7 @@ export type HaloPSASite = {
   isstocklocation: boolean;
   messagegroup_id: number;
   use: string;
-  site_fields: any[];
+  site_fields: unknown[];
   itglue_id: string;
   maincontact_id: number;
   isinvoicesite: boolean;

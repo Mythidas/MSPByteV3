@@ -1,5 +1,6 @@
 import { goto } from '$app/navigation';
 import { hasPermission, type Permission } from '$lib/utils/permissions';
+import { isRecord } from '@workspace/shared/lib/utils/validators';
 import { supabase } from '$lib/utils/supabase';
 import type { Tables } from '@workspace/shared/types/database';
 import { PersistedState } from 'runed';
@@ -43,15 +44,17 @@ function createAuthStore() {
     },
 
     isAllowed: (p: Permission) => {
-      return hasPermission(role.current?.attributes as any, p);
+      const attrs = role.current?.attributes ?? null;
+      return hasPermission(isRecord(attrs) ? attrs : null, p);
     },
 
-    logout: async () => {
-      await supabase.auth.signOut({ scope: 'local' });
-      user.current = null;
-      role.current = null;
-      tenant.current = null;
-      goto('/auth/login');
+    logout: () => {
+      void supabase.auth.signOut({ scope: 'local' }).then(() => {
+        user.current = null;
+        role.current = null;
+        tenant.current = null;
+        void goto('/auth/login');
+      });
     },
   };
 }

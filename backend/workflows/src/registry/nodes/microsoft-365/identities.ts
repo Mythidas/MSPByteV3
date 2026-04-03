@@ -1,7 +1,8 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { registerNode } from "../../registry.js";
-import type { RunContext, RunSeed } from "../../../types.js";
+import type { RunContext } from "../../../types.js";
+import { SeedSchema } from "../../../config.js";
 
 registerNode({
   ref: "Microsoft365.Identities.Query",
@@ -20,18 +21,18 @@ registerNode({
   ],
   paramSchema: [],
   async execute(_input, ctx: RunContext) {
-    const seed = ctx.seed as unknown as RunSeed;
-    let entities: unknown[] = [];
+    const seed = SeedSchema.parse(ctx.seed);
+    let entities = [];
 
     switch (seed.scope_type) {
       case "entity_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
-          "m365_identities" as any,
-          seed.entity_ids!,
-          "id" as never,
+          "m365_identities",
+          seed.entity_ids,
+          "id",
           500,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
@@ -39,11 +40,11 @@ registerNode({
       case "link_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
-          "m365_identities" as any,
-          seed.link_ids!,
-          "link_id" as never,
+          "m365_identities",
+          seed.link_ids,
+          "link_id",
           500,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
@@ -51,11 +52,11 @@ registerNode({
       case "site_ids": {
         const { data } = await supabaseHelper.batchSelect(
           "vendors",
-          "m365_identities" as any,
-          seed.site_ids!,
-          "site_id" as never,
+          "m365_identities",
+          seed.site_ids,
+          "site_id",
           500,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
@@ -63,15 +64,15 @@ registerNode({
       case "all": {
         const { data } = await supabaseHelper.selectAll(
           "vendors",
-          "m365_identities" as any,
-          (q: any) => q.eq("tenant_id", ctx.tenant_id),
+          "m365_identities",
+          (q) => void q.eq("tenant_id", ctx.tenant_id),
         );
         entities = data ?? [];
         break;
       }
     }
 
-    const tagged = (entities as Record<string, unknown>[]).map((e) => ({
+    const tagged = entities.map((e) => ({
       ...e,
       _entityType: "m365_identity",
     }));

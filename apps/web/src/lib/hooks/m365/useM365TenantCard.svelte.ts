@@ -1,5 +1,6 @@
 import { supabase } from '$lib/utils/supabase.js';
-import { INTEGRATIONS } from '@workspace/core/config/integrations';
+import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
+import type { AnyQueryBuilder } from '@workspace/shared/lib/utils/supabase-helper';
 
 export interface TenantCardStats {
   identities: { total: number; noMfa: number; disabled: number };
@@ -19,45 +20,46 @@ export function createM365TenantCard(getParams: () => { tenantId: string; linkId
     const { tenantId, linkId } = params;
     loading = true;
 
-    const applyScope = (q: any) => q.eq('tenant_id', tenantId).eq('link_id', linkId);
+    const applyScope = (q: AnyQueryBuilder): AnyQueryBuilder => q.eq('tenant_id', tenantId).eq('link_id', linkId);
     const integration = INTEGRATIONS['microsoft-365'];
+
+    const licensesQuery = supabase
+      .schema('vendors')
+      .from('m365_licenses')
+      .select('total_units,consumed_units')
+      .eq('tenant_id', tenantId)
+      .eq('link_id', linkId)
+      .not('friendly_name', 'ilike', '%free%')
+      .not('friendly_name', 'ilike', '%tria%')
+      .not('friendly_name', 'ilike', '%Credits%')
+      .not('friendly_name', 'ilike', '%Windows Store%')
+      .not('friendly_name', 'ilike', '%Microsoft Power Apps for Developer%');
 
     Promise.all([
       // Identity counts — head: true avoids row limit entirely
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
       ),
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('mfa_enforced', false)
       ),
       applyScope(
         supabase
           .schema('vendors')
-          .from('m365_identities' as any)
+          .from('m365_identities')
           .select('*', { count: 'exact', head: true })
           .eq('enabled', false)
       ),
-      // Licenses — scoped to one link, row count is small
-      applyScope(
-        supabase
-          .schema('vendors')
-          .from('m365_licenses' as any)
-          .select('total_units,consumed_units')
-          .not('friendly_name', 'ilike', '%free%')
-          .not('friendly_name', 'ilike', '%tria%')
-          .not('friendly_name', 'ilike', '%Credits%')
-          .not('friendly_name', 'ilike', '%Windows Store%')
-          .not('friendly_name', 'ilike', '%Microsoft Power Apps for Developer%')
-      ),
+      licensesQuery,
       // Compliance — scoped to one link, newest-first for dedup
-      (supabase as any)
+      supabase
         .from('compliance_results')
         .select('framework_check_id, status, evaluated_at')
         .eq('tenant_id', tenantId)
@@ -66,7 +68,7 @@ export function createM365TenantCard(getParams: () => { tenantId: string; linkId
       // Alert count
       supabase
         .schema('views')
-        .from('d_alerts_view' as any)
+        .from('d_alerts_view')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('link_id', linkId)
@@ -77,15 +79,9 @@ export function createM365TenantCard(getParams: () => { tenantId: string; linkId
         ),
     ])
       .then(([totalRes, noMfaRes, disabledRes, licensesRes, complianceRes, alertsRes]) => {
-        const licenseRows = (licensesRes.data ?? []) as {
-          total_units: number;
-          consumed_units: number;
-        }[];
-
-        const complianceRows = (complianceRes.data ?? []) as {
-          framework_check_id: string;
-          status: string;
-        }[];
+        const licenseRows = licensesRes.data ?? [];
+        type ComplianceRow = { framework_check_id: string; status: string };
+        const complianceRows: ComplianceRow[] = complianceRes.data ?? [];
         const seen = new Set<string>();
         let pass = 0,
           total = 0;
@@ -109,6 +105,9 @@ export function createM365TenantCard(getParams: () => { tenantId: string; linkId
           compliance: { pass, total },
           alerts: alertsRes.count ?? 0,
         };
+      })
+      .catch(() => {
+        // silent — card just stays empty on error
       })
       .finally(() => {
         loading = false;

@@ -3,9 +3,9 @@ import { FastifyInstance } from "fastify";
 
 const startTime = Date.now();
 
-export default async function (fastify: FastifyInstance) {
+export default function (fastify: FastifyInstance) {
   // Memory usage endpoint
-  fastify.get("/memory", async () => {
+  fastify.get("/memory", () => {
     const usage = process.memoryUsage();
     return {
       rss: `${Math.round(usage.rss / 1024 / 1024)}MB`,
@@ -24,7 +24,7 @@ export default async function (fastify: FastifyInstance) {
   });
 
   // Heap snapshot endpoint
-  fastify.get("/heap-snapshot", async () => {
+  fastify.get("/heap-snapshot", () => {
     try {
       const filename = writeHeapSnapshot();
       return {
@@ -42,7 +42,7 @@ export default async function (fastify: FastifyInstance) {
   });
 
   // Runtime stats endpoint
-  fastify.get("/stats", async () => {
+  fastify.get("/stats", () => {
     const uptime = process.uptime();
     const usage = process.memoryUsage();
 
@@ -64,23 +64,6 @@ export default async function (fastify: FastifyInstance) {
       },
       startTime: new Date(startTime).toISOString(),
     };
-  });
-
-  // Force garbage collection (only works if Node is started with --expose-gc)
-  fastify.post("/gc", async () => {
-    if (global.gc) {
-      global.gc();
-      return {
-        success: true,
-        message: "Garbage collection triggered",
-      };
-    } else {
-      return {
-        success: false,
-        message:
-          "Garbage collection not available. Start Node with --expose-gc",
-      };
-    }
   });
 }
 

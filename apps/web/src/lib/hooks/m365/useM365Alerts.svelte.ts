@@ -1,5 +1,6 @@
 import { supabase } from '$lib/utils/supabase.js';
-import { INTEGRATIONS } from '@workspace/core/config/integrations';
+import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations.js';
+import { parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
 import type { AlertStats } from './types.js';
 
 export function createM365Alerts(getParams: () => { tenantId: string; linkId: string } | null) {
@@ -20,7 +21,7 @@ export function createM365Alerts(getParams: () => { tenantId: string; linkId: st
     Promise.all([
       supabase
         .schema('views')
-        .from('d_alerts_view' as any)
+        .from('d_alerts_view')
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .eq('link_id', linkId)
@@ -34,7 +35,7 @@ export function createM365Alerts(getParams: () => { tenantId: string; linkId: st
         data = { active: res.count ?? 0 };
       })
       .catch((e) => {
-        error = e?.message ?? 'Failed to load alert data';
+        error = parseSafeErrorMessage(e);
       })
       .finally(() => {
         loading = false;

@@ -1,9 +1,12 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
-import { CoveConnector } from "@workspace/shared/lib/connectors/CoveConnector";
-import type { AdapterContract, UpsertPayload } from "@workspace/core/types/contracts/adapter";
-import type { JobContext } from "@workspace/core/types/job";
-import { IngestType as IT } from "@workspace/core/types/ingest";
+import { CoveConnector } from "@workspace/shared/lib/integrations/cove/connector";
+import {
+  AdapterContract,
+  UpsertPayload,
+} from "@workspace/shared/types/jobs/contracts/adapter.js";
+import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 
 export class CoveAdapter implements AdapterContract {
   readonly integrationId = "cove";
@@ -19,10 +22,17 @@ export class CoveAdapter implements AdapterContract {
     const clientSecret = ctx.credentials?.clientSecret;
 
     if (!server || !clientId || !clientSecret || !partnerId) {
-      throw new Error("CoveAdapter: server, clientId, clientSecret, and partnerId are required");
+      throw new Error(
+        "CoveAdapter: server, clientId, clientSecret, and partnerId are required",
+      );
     }
 
-    const connector = new CoveConnector({ server, clientId, clientSecret, partnerId });
+    const connector = new CoveConnector({
+      server,
+      clientId,
+      clientSecret,
+      partnerId: partnerId,
+    });
 
     if (ingestType === IT.CoveSites) {
       return this.fetchSites(connector, tenantId, now);
@@ -31,12 +41,21 @@ export class CoveAdapter implements AdapterContract {
         throw new Error("CoveAdapter: endpoints job requires link_id");
       }
 
-      const externalId = ctx.metadata?.externalId as string | undefined;
-      if (!externalId) {
-        throw new Error(`CoveAdapter: link ${ctx.linkId} has no external_id (Cove partner ID)`);
+      const externalId = String(ctx.metadata?.externalId);
+      if (!ctx.metadata?.externalId) {
+        throw new Error(
+          `CoveAdapter: link ${ctx.linkId} has no external_id (Cove partner ID)`,
+        );
       }
 
-      return this.fetchEndpoints(connector, externalId, ctx.linkId, ctx.siteId ?? null, tenantId, now);
+      return this.fetchEndpoints(
+        connector,
+        externalId,
+        ctx.linkId,
+        ctx.siteId ?? null,
+        tenantId,
+        now,
+      );
     } else {
       throw new Error(`CoveAdapter: unknown ingestType "${ingestType}"`);
     }
@@ -57,19 +76,20 @@ export class CoveAdapter implements AdapterContract {
       .not("site_id", "is", null);
 
     if (linksError) {
-      throw new Error(`CoveAdapter: failed to load integration_links: ${linksError.message}`);
+      throw new Error(
+        `CoveAdapter: failed to load integration_links: ${linksError.message}`,
+      );
     }
 
     if (!links || links.length === 0) return [];
 
-    const { data: customers, error: customersError } = await connector.getCustomers();
-
-    if (customersError || !customers) {
-      throw new Error(`CoveAdapter: getCustomers failed: ${customersError?.message}`);
-    }
-
-    const endCustomers = customers.filter((c) => c.Info.Level === "EndCustomer");
-    const partnersById = new Map(endCustomers.map((c) => [c.Info.Id.toString(), c]));
+    const customers = await connector.partner.children.list();
+    const endCustomers = customers.filter(
+      (c) => c.Info.Level === "EndCustomer",
+    );
+    const partnersById = new Map(
+      endCustomers.map((c) => [c.Info.Id.toString(), c]),
+    );
     const rows: Record<string, unknown>[] = [];
 
     for (const link of links) {
@@ -112,12 +132,7 @@ export class CoveAdapter implements AdapterContract {
     tenantId: string,
     now: string,
   ): Promise<UpsertPayload[]> {
-    const { data: stats, error } = await connector.getAccountStatistics();
-
-    if (error || !stats) {
-      throw new Error(`CoveAdapter: getAccountStatistics failed: ${error?.message}`);
-    }
-
+    const stats = await connector.account.statistics.list();
     const partnerId = parseInt(externalId, 10);
     const filtered = stats.filter((s) => s.PartnerId === partnerId);
 
@@ -154,7 +169,13 @@ export class CoveAdapter implements AdapterContract {
       };
     });
 
-    return [{ table: "cove_endpoints", rows, onConflict: "tenant_id,link_id,external_id" }];
+    return [
+      {
+        table: "cove_endpoints",
+        rows,
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
   }
 }
 

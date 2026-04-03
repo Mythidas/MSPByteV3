@@ -1,5 +1,5 @@
-import { Operations } from "@workspace/shared/types/index";
-import { Database } from "@workspace/shared/types/schema";
+import type { Operations } from "@workspace/shared/types/index";
+import type { Database } from "@workspace/shared/types/schema";
 
 // types.ts
 export type Schemas = keyof Omit<Database, "__InternalSupabase">;
@@ -25,11 +25,11 @@ export type RowFilter<
   T extends TableOrView<S>,
 > = T extends keyof Database[S]["Tables"]
   ? Database[S]["Tables"][T] extends { Row: infer R }
-    ? [column: keyof R, operator: Operations, value: any] | undefined
+    ? [column: keyof R, operator: Operations, value: unknown] | undefined
     : undefined
   : T extends keyof Database[S]["Views"]
     ? Database[S]["Views"][T] extends { Row: infer R }
-      ? [column: keyof R, operator: Operations, value: any] | undefined
+      ? [column: keyof R, operator: Operations, value: unknown] | undefined
       : undefined
     : undefined;
 export type RowSort<
