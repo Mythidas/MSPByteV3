@@ -30,6 +30,6 @@ export type EnrichJobData = {
 export type OrchestrationJobData = {
   tenantId: string;
   linkId: string | null;
-  integrationId: string;
+  integrationId: IntegrationId;
   ingestType: string;
 };

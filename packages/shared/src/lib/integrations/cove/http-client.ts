@@ -1,4 +1,4 @@
-import type { CoveConnectorConfig } from "@workspace/shared/types/integrations/cove/index";
+import type { CoveConnectorConfig, CoveDataResponse } from "@workspace/shared/types/integrations/cove/index";
 import z from "zod";
 
 const VisaResponseSchema = z.object({
@@ -7,14 +7,44 @@ const VisaResponseSchema = z.object({
   visa: z.string().optional(),
 });
 
-export class CoveHTTPClient {
-  private token: string | null = null;
+// Process-level visa cache keyed by server + clientId + partnerId.
+// Stores the in-flight Promise so concurrent jobs with the same credentials
+// await a single Login call instead of each triggering their own, which hits
+// Cove's auth rate limit when many site jobs start simultaneously.
+const visaCache = new Map<string, Promise<string>>();
 
-  constructor(readonly config: CoveConnectorConfig) {}
+function visaCacheKey(tenantId: string, config: CoveConnectorConfig): string {
+  return `${tenantId}::${config.clientId}::cove`;
+}
+
+function isAuthError(error: { code: number; data?: unknown }): boolean {
+  if (error.code === -32001) return true; // expired/invalid visa
+  if (error.code === -32603 && error.data === 14409) return true; // rate-limited login
+  return false;
+}
+
+export class CoveHTTPClient {
+  constructor(
+    readonly config: CoveConnectorConfig,
+    private readonly tenantId: string,
+  ) {}
 
   async getVisa(): Promise<string> {
-    if (this.token) return this.token;
+    const key = visaCacheKey(this.tenantId, this.config);
+    const cached = visaCache.get(key);
+    if (cached) return cached;
 
+    const pending = this.fetchVisa();
+    visaCache.set(key, pending);
+    pending.catch(() => visaCache.delete(key));
+    return pending;
+  }
+
+  invalidateVisa(): void {
+    visaCache.delete(visaCacheKey(this.tenantId, this.config));
+  }
+
+  private async fetchVisa(): Promise<string> {
     const response = await fetch(this.config.server, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -46,8 +76,7 @@ export class CoveHTTPClient {
       throw new Error("CoveHTTPClient.getVisa: no visa in response");
     }
 
-    this.token = data.visa;
-    return this.token;
+    return data.visa;
   }
 
   async rpc<T>(method: string, params: unknown): Promise<T> {
@@ -72,6 +101,16 @@ export class CoveHTTPClient {
     }
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    return response.json() as Promise<T>;
+    const data = await response.json() as CoveDataResponse<T>;
+
+    if (data.error && isAuthError(data.error)) {
+      this.invalidateVisa();
+      throw new Error(
+        `CoveHTTPClient.rpc(${method}): auth error, visa evicted: ${JSON.stringify(data.error)}`,
+      );
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return data as T;
   }
 }

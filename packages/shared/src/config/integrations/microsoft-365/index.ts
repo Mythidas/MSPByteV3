@@ -1,9 +1,10 @@
 import { M365PoliciesShape } from "@workspace/shared/config/integrations/microsoft-365/policies";
-import type { Integration } from "@workspace/shared/types/integrations";
+import {
+  IntegrationRefreshIntervalMinutes,
+  type Integration,
+} from "@workspace/shared/types/integrations";
 import type { MSCapabilityKey } from "@workspace/shared/types/integrations/microsoft/capabilities.js";
 import { IngestType } from "@workspace/shared/types/jobs/ingest";
-
-const DAILY = 60 * 24;
 
 export const CONSENT_VERSION = 2;
 
@@ -42,7 +43,7 @@ export const M365_INTEGRATION_CONFIG: Integration = {
   supportedTypes: [
     {
       type: IngestType.M365Identities,
-      freshnessMinutes: DAILY,
+      freshnessMinutes: IntegrationRefreshIntervalMinutes["2-Hours"],
       priority: 3,
       scopeLevel: "link",
       db: {
@@ -53,7 +54,7 @@ export const M365_INTEGRATION_CONFIG: Integration = {
     },
     {
       type: IngestType.M365Groups,
-      freshnessMinutes: DAILY,
+      freshnessMinutes: IntegrationRefreshIntervalMinutes["8-Hours"],
       priority: 5,
       scopeLevel: "link",
       db: {
@@ -64,7 +65,7 @@ export const M365_INTEGRATION_CONFIG: Integration = {
     },
     {
       type: IngestType.M365Licenses,
-      freshnessMinutes: DAILY,
+      freshnessMinutes: IntegrationRefreshIntervalMinutes["8-Hours"],
       priority: 7,
       scopeLevel: "link",
       db: {
@@ -75,7 +76,7 @@ export const M365_INTEGRATION_CONFIG: Integration = {
     },
     {
       type: IngestType.M365Policies,
-      freshnessMinutes: DAILY,
+      freshnessMinutes: IntegrationRefreshIntervalMinutes["12-Hours"],
       priority: 5,
       scopeLevel: "link",
       db: {
@@ -86,7 +87,7 @@ export const M365_INTEGRATION_CONFIG: Integration = {
     },
     {
       type: IngestType.M365ExchangeConfig,
-      freshnessMinutes: DAILY,
+      freshnessMinutes: IntegrationRefreshIntervalMinutes["24-Hours"],
       priority: 9,
       scopeLevel: "link",
       db: {

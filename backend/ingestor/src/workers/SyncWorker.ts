@@ -35,6 +35,7 @@ export class SyncWorker {
     private entityType: IngestType,
     private adapter: AdapterContract,
     private def: IngestorDefinition,
+    private concurrency: number = 3,
   ) {}
 
   start(): void {
@@ -45,7 +46,7 @@ export class SyncWorker {
     queueManager.createWorker<IngestJobData>(
       queueName,
       this.handleJob.bind(this),
-      { concurrency: 3 },
+      { concurrency: this.concurrency },
     );
 
     this.started = true;
@@ -187,11 +188,12 @@ export class SyncWorker {
         );
       }
 
+      // TODO: Evaluate if Fan-Out is still needed
       // 8. Fan-out (optional — e.g. sophos sites → endpoints jobs)
       if (this.def.fanOut) {
-        await tracker.trackSpan("fan_out", () =>
-          this.def.fanOut!(payloads, job.data),
-        );
+        // await tracker.trackSpan("fan_out", () =>
+        //   this.def.fanOut!(payloads, job.data),
+        // );
       }
 
       // 9. Write sync state

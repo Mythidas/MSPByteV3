@@ -13,6 +13,15 @@ export const INTEGRATION_IDS = [
 ] as const;
 export type IntegrationId = (typeof INTEGRATION_IDS)[number];
 
+export enum IntegrationRefreshIntervalMinutes {
+  "1-Hours" = 60 * 1,
+  "2-Hours" = 60 * 2,
+  "4-Hours" = 60 * 4,
+  "8-Hours" = 60 * 8,
+  "12-Hours" = 60 * 12,
+  "24-Hours" = 60 * 24,
+}
+
 // ─── DB Routing ──────────────────────────────────────────────────────────────
 // Only present on ingest types that map to a queryable vendor table.
 // Used by the workflow + compliance systems to know where data lives.

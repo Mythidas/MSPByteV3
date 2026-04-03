@@ -75,3 +75,12 @@ export type SophosPartnerEndpoint = {
   tamperProtectionEnabled: boolean;
   tamperProtectionSupported: boolean;
 };
+
+export type SophosPartnerEndpointTP = {
+  enabled: boolean;
+  password: string;
+  previousPasswords?: {
+    password: string;
+    invalidatedAt: string;
+  }[];
+};

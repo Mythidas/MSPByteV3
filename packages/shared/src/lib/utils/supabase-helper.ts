@@ -14,6 +14,7 @@ import type {
 import type { Database } from "@workspace/shared/types/schema";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PostgrestFilterBuilder } from "@supabase/postgrest-js";
+import { isString } from "@workspace/shared/lib/utils/validators";
 
 // Generic query builder type for dynamic/multi-schema queries where table type is not statically known.
 // Use only at integration boundaries — prefer typed queries when the schema is known.
@@ -313,7 +314,7 @@ export class SupabaseHelper {
     table: T,
     rows: (TablesUpdate<S, T> | TablesInsert<S, T>)[],
     batchSize = 100,
-    conflict?: (keyof Tables<S, T>)[],
+    conflict?: (keyof Tables<S, T>)[] | string,
     modifyQuery?: (query: AnyQueryBuilder) => void,
   ): Promise<APIResponse<Tables<S, T>[]>> {
     try {
@@ -326,7 +327,13 @@ export class SupabaseHelper {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
           .from(table as Extract<T, string>)
           // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion, @typescript-eslint/no-explicit-any
-          .upsert(chunk as any, { onConflict: conflict?.join(",") ?? "" });
+          .upsert(chunk as any, {
+            onConflict: isString(conflict)
+              ? conflict
+              : Array.isArray(conflict)
+                ? (conflict?.join(",") ?? undefined)
+                : undefined,
+          });
 
         if (modifyQuery) {
           modifyQuery(query);

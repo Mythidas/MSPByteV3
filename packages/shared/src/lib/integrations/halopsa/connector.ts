@@ -29,8 +29,8 @@ export class HaloPSAConnector {
     uploadImage(file: Blob): Promise<string>;
   };
 
-  constructor(config: HaloPSAConfig) {
-    this.client = new HaloPSAHTTPClient(config);
+  constructor(config: HaloPSAConfig, tenantId: string) {
+    this.client = new HaloPSAHTTPClient(config, tenantId);
     this.site = this.buildSiteNamespace();
     this.asset = this.buildAssetNamespace();
     this.users = this.buildUsersNamespace();

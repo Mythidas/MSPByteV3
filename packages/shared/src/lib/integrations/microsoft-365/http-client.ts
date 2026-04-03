@@ -6,16 +6,40 @@ import z from "zod";
 
 const TokenSchema = z.object({ access_token: z.string(), expires_in: z.number() });
 
+// Process-level token cache keyed by platformTenantId::clientId::microsoft-365::customerTenantId.
+// Shared across all connector instances so concurrent jobs for the same customer
+// tenant reuse one token fetch instead of each triggering their own auth call.
+type TokenEntry = { token: string; expiresAt: number };
+const tokenCache = new Map<string, Promise<TokenEntry>>();
+
+function tokenCacheKey(platformTenantId: string, config: Microsoft365Config, customerTenantId: string): string {
+  return `${platformTenantId}::${config.clientId}::microsoft-365::${customerTenantId}`;
+}
+
 export class Microsoft365HTTPClient {
-  private tokenCache = new Map<string, { token: string; expiration: Date }>();
+  constructor(
+    readonly config: Microsoft365Config,
+    private readonly platformTenantId: string,
+  ) {}
 
-  constructor(readonly config: Microsoft365Config) {}
+  async getToken(customerTenantId: string): Promise<string> {
+    const key = tokenCacheKey(this.platformTenantId, this.config, customerTenantId);
+    const cached = tokenCache.get(key);
 
-  async getToken(tenantId: string): Promise<string> {
-    const cached = this.tokenCache.get(tenantId);
-    if (cached && cached.expiration > new Date()) return cached.token;
+    if (cached) {
+      const entry = await cached;
+      if (Date.now() < entry.expiresAt) return entry.token;
+      tokenCache.delete(key);
+    }
 
-    const url = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+    const pending = this.fetchToken(customerTenantId);
+    tokenCache.set(key, pending);
+    pending.catch(() => tokenCache.delete(key));
+    return (await pending).token;
+  }
+
+  private async fetchToken(customerTenantId: string): Promise<TokenEntry> {
+    const url = `https://login.microsoftonline.com/${customerTenantId}/oauth2/v2.0/token`;
     const body = new URLSearchParams({
       client_id: this.config.clientId,
       client_secret: this.config.clientSecret,
@@ -31,19 +55,19 @@ export class Microsoft365HTTPClient {
 
     if (!response.ok) {
       throw new Error(
-        `Microsoft365HTTPClient.getToken: HTTP ${response.status} ${response.statusText} for tenant ${tenantId}`,
+        `Microsoft365HTTPClient.getToken: HTTP ${response.status} ${response.statusText} for tenant ${customerTenantId}`,
       );
     }
 
     const json = TokenSchema.parse(await response.json());
-    const token = json.access_token;
-    const expiration = new Date(Date.now() + (json.expires_in - 300) * 1000);
-    this.tokenCache.set(tenantId, { token, expiration });
-    return token;
+    return {
+      token: json.access_token,
+      expiresAt: Date.now() + (json.expires_in - 300) * 1000,
+    };
   }
 
   clearCache(): void {
-    this.tokenCache.clear();
+    tokenCache.clear();
   }
 
   async get<T>(

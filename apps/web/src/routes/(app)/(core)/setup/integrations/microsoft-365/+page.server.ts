@@ -5,7 +5,6 @@ import { Microsoft365Connector } from '@workspace/shared/lib/integrations/micros
 import { probeCapabilities } from './_capabilities';
 import type { Actions, PageServerLoad } from './$types';
 import { isRecord, isString, parseSafeErrorMessage } from '@workspace/shared/lib/utils/validators';
-import { Microsoft365ConfigSchema } from '@workspace/shared/types/integrations/microsoft';
 
 async function getFrameworks({ locals }: { locals: App.Locals }) {
   return await locals.supabase
@@ -106,11 +105,14 @@ export const actions = {
     if (!mspTenantId || !isString(mspTenantId))
       return fail(400, { error: 'Integration not configured' });
 
-    const connector = new Microsoft365Connector({
-      tenantId: mspTenantId,
-      clientId: MICROSOFT_CLIENT_ID,
-      clientSecret: MICROSOFT_CLIENT_SECRET,
-    });
+    const connector = new Microsoft365Connector(
+      {
+        tenantId: mspTenantId,
+        clientId: MICROSOFT_CLIENT_ID,
+        clientSecret: MICROSOFT_CLIENT_SECRET,
+      },
+      locals.tenant!.id
+    );
 
     let gdapRelationships;
     try {
@@ -213,11 +215,15 @@ export const actions = {
     if (!mspTenantId || !isString(mspTenantId))
       return fail(400, { error: 'Integration not configured' });
 
-    const tenantConnector = new Microsoft365Connector({
-      tenantId: mspTenantId,
-      clientId: MICROSOFT_CLIENT_ID,
-      clientSecret: MICROSOFT_CLIENT_SECRET,
-    }).forTenant(gdapTenantId);
+    const tenantConnector = new Microsoft365Connector(
+      {
+        tenantId: mspTenantId,
+        clientId: MICROSOFT_CLIENT_ID,
+        clientSecret: MICROSOFT_CLIENT_SECRET,
+      },
+      locals.tenant!.id,
+      gdapTenantId
+    );
 
     const capabilities = await probeCapabilities(tenantConnector, {
       maxRetries: 2,

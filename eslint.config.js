@@ -45,6 +45,7 @@ export default tseslint.config(
       "**/.svelte-kit/**",
       "**/*.js",
       "**/*.mjs",
+      "**/schema.ts",
     ],
   },
 );

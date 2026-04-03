@@ -7,18 +7,14 @@ export enum IngestType {
   M365ExchangeConfig = "m365-exchange-config",
 
   // Datto RMM
-  DattoSites = "datto-sites",
   DattoEndpoints = "datto-endpoints",
 
   // Sophos
-  SophosSites = "sophos-sites",
   SophosEndpoints = "sophos-endpoints",
 
   // HaloPSA
-  HaloSites = "halo-sites",
 
   // Cove Backups
-  CoveSites = "cove-sites",
   CoveEndpoints = "cove-endpoints",
 }
 

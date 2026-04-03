@@ -1,6 +1,6 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 
-const DEFAULT_RETRY_MS = 60_000;
+const DEFAULT_RETRY_MS = 5_000;
 
 /**
  * Wraps fetch with automatic retry on 429 (rate-limited) responses.
@@ -32,10 +32,7 @@ export async function fetchWithRetry(
       return response;
     }
 
-    const retryAfter = response.headers.get("Retry-After");
-    const waitMs = retryAfter
-      ? parseInt(retryAfter, 10) * 1000
-      : DEFAULT_RETRY_MS;
+    const waitMs = DEFAULT_RETRY_MS * (attempt + 1);
     Logger.warn({
       module,
       context,

@@ -15,7 +15,7 @@
     "lint": "turbo lint",
     "dev:web": "turbo dev --filter=@workspace/web",
     "dev:agent": "turbo dev --filter=@workspace/agents --filter=@workspace/agent",
-    "dev:pipeline": "turbo dev --filter=@workspace/ingestor --filter=@workspace/workflows --filter=@workspace/compliance",
+    "dev:pipeline": "turbo dev --filter=@workspace/ingestor --filter=@workspace/workflows --filter=@workspace/compliance --filter=@workspace/bullmq",
     "dev:workflows": "turbo dev --filter=@workspace/workflows",
     "infra:up": "cd backend && docker-compose up -d && docker-compose ps",
     "infra:down": "cd backend && docker-compose down",

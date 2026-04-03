@@ -125,11 +125,15 @@ export async function failIngestJob(
 
   if (fetchError || !job) return;
 
-  // Read current consecutive_failures before incrementing
+  // Read current sync state — we need consecutive_failures and last_synced_at.
+  // last_synced_at is NOT NULL in the DB, so on failure we preserve the existing
+  // value (or use epoch if no row exists yet) to avoid misleading the reconciler
+  // into thinking data was just synced.
   let currentFailures = 0;
+  let existingLastSyncedAt: string = new Date(0).toISOString(); // epoch → immediately stale
   let syncQuery = supabase
     .from("ingest_sync_states")
-    .select("consecutive_failures")
+    .select("consecutive_failures, last_synced_at")
     .eq("tenant_id", job.tenant_id)
     .eq("integration_id", job.integration_id)
     .eq("ingest_type", job.ingest_type);
@@ -141,6 +145,7 @@ export async function failIngestJob(
 
   if (syncState) {
     currentFailures = syncState.consecutive_failures ?? 0;
+    existingLastSyncedAt = syncState.last_synced_at;
   }
 
   await supabase.from("ingest_sync_states").upsert(
@@ -150,7 +155,9 @@ export async function failIngestJob(
       site_id: job.site_id,
       integration_id: job.integration_id,
       ingest_type: job.ingest_type,
-      last_synced_at: now,
+      // Preserve the last successful sync timestamp so the reconciler uses
+      // actual staleness rather than the failure time to decide when to retry.
+      last_synced_at: existingLastSyncedAt,
       last_job_id: jobId,
       last_status: "failed",
       last_failed_at: now,

@@ -28,8 +28,8 @@ export class DattoRMMConnector {
     };
   };
 
-  constructor(config: DattoRMMConfig) {
-    this.client = new DattoRMMHTTPClient(config);
+  constructor(config: DattoRMMConfig, tenantId: string) {
+    this.client = new DattoRMMHTTPClient(config, tenantId);
     this.account = this.buildAccountNamespace();
     this.site = this.buildSiteNamespace();
   }

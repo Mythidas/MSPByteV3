@@ -1,12 +1,13 @@
-import { Logger } from '@workspace/shared/lib/utils/logger';
-import { CoveHTTPClient } from './http-client';
-import { CODE_TO_NAME } from '@workspace/shared/types/integrations/cove/short_codes';
-import type { CoveConnectorConfig } from '@workspace/shared/types/integrations/cove/index';
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { CoveHTTPClient } from "./http-client";
+import { CODE_TO_NAME } from "@workspace/shared/types/integrations/cove/short_codes";
+import type { CoveConnectorConfig } from "@workspace/shared/types/integrations/cove/index";
 import type {
   CoveChildPartner,
   CoveEnumerateChildPartnersResponse,
-} from '@workspace/shared/types/integrations/cove/partners';
-import type { CoveEnumerateAccountStatisticsResponse } from '@workspace/shared/types/integrations/cove/statistics';
+} from "@workspace/shared/types/integrations/cove/partners";
+import type { CoveEnumerateAccountStatisticsResponse } from "@workspace/shared/types/integrations/cove/statistics";
+import { parseSafeErrorMessage } from "@workspace/shared/lib/utils/validators";
 
 export type CoveAccountStatisticsRow = {
   AccountId: number;
@@ -30,8 +31,8 @@ export class CoveConnector {
     };
   };
 
-  constructor(config: CoveConnectorConfig) {
-    this.client = new CoveHTTPClient(config);
+  constructor(config: CoveConnectorConfig, tenantId: string) {
+    this.client = new CoveHTTPClient(config, tenantId);
     this.partner = this.buildPartnerNamespace(config.partnerId);
     this.account = this.buildAccountNamespace(config.partnerId);
   }
@@ -45,20 +46,25 @@ export class CoveConnector {
     }
   }
 
-  private buildPartnerNamespace(partnerId: number): CoveConnector['partner'] {
+  private buildPartnerNamespace(partnerId: number): CoveConnector["partner"] {
     const client = this.client;
 
-    const fetchChildren = async (forPartnerId: number): Promise<CoveChildPartner[]> => {
-      const data = await client.rpc<CoveEnumerateChildPartnersResponse>('EnumerateChildPartners', {
-        partnerId: forPartnerId,
-        childrenLimit: 10000,
-        range: { Offset: 0, Size: 10000 },
-        fields: [0, 1, 3, 4, 5, 8, 11, 12, 18, 21],
-        partnerFilter: {
-          SortOrder: 'ByLevelAndName',
-          states: ['InProduction', 'InTrial', 'Expired'],
+    const fetchChildren = async (
+      forPartnerId: number,
+    ): Promise<CoveChildPartner[]> => {
+      const data = await client.rpc<CoveEnumerateChildPartnersResponse>(
+        "EnumerateChildPartners",
+        {
+          partnerId: forPartnerId,
+          childrenLimit: 10000,
+          range: { Offset: 0, Size: 10000 },
+          fields: [0, 1, 3, 4, 5, 8, 11, 12, 18, 21],
+          partnerFilter: {
+            SortOrder: "ByLevelAndName",
+            states: ["InProduction", "InTrial", "Expired"],
+          },
         },
-      });
+      );
       return data.result?.result.Children ?? [];
     };
 
@@ -75,21 +81,23 @@ export class CoveConnector {
                 finalResult.push(...subChildren);
               } catch (err) {
                 Logger.warn({
-                  module: 'CoveConnector',
-                  context: 'partner.children.list',
-                  message: String(err),
+                  module: "CoveConnector",
+                  context: "partner.children.list",
+                  message: parseSafeErrorMessage(err),
                 });
               }
             }
           }
 
-          return finalResult.sort((a, b) => a.Info.Name.localeCompare(b.Info.Name));
+          return finalResult.sort((a, b) =>
+            a.Info.Name.localeCompare(b.Info.Name),
+          );
         },
       },
     };
   }
 
-  private buildAccountNamespace(partnerId: number): CoveConnector['account'] {
+  private buildAccountNamespace(partnerId: number): CoveConnector["account"] {
     const client = this.client;
 
     return {
@@ -98,22 +106,23 @@ export class CoveConnector {
           const rows: CoveAccountStatisticsRow[] = [];
 
           while (true) {
-            const data = await client.rpc<CoveEnumerateAccountStatisticsResponse>(
-              'EnumerateAccountStatistics',
-              {
-                query: {
-                  PartnerId: partnerId,
-                  Filter: '',
-                  Labels: [],
-                  OrderBy: 'AR',
-                  RecordsCount: 200,
-                  SelectionMode: 'Merged',
-                  StartRecordNumber: rows.length,
-                  Totals: [],
-                  Columns: Object.keys(CODE_TO_NAME),
+            const data =
+              await client.rpc<CoveEnumerateAccountStatisticsResponse>(
+                "EnumerateAccountStatistics",
+                {
+                  query: {
+                    PartnerId: partnerId,
+                    Filter: "",
+                    Labels: [],
+                    OrderBy: "AR",
+                    RecordsCount: 200,
+                    SelectionMode: "Merged",
+                    StartRecordNumber: rows.length,
+                    Totals: [],
+                    Columns: Object.keys(CODE_TO_NAME),
+                  },
                 },
-              }
-            );
+              );
 
             if (!data.result?.result || data.result.result.length === 0) break;
 
@@ -123,7 +132,12 @@ export class CoveConnector {
                 const [key, value] = Object.entries(s)[0];
                 parsedSettings[CODE_TO_NAME[key]] = value;
               }
-              rows.push({ AccountId: r.AccountId, Flags: r.Flags, PartnerId: r.PartnerId, Settings: parsedSettings });
+              rows.push({
+                AccountId: r.AccountId,
+                Flags: r.Flags,
+                PartnerId: r.PartnerId,
+                Settings: parsedSettings,
+              });
             }
           }
 

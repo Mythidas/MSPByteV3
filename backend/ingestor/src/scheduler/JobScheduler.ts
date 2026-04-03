@@ -123,7 +123,7 @@ export class JobScheduler {
     delayMs: number,
   ): Promise<void> {
     const queueName = QueueNames.ingest(integrationId, ingestType);
-    const jobId = `ingest|${integrationId}|${ingestType}|${tenantId}|${linkId ?? "null"}`;
+    const jobId = `ingest|${integrationId}|${ingestType}|${tenantId}${linkId ? `|${linkId}` : ""}`;
 
     const jobData: IngestJobData = {
       tenantId,
@@ -133,7 +133,12 @@ export class JobScheduler {
       siteId,
     };
 
-    await queueManager.addJob(queueName, jobData, { jobId, delay: delayMs });
+    await queueManager.addJob(queueName, jobData, {
+      jobId,
+      delay: delayMs,
+      removeOnComplete: true,
+      removeOnFail: true,
+    });
   }
 
   static async cleanupOldJobs(): Promise<number> {

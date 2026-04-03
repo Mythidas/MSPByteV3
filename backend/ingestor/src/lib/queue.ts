@@ -5,7 +5,7 @@ import {
   type QueueOptions,
   type WorkerOptions,
 } from "bullmq";
-import { getRedisConnection } from "./redis.js";
+import { getRedisConnection, getRedisOptions } from "./redis.js";
 import { Logger } from "@workspace/shared/lib/utils/logger.js";
 import { CoreQueueNames } from "@workspace/shared/config/queue-names.js";
 import { parseSafeErrorMessage } from "@workspace/shared/lib/utils/validators.js";
@@ -36,7 +36,10 @@ class QueueManager {
   private getOrCreateQueue(queueName: string): Queue<unknown, unknown, string> {
     let queue = this.queues.get(queueName);
     if (!queue) {
-      queue = new Queue<unknown, unknown, string>(queueName, this.getDefaultOpts());
+      queue = new Queue<unknown, unknown, string>(
+        queueName,
+        this.getDefaultOpts(),
+      );
 
       queue.on("error", (error: Error) => {
         Logger.error({
@@ -57,6 +60,52 @@ class QueueManager {
     return queue;
   }
 
+  /**
+   * Enqueue a job immediately, promoting it if it already exists in a delayed
+   * state. This prevents BullMQ's silent deduplication from blocking the
+   * reconciler's "run now" intent when a delayed job with the same ID exists.
+   */
+  async promoteOrAdd<T>(
+    queueName: string,
+    jobData: T,
+    options: {
+      jobId: string;
+      priority?: number;
+      attempts?: number;
+      backoff?: { type: string; delay: number };
+      removeOnComplete?: { count: number };
+    },
+  ): Promise<void> {
+    const queue = this.getOrCreateQueue(queueName);
+    const existing = await queue.getJob(options.jobId);
+    if (existing) {
+      const state = await existing.getState();
+      if (state === "delayed") {
+        await existing.promote();
+        Logger.trace({
+          module: "QueueManager",
+          context: "promoteOrAdd",
+          message: `Promoted delayed job ${options.jobId} in ${queueName}`,
+        });
+        return;
+      }
+      if (
+        state === "waiting" ||
+        state === "prioritized" ||
+        state === "active"
+      ) {
+        Logger.trace({
+          module: "QueueManager",
+          context: "promoteOrAdd",
+          message: `Job ${options.jobId} already ${state} in ${queueName}, skipping`,
+        });
+        return;
+      }
+      // completed/failed — fall through and add a fresh job
+    }
+    await queue.add(queueName, jobData, { ...options, delay: 0 });
+  }
+
   async addJob<T>(
     queueName: string,
     jobData: T,
@@ -66,6 +115,8 @@ class QueueManager {
       jobId?: string;
       attempts?: number;
       backoff?: { type: string; delay: number };
+      removeOnComplete?: { count: number } | boolean;
+      removeOnFail?: { count: number } | boolean;
     },
   ): Promise<void> {
     const queue = this.getOrCreateQueue(queueName);
@@ -111,7 +162,11 @@ class QueueManager {
         }
       },
       {
-        connection: getRedisConnection(),
+        // Pass connection OPTIONS (not a shared instance) so BullMQ creates
+        // its own dedicated blocking connection per worker. Sharing an existing
+        // ioredis instance can cause workers to silently fail to consume jobs
+        // because the duplicated connection may not inherit all required options.
+        connection: getRedisOptions(),
         concurrency: options?.concurrency || 5,
         ...options,
       },

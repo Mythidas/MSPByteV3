@@ -1,4 +1,3 @@
-import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { DattoRMMConnector } from "@workspace/shared/lib/integrations/dattormm/connector";
 import {
@@ -25,11 +24,12 @@ export class DattoRMMAdapter implements AdapterContract {
       );
     }
 
-    const connector = new DattoRMMConnector({ url, apiKey, apiSecretKey });
+    const connector = new DattoRMMConnector(
+      { url, apiKey, apiSecretKey },
+      tenantId,
+    );
 
-    if (ingestType === IT.DattoSites) {
-      return this.fetchSites(connector, tenantId, now);
-    } else if (ingestType === IT.DattoEndpoints) {
+    if (ingestType === IT.DattoEndpoints) {
       if (!ctx.linkId) {
         throw new Error("DattoRMMAdapter: endpoints job requires link_id");
       }
@@ -52,68 +52,6 @@ export class DattoRMMAdapter implements AdapterContract {
     } else {
       throw new Error(`DattoRMMAdapter: unknown ingestType "${ingestType}"`);
     }
-  }
-
-  private async fetchSites(
-    connector: DattoRMMConnector,
-    tenantId: string,
-    now: string,
-  ): Promise<UpsertPayload[]> {
-    const supabase = getSupabase();
-
-    const { data: links, error: linksError } = await supabase
-      .from("integration_links")
-      .select("id, external_id, site_id")
-      .eq("integration_id", "dattormm")
-      .eq("tenant_id", tenantId)
-      .not("site_id", "is", null);
-
-    if (linksError) {
-      throw new Error(
-        `DattoRMMAdapter: failed to load integration_links: ${linksError.message}`,
-      );
-    }
-
-    if (!links || links.length === 0) return [];
-
-    const sites = await connector.account.sites.list();
-    const sitesByUid = new Map(sites.map((s) => [s.uid, s]));
-    const rows: Record<string, unknown>[] = [];
-
-    for (const link of links) {
-      const site = sitesByUid.get(link.external_id ?? "");
-      if (!site) {
-        Logger.warn({
-          module: "DattoRMMAdapter",
-          context: "fetchSites",
-          message: `Datto site uid ${link.external_id} not found in API response (link ${link.id})`,
-        });
-        continue;
-      }
-
-      rows.push({
-        tenant_id: tenantId,
-        external_id: site.id,
-        last_seen_at: now,
-        created_at: now,
-        updated_at: now,
-        site_id: link.site_id,
-        uid: site.uid,
-        name: site.name,
-        status: "active",
-        site_variables: site.siteVariables ?? {},
-      });
-    }
-
-    Logger.info({
-      module: "DattoRMMAdapter",
-      context: "fetchSites",
-      message: `Fetched ${rows.length} sites for tenant ${tenantId}`,
-    });
-
-    return [
-      { table: "datto_sites", rows, onConflict: "tenant_id,external_id" },
-    ];
   }
 
   private async fetchEndpoints(

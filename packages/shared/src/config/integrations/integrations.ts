@@ -7,7 +7,7 @@ import type {
 } from "@workspace/shared/types/integrations";
 import { IngestType } from "@workspace/shared/types/jobs/ingest";
 
-const DAILY = 60 * 24;
+const DAILY_MINUTES = 60 * 24;
 
 export const INTEGRATIONS: Record<IntegrationId, Integration> = {
   "sophos-partner": {
@@ -17,24 +17,12 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     scope: "site",
     supportedTypes: [
       {
-        type: IngestType.SophosSites,
-        freshnessMinutes: DAILY,
-        priority: 5,
-        scopeLevel: "tenant",
-        db: {
-          schema: "vendors",
-          table: "sophos_sites",
-          shape: {},
-        },
-      },
-      {
         type: IngestType.SophosEndpoints,
-        freshnessMinutes: DAILY,
+        freshnessMinutes: DAILY_MINUTES,
         priority: 3,
-        workerConcurrency: 1,
+        workerConcurrency: 2,
         scopeLevel: "link",
         hasLinker: true,
-        linkerDependencies: [IngestType.SophosSites],
         db: {
           schema: "vendors",
           table: "sophos_endpoints",
@@ -52,16 +40,10 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     scope: "site",
     supportedTypes: [
       {
-        type: IngestType.DattoSites,
-        scopeLevel: "tenant",
-        freshnessMinutes: DAILY,
-        priority: 5,
-      },
-      {
         type: IngestType.DattoEndpoints,
-        freshnessMinutes: DAILY,
+        freshnessMinutes: DAILY_MINUTES,
         priority: 3,
-        workerConcurrency: 1,
+        workerConcurrency: 5,
         scopeLevel: "link",
       },
     ],
@@ -75,17 +57,11 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     scope: "site",
     supportedTypes: [
       {
-        type: IngestType.CoveSites,
-        scopeLevel: "tenant",
-        freshnessMinutes: DAILY,
-        priority: 5,
-      },
-      {
         scopeLevel: "link",
         type: IngestType.CoveEndpoints,
-        freshnessMinutes: DAILY,
+        freshnessMinutes: DAILY_MINUTES,
         priority: 3,
-        workerConcurrency: 1,
+        workerConcurrency: 5,
       },
     ],
     navigation: [{ label: "Endpoints", route: "/endpoints", isNullable: true }],

@@ -21,7 +21,7 @@ async function getTenants(locals: App.Locals): Promise<SophosPartnerTenant[]> {
 
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret });
+  const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret }, locals.tenant!.id);
   try {
     return await connector.partner.tenants.list();
   } catch {

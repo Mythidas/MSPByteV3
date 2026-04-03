@@ -1,59 +1,9 @@
 import { registry } from "../../registry.js";
-import { getSupabase } from "../../supabase.js";
-import { Logger } from "@workspace/shared/lib/utils/logger";
 import { CoveAdapter } from "./CoveAdapter.js";
-import type { IngestJobData } from "../../types.js";
-import { JobScheduler } from "../../scheduler/JobScheduler.js";
-import { UpsertPayload } from "@workspace/shared/types/jobs/contracts/adapter.js";
-import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 
 registry.register({
   integrationId: "cove",
   adapter: new CoveAdapter(),
   linkers: [],
   enrichments: [],
-
-  // Fan-out: after tenant-wide sites job, enqueue one endpoints job per link
-  fanOut: async (
-    _payloads: UpsertPayload[],
-    job: IngestJobData,
-  ): Promise<void> => {
-    if (job.ingestType !== IT.CoveSites) return;
-
-    const supabase = getSupabase();
-
-    const { data: links, error: linksError } = await supabase
-      .from("integration_links")
-      .select("id, site_id")
-      .eq("integration_id", "cove")
-      .eq("tenant_id", job.tenantId)
-      .not("site_id", "is", null);
-
-    if (linksError) {
-      Logger.error({
-        module: "CoveFanOut",
-        context: "fanOut",
-        message: `Error fetching integration_links for fan-out: ${linksError.message}`,
-      });
-      return;
-    }
-
-    if (!links || links.length === 0) return;
-
-    for (const link of links) {
-      await JobScheduler.enqueueNow(
-        job.tenantId,
-        link.site_id ?? null,
-        link.id,
-        "cove",
-        IT.CoveEndpoints,
-      );
-    }
-
-    Logger.info({
-      module: "CoveFanOut",
-      context: "fanOut",
-      message: `Enqueued ${links.length} CoveEndpoints jobs`,
-    });
-  },
 });

@@ -522,44 +522,49 @@ export const M365PoliciesConditionsSchema = z.object({
       includeRoles: z.array(z.string()),
       excludeRoles: z.array(z.string()),
     })
-    .optional(),
+    .optional()
+    .nullable(),
   applications: z
     .object({
       includeApplications: z.array(z.string()).optional(),
       excludeApplications: z.array(z.string()).optional(),
     })
-    .optional(),
+    .optional()
+    .nullable(),
   platforms: z
     .object({
       includePlatforms: z.array(z.string()).optional(),
     })
+    .nullable()
     .optional(),
   locations: z
     .object({
       includeLocations: z.array(z.string()).optional(),
       excludeLocations: z.array(z.string()).optional(),
     })
-    .optional(),
-  clientAppTypes: z.array(z.string()).optional(),
-  userRiskLevels: z.array(z.string()).optional(),
-  signInRiskLevels: z.array(z.string()).optional(),
+    .optional()
+    .nullable(),
+  clientAppTypes: z.array(z.string()).optional().nullable(),
+  userRiskLevels: z.array(z.string()).optional().nullable(),
+  signInRiskLevels: z.array(z.string()).optional().nullable(),
 });
 export const M365PoliciesGrantConrolsSchema = z
   .object({
     operator: z.enum(["AND", "OR"]),
-    builtInControls: z.array(z.string()).optional(),
-    termsOfUse: z.array(z.string()).optional(),
-    customAuthenticationFactors: z.array(z.string()).optional(),
+    builtInControls: z.array(z.string()).optional().nullable(),
+    termsOfUse: z.array(z.string()).optional().nullable(),
+    customAuthenticationFactors: z.array(z.string()).optional().nullable(),
   })
   .optional();
 export const M365PoliciesSessionConrolsSchema = z
   .object({
-    applicationEnforcedRestrictions: z.unknown().optional(),
-    cloudAppSecurity: z.unknown().optional(),
-    signInFrequency: z.unknown().optional(),
-    persistentBrowser: z.unknown().optional(),
+    applicationEnforcedRestrictions: z.unknown().optional().nullable(),
+    cloudAppSecurity: z.unknown().optional().nullable(),
+    signInFrequency: z.unknown().optional().nullable(),
+    persistentBrowser: z.unknown().optional().nullable(),
   })
-  .optional();
+  .optional()
+  .nullable();
 
 export const M365PoliciesSchema = z
   .array(
@@ -571,12 +576,12 @@ export const M365PoliciesSchema = z
         "enabledForReportingButNotEnforced",
       ]),
       displayName: z.string(),
-      templateId: z.string().optional(),
+      templateId: z.string().optional().nullable(),
       createdDateTime: z.string(),
       modifiedDateTime: z.string(),
-      conditions: M365PoliciesConditionsSchema,
-      grantControls: M365PoliciesGrantConrolsSchema,
-      sessionControls: M365PoliciesSessionConrolsSchema,
+      conditions: M365PoliciesConditionsSchema.optional().nullable(),
+      grantControls: M365PoliciesGrantConrolsSchema.optional().nullable(),
+      sessionControls: M365PoliciesSessionConrolsSchema.optional().nullable(),
     }),
   )
   .catch([]);

@@ -30,90 +30,91 @@ export class OrchestrationWorker {
   }
 
   private async handleJob(job: Job<OrchestrationJobData>): Promise<void> {
-    const { tenantId, linkId } = job.data;
+    const { tenantId, linkId, integrationId } = job.data;
 
-    for (const def of registry.getAll()) {
-      // Linkers
-      for (const linker of def.linkers) {
-        if (!linkId) continue; // linkers always need a linkId
-        let depsOk = true;
-        for (const dep of linker.dependencies) {
-          const depConfig = INTEGRATIONS[
-            dep.integrationId
-          ]?.supportedTypes.find((t) => t.type === dep.ingestType);
-          const depLinkId = depConfig?.scopeLevel === "tenant" ? null : linkId;
-          const available = await getAvailableDataTypes({
-            tenant_id: tenantId,
-            link_id: depLinkId,
-            integration_id: dep.integrationId,
-          });
-          if (!available.has(dep.ingestType)) {
-            depsOk = false;
-            break;
-          }
-        }
-        if (!depsOk) continue;
-        await queueManager.addJob(
-          QueueNames.link(def.integrationId),
-          {
-            tenantId,
-            integrationId: def.integrationId,
-            linkId,
-            linkerType: linker.linkerType,
-          } satisfies LinkJobData,
-          {
-            jobId: `link_${def.integrationId}_${linkId}_${linker.linkerType}`,
-            delay: LINK_DEBOUNCE_MS,
-            priority: 50,
-          },
-        );
-        Logger.info({
-          module: "OrchestrationWorker",
-          context: "handleJob",
-          message: `Enqueued link job: ${linker.linkerType} for link ${linkId}`,
-        });
-      }
+    if (!registry.has(integrationId)) return;
+    const def = registry.get(integrationId);
 
-      // Enrichments
-      for (const enrichment of def.enrichments) {
-        let depsOk = true;
-        for (const dep of enrichment.dependencies) {
-          const depConfig = INTEGRATIONS[
-            dep.integrationId
-          ]?.supportedTypes.find((t) => t.type === dep.ingestType);
-          const depLinkId =
-            depConfig?.scopeLevel === "tenant" ? null : (linkId ?? null);
-          const available = await getAvailableDataTypes({
-            tenant_id: tenantId,
-            link_id: depLinkId,
-            integration_id: dep.integrationId,
-          });
-          if (!available.has(dep.ingestType)) {
-            depsOk = false;
-            break;
-          }
-        }
-        if (!depsOk) continue;
-        await queueManager.addJob(
-          QueueNames.enrich(def.integrationId),
-          {
-            tenantId,
-            integrationId: def.integrationId,
-            linkId: linkId ?? null,
-            enrichmentType: enrichment.enrichmentType,
-          } satisfies EnrichJobData,
-          {
-            jobId: `enrich_${def.integrationId}_${linkId ?? tenantId}_${enrichment.enrichmentType}`,
-            delay: ENRICH_DEBOUNCE_MS,
-            priority: 50,
-          },
+    // Linkers
+    for (const linker of def.linkers) {
+      if (!linkId) continue; // linkers always need a linkId
+      let depsOk = true;
+      for (const dep of linker.dependencies) {
+        const depConfig = INTEGRATIONS[dep.integrationId]?.supportedTypes.find(
+          (t) => t.type === dep.ingestType,
         );
-        Logger.info({
-          module: "OrchestrationWorker",
-          context: "handleJob",
-          message: `Enqueued enrich job: ${enrichment.enrichmentType} for ${linkId ?? tenantId}`,
+        const depLinkId = depConfig?.scopeLevel === "tenant" ? null : linkId;
+        const available = await getAvailableDataTypes({
+          tenant_id: tenantId,
+          link_id: depLinkId,
+          integration_id: dep.integrationId,
         });
+        if (!available.has(dep.ingestType)) {
+          depsOk = false;
+          break;
+        }
       }
+      if (!depsOk) continue;
+      await queueManager.addJob(
+        QueueNames.link(def.integrationId),
+        {
+          tenantId,
+          integrationId: def.integrationId,
+          linkId,
+          linkerType: linker.linkerType,
+        } satisfies LinkJobData,
+        {
+          jobId: `link_${def.integrationId}_${linkId}_${linker.linkerType}`,
+          delay: LINK_DEBOUNCE_MS,
+          priority: 50,
+        },
+      );
+      Logger.info({
+        module: "OrchestrationWorker",
+        context: "handleJob",
+        message: `Enqueued link job: ${linker.linkerType} for link ${linkId}`,
+      });
+    }
+
+    // Enrichments
+    for (const enrichment of def.enrichments) {
+      let depsOk = true;
+      for (const dep of enrichment.dependencies) {
+        const depConfig = INTEGRATIONS[dep.integrationId]?.supportedTypes.find(
+          (t) => t.type === dep.ingestType,
+        );
+        const depLinkId =
+          depConfig?.scopeLevel === "tenant" ? null : (linkId ?? null);
+        const available = await getAvailableDataTypes({
+          tenant_id: tenantId,
+          link_id: depLinkId,
+          integration_id: dep.integrationId,
+        });
+        if (!available.has(dep.ingestType)) {
+          depsOk = false;
+          break;
+        }
+      }
+      if (!depsOk) continue;
+      await queueManager.addJob(
+        QueueNames.enrich(def.integrationId),
+        {
+          tenantId,
+          integrationId: def.integrationId,
+          linkId: linkId ?? null,
+          enrichmentType: enrichment.enrichmentType,
+        } satisfies EnrichJobData,
+        {
+          jobId: `enrich_${def.integrationId}_${linkId ?? tenantId}_${enrichment.enrichmentType}`,
+          delay: ENRICH_DEBOUNCE_MS,
+          priority: 50,
+        },
+      );
+      Logger.info({
+        module: "OrchestrationWorker",
+        context: "handleJob",
+        message: `Enqueued enrich job: ${enrichment.enrichmentType} for ${linkId ?? tenantId}`,
+      });
     }
   }
 }

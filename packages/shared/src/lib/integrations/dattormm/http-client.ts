@@ -9,17 +9,36 @@ const TokenResponseSchema = z.object({
 
 const MODULE = "DattoRMMHTTPClient";
 
-export class DattoRMMHTTPClient {
-  private token: string | null = null;
-  private tokenExpiry: Date = new Date();
+type TokenEntry = { token: string; expiresAt: number };
+const tokenCache = new Map<string, Promise<TokenEntry>>();
 
-  constructor(readonly config: DattoRMMConfig) {}
+function tokenCacheKey(tenantId: string, config: DattoRMMConfig): string {
+  return `${tenantId}::${config.apiKey}::dattormm`;
+}
+
+export class DattoRMMHTTPClient {
+  constructor(
+    readonly config: DattoRMMConfig,
+    private readonly tenantId: string,
+  ) {}
 
   async getToken(): Promise<string> {
-    if (this.token && new Date().getTime() < this.tokenExpiry.getTime()) {
-      return this.token;
+    const key = tokenCacheKey(this.tenantId, this.config);
+    const cached = tokenCache.get(key);
+
+    if (cached) {
+      const entry = await cached;
+      if (Date.now() < entry.expiresAt) return entry.token;
+      tokenCache.delete(key);
     }
 
+    const pending = this.fetchToken();
+    tokenCache.set(key, pending);
+    pending.catch(() => tokenCache.delete(key));
+    return (await pending).token;
+  }
+
+  private async fetchToken(): Promise<TokenEntry> {
     const response = await fetch(`${this.config.url}/auth/oauth/token`, {
       method: "POST",
       headers: {
@@ -40,12 +59,11 @@ export class DattoRMMHTTPClient {
     }
 
     const data = TokenResponseSchema.parse(await response.json());
-    this.token = data.access_token;
-    this.tokenExpiry = new Date(
-      new Date().getTime() +
-        (data.expires_in ? data.expires_in * 1000 : 55 * 60 * 1000),
-    );
-    return this.token;
+    const expiresIn = data.expires_in ?? 55 * 60;
+    return {
+      token: data.access_token,
+      expiresAt: Date.now() + (expiresIn - 30) * 1000,
+    };
   }
 
   async get<T>(url: string): Promise<T> {

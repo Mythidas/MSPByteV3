@@ -2,9 +2,8 @@
   import {
     CONSENT_VERSION,
     MS_CAPABILITIES,
-  } from '@workspace/shared/config/integrations/microsoft-365';
+  } from '@workspace/shared/config/integrations/microsoft-365/index';
   import * as Tabs from '$lib/components/ui/tabs/index.js';
-  import Badge from '$lib/components/ui/badge/badge.svelte';
   import Button from '$lib/components/ui/button/button.svelte';
   import {
     CircleAlert,

@@ -690,7 +690,6 @@ export type Database = {
           completed_at: string | null
           created_at: string
           error: string | null
-          error_class: string | null
           id: string
           ingest_type: string
           integration_id: string
@@ -701,15 +700,12 @@ export type Database = {
           status: string
           tenant_id: string
           updated_at: string
-          user_facing: boolean
-          user_message: string | null
         }
         Insert: {
           bullmq_job_id?: string | null
           completed_at?: string | null
           created_at?: string
           error?: string | null
-          error_class?: string | null
           id?: string
           ingest_type: string
           integration_id: string
@@ -720,15 +716,12 @@ export type Database = {
           status?: string
           tenant_id: string
           updated_at?: string
-          user_facing?: boolean
-          user_message?: string | null
         }
         Update: {
           bullmq_job_id?: string | null
           completed_at?: string | null
           created_at?: string
           error?: string | null
-          error_class?: string | null
           id?: string
           ingest_type?: string
           integration_id?: string
@@ -739,8 +732,6 @@ export type Database = {
           status?: string
           tenant_id?: string
           updated_at?: string
-          user_facing?: boolean
-          user_message?: string | null
         }
         Relationships: [
           {
@@ -2215,6 +2206,7 @@ export type Database = {
       sophos_endpoints: {
         Row: {
           created_at: string
+          current_code: string
           external_id: string
           has_mdr: boolean
           health: string
@@ -2228,6 +2220,7 @@ export type Database = {
           online: boolean
           os_name: string
           platform: string
+          previous_codes: string[]
           site_id: string | null
           tamper_protection_enabled: boolean
           tenant_id: string
@@ -2236,6 +2229,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          current_code?: string
           external_id: string
           has_mdr: boolean
           health: string
@@ -2249,6 +2243,7 @@ export type Database = {
           online: boolean
           os_name: string
           platform: string
+          previous_codes?: string[]
           site_id?: string | null
           tamper_protection_enabled: boolean
           tenant_id: string
@@ -2257,6 +2252,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          current_code?: string
           external_id?: string
           has_mdr?: boolean
           health?: string
@@ -2270,6 +2266,7 @@ export type Database = {
           online?: boolean
           os_name?: string
           platform?: string
+          previous_codes?: string[]
           site_id?: string | null
           tamper_protection_enabled?: boolean
           tenant_id?: string
@@ -2847,7 +2844,6 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
@@ -2865,7 +2861,6 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
@@ -2894,4 +2889,4 @@ export const Constants = {
   views: {
     Enums: {},
   },
-} as const;
+} as const

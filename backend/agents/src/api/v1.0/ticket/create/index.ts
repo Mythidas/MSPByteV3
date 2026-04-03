@@ -136,7 +136,7 @@ export default function (fastify: FastifyInstance) {
           config.clientSecret ?? "",
           process.env.ENCRYPTION_KEY!,
         ) || "";
-      const connector = new HaloPSAConnector(config);
+      const connector = new HaloPSAConnector(config, agent.tenant_id);
       const handler = new HaloPSATicketHandler(connector);
 
       // Parse and validate request body (multipart/form-data or JSON)

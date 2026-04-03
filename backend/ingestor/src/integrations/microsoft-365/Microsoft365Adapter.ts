@@ -82,7 +82,7 @@ export class Microsoft365Adapter implements AdapterContract {
       tenantId: mspTenantId,
       clientId,
       clientSecret,
-    });
+    }, tenantId);
 
     const connector = baseConnector.forTenant(gdapTenantId);
 

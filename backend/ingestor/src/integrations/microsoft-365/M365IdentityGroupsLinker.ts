@@ -65,11 +65,15 @@ export class M365IdentityGroupsLinker implements LinkerContract {
       return;
     }
 
-    const connector = new Microsoft365Connector({
-      tenantId: mspTenantId,
-      clientId,
-      clientSecret,
-    }).forTenant(gdapTenantId);
+    const connector = new Microsoft365Connector(
+      {
+        tenantId: mspTenantId,
+        clientId,
+        clientSecret,
+      },
+      tenantId,
+      gdapTenantId,
+    );
 
     const syncStartTime = new Date().toISOString();
 

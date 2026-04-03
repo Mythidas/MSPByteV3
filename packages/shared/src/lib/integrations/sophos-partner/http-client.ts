@@ -9,19 +9,42 @@ const MODULE = "SophosHTTPClient";
 const TOKEN_URL = "https://id.sophos.com/api/v2/oauth2/token";
 const WHOAMI_URL = "https://api.central.sophos.com/whoami/v1";
 
-export class SophosHTTPClient {
-  private token: string | null = null;
-  private tokenExpiry: Date = new Date();
-  private partnerId: string | null = null;
+type TokenEntry = { token: string; expiresAt: number };
+const tokenCache = new Map<string, Promise<TokenEntry>>();
 
-  constructor(private config: SophosPartnerConfig) {}
+function tokenCacheKey(tenantId: string, config: SophosPartnerConfig): string {
+  return `${tenantId}::${config.clientId}::sophos-partner`;
+}
+
+const partnerIdCache = new Map<string, string>();
+
+export class SophosHTTPClient {
+  constructor(
+    private config: SophosPartnerConfig,
+    private tenantId: string,
+  ) {}
 
   async getToken(): Promise<string> {
-    if (this.token) {
-      const expired = new Date().getTime() >= this.tokenExpiry.getTime() - 5000;
-      if (!expired) return this.token;
+    const key = tokenCacheKey(this.tenantId, this.config);
+    const cached = tokenCache.get(key);
+
+    if (cached) {
+      const entry = await cached;
+      if (Date.now() < entry.expiresAt) return entry.token;
+      tokenCache.delete(key);
     }
 
+    const pending = this.fetchToken();
+    tokenCache.set(key, pending);
+    pending.catch(() => tokenCache.delete(key));
+    return (await pending).token;
+  }
+
+  invalidateToken(): void {
+    tokenCache.delete(tokenCacheKey(this.tenantId, this.config));
+  }
+
+  private async fetchToken(): Promise<TokenEntry> {
     const body = new URLSearchParams({
       grant_type: "client_credentials",
       client_id: this.config.clientId,
@@ -47,20 +70,24 @@ export class SophosHTTPClient {
         access_token: z.string(),
       })
       .parse(await response.json());
-    this.token = data.access_token;
-    this.tokenExpiry = new Date(new Date().getTime() + data.expires_in * 1000);
-    return this.token;
+
+    return {
+      token: data.access_token,
+      expiresAt: Date.now() + (data.expires_in - 30) * 1000,
+    };
   }
 
   async getPartnerId(): Promise<string> {
-    if (this.partnerId) return this.partnerId;
+    const key = tokenCacheKey(this.tenantId, this.config);
+    const cached = partnerIdCache.get(key);
+    if (cached) return cached;
 
     const token = await this.getToken();
     const data = await this.get<{ id: string }>(WHOAMI_URL, {
       Authorization: `Bearer ${token}`,
     });
-    this.partnerId = data.id;
-    return this.partnerId;
+    partnerIdCache.set(key, data.id);
+    return data.id;
   }
 
   async partnerHeaders(): Promise<Record<string, string>> {

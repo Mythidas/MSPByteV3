@@ -51,6 +51,7 @@ function main() {
         typeConfig.type,
         def.adapter,
         def,
+        typeConfig.workerConcurrency ?? 3,
       );
       worker.start();
       syncWorkers.push(worker);

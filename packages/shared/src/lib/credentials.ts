@@ -17,5 +17,10 @@ export function resolveCredentials(
       Encryption.decrypt(config[field], process.env.ENCRYPTION_KEY!) ?? "";
   }
 
+  for (const [key, val] of Object.entries(config)) {
+    if (Object.keys(resolved).includes(key)) continue;
+    resolved[key] = String(val);
+  }
+
   return resolved;
 }

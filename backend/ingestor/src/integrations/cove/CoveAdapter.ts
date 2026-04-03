@@ -1,4 +1,3 @@
-import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
 import { CoveConnector } from "@workspace/shared/lib/integrations/cove/connector";
 import {
@@ -7,6 +6,7 @@ import {
 } from "@workspace/shared/types/jobs/contracts/adapter.js";
 import { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
+import { isString } from "@workspace/shared/lib/utils/validators.js";
 
 export class CoveAdapter implements AdapterContract {
   readonly integrationId = "cove";
@@ -17,7 +17,9 @@ export class CoveAdapter implements AdapterContract {
 
     const server = ctx.credentials?.server;
     const clientId = ctx.credentials?.clientId;
-    const partnerIdRaw = ctx.credentials?.partnerId;
+    const partnerIdRaw = isString(ctx.credentials?.partnerId)
+      ? ctx.credentials?.partnerId
+      : undefined;
     const partnerId = partnerIdRaw ? parseInt(partnerIdRaw, 10) : undefined;
     const clientSecret = ctx.credentials?.clientSecret;
 
@@ -27,16 +29,17 @@ export class CoveAdapter implements AdapterContract {
       );
     }
 
-    const connector = new CoveConnector({
-      server,
-      clientId,
-      clientSecret,
-      partnerId: partnerId,
-    });
+    const connector = new CoveConnector(
+      {
+        server,
+        clientId,
+        clientSecret,
+        partnerId: partnerId,
+      },
+      tenantId,
+    );
 
-    if (ingestType === IT.CoveSites) {
-      return this.fetchSites(connector, tenantId, now);
-    } else if (ingestType === IT.CoveEndpoints) {
+    if (ingestType === IT.CoveEndpoints) {
       if (!ctx.linkId) {
         throw new Error("CoveAdapter: endpoints job requires link_id");
       }
@@ -59,69 +62,6 @@ export class CoveAdapter implements AdapterContract {
     } else {
       throw new Error(`CoveAdapter: unknown ingestType "${ingestType}"`);
     }
-  }
-
-  private async fetchSites(
-    connector: CoveConnector,
-    tenantId: string,
-    now: string,
-  ): Promise<UpsertPayload[]> {
-    const supabase = getSupabase();
-
-    const { data: links, error: linksError } = await supabase
-      .from("integration_links")
-      .select("id, external_id, site_id")
-      .eq("integration_id", "cove")
-      .eq("tenant_id", tenantId)
-      .not("site_id", "is", null);
-
-    if (linksError) {
-      throw new Error(
-        `CoveAdapter: failed to load integration_links: ${linksError.message}`,
-      );
-    }
-
-    if (!links || links.length === 0) return [];
-
-    const customers = await connector.partner.children.list();
-    const endCustomers = customers.filter(
-      (c) => c.Info.Level === "EndCustomer",
-    );
-    const partnersById = new Map(
-      endCustomers.map((c) => [c.Info.Id.toString(), c]),
-    );
-    const rows: Record<string, unknown>[] = [];
-
-    for (const link of links) {
-      const partner = partnersById.get(link.external_id ?? "");
-      if (!partner) {
-        Logger.warn({
-          module: "CoveAdapter",
-          context: "fetchSites",
-          message: `Cove partner ${link.external_id} not found in customer list (link ${link.id})`,
-        });
-        continue;
-      }
-
-      rows.push({
-        tenant_id: tenantId,
-        external_id: partner.Info.Id.toString(),
-        last_seen_at: now,
-        created_at: now,
-        updated_at: now,
-        site_id: link.site_id,
-        uid: partner.Info.Uid,
-        name: partner.Info.Name,
-      });
-    }
-
-    Logger.info({
-      module: "CoveAdapter",
-      context: "fetchSites",
-      message: `Fetched ${rows.length} sites for tenant ${tenantId}`,
-    });
-
-    return [{ table: "cove_sites", rows, onConflict: "tenant_id,external_id" }];
   }
 
   private async fetchEndpoints(

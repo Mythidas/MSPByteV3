@@ -1,6 +1,9 @@
 <script lang="ts">
   import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
-  import { CONSENT_VERSION, MS_CAPABILITIES } from '@workspace/shared/config/integrations/microsoft-365';
+  import {
+    CONSENT_VERSION,
+    MS_CAPABILITIES,
+  } from '@workspace/shared/config/integrations/microsoft-365/index';
   import IntegrationHeader from '../_helpers/integration-header.svelte';
   import type { PageProps } from './$types';
   import type { Tables } from '@workspace/shared/types/database';

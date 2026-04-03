@@ -8,19 +8,38 @@ const TokenResponseSchema = z.object({
 });
 
 const MODULE = "HaloPSAHTTPClient";
-const TOKEN_TTL_MS = 55 * 60 * 1000;
+const DEFAULT_TTL_S = 55 * 60;
+
+type TokenEntry = { token: string; expiresAt: number };
+const tokenCache = new Map<string, Promise<TokenEntry>>();
+
+function tokenCacheKey(tenantId: string, config: HaloPSAConfig): string {
+  return `${tenantId}::${config.clientId}::halopsa`;
+}
 
 export class HaloPSAHTTPClient {
-  private token: string | null = null;
-  private tokenExpiry: Date = new Date();
-
-  constructor(readonly config: HaloPSAConfig) {}
+  constructor(
+    readonly config: HaloPSAConfig,
+    private readonly tenantId: string,
+  ) {}
 
   async getToken(): Promise<string> {
-    if (this.token && new Date().getTime() < this.tokenExpiry.getTime()) {
-      return this.token;
+    const key = tokenCacheKey(this.tenantId, this.config);
+    const cached = tokenCache.get(key);
+
+    if (cached) {
+      const entry = await cached;
+      if (Date.now() < entry.expiresAt) return entry.token;
+      tokenCache.delete(key);
     }
 
+    const pending = this.fetchToken();
+    tokenCache.set(key, pending);
+    pending.catch(() => tokenCache.delete(key));
+    return (await pending).token;
+  }
+
+  private async fetchToken(): Promise<TokenEntry> {
     const response = await fetch(`${this.config.url}/auth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -39,12 +58,11 @@ export class HaloPSAHTTPClient {
     }
 
     const data = TokenResponseSchema.parse(await response.json());
-    this.token = data.access_token;
-    this.tokenExpiry = new Date(
-      new Date().getTime() +
-        (data.expires_in ? data.expires_in * 1000 : TOKEN_TTL_MS),
-    );
-    return this.token;
+    const expiresIn = data.expires_in ?? DEFAULT_TTL_S;
+    return {
+      token: data.access_token,
+      expiresAt: Date.now() + (expiresIn - 30) * 1000,
+    };
   }
 
   authHeaders(): Promise<Record<string, string>> {

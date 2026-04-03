@@ -117,9 +117,10 @@ export class Microsoft365Connector {
 
   constructor(
     readonly config: Microsoft365Config,
+    private readonly platformTenantId: string,
     private targetTenantId?: string,
   ) {
-    this.client = new Microsoft365HTTPClient(config);
+    this.client = new Microsoft365HTTPClient(config, platformTenantId);
     this.users = this.buildUsersNamespace();
     this.groups = this.buildGroupsNamespace();
     this.subscribedSkus = this.buildSubscribedSkusNamespace();
@@ -134,7 +135,7 @@ export class Microsoft365Connector {
   }
 
   forTenant(customerTenantId: string): Microsoft365Connector {
-    return new Microsoft365Connector(this.config, customerTenantId);
+    return new Microsoft365Connector(this.config, this.platformTenantId, customerTenantId);
   }
 
   clearTokenCache(): void {
