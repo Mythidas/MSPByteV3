@@ -46,27 +46,25 @@ const OpSchema = z.enum([
   "is_not_null",
 ]);
 
-export const CheckConfigSchema = z
-  .object({
-    table: z.string(),
-    filter: z
-      .object({
-        logic: z.enum(["AND", "OR"]),
-        conditions: z.array(
-          z.object({
-            field: z.string(),
-            op: OpSchema,
-            value: z.unknown(),
-          }),
-        ),
-      })
-      .optional(),
-    threshold: z.number(),
-    field: z.string(),
-    op: OpSchema,
-    value: z.unknown(),
-  })
-  .catch({ table: "", threshold: 1, field: "", op: "eq", value: "" });
+export const CheckConfigSchema = z.object({
+  table: z.string(),
+  filter: z
+    .object({
+      logic: z.enum(["AND", "OR"]),
+      conditions: z.array(
+        z.object({
+          field: z.string(),
+          op: OpSchema,
+          value: z.unknown(),
+        }),
+      ),
+    })
+    .optional(),
+  threshold: z.number(),
+  field: z.string().optional(),
+  op: OpSchema.optional(),
+  value: z.unknown().optional(),
+});
 
 export function buildDynamicQuery(
   supabase: SupabaseClient,

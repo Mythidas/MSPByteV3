@@ -12,6 +12,15 @@ import {
   evalFieldOp,
   getNestedValue,
 } from "../utils/apply-filter";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import {
+  ConfigError,
+  toAppError,
+  formatZodError,
+} from "@workspace/shared/lib/errors";
+
+const MODULE = "compliance";
+const CONTEXT = "PolicyExistsEvaluator";
 
 function parseTable(table: string): { schema: string; name: string } {
   const parts = table.split(".");
@@ -35,21 +44,50 @@ function computeFailedConditions(
 
 export class PolicyExistsEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
-    try {
-      const { table, filter, threshold = 1 } = CheckConfigSchema.parse(config);
-      const { schema, name } = parseTable(table);
+    // TODO: Spread error logging structure to rest of the codebase
+    const parsed = CheckConfigSchema.safeParse(config);
+    if (!parsed.success) {
+      const appErr = new ConfigError(
+        `Invalid check config: ${formatZodError(parsed.error)}`,
+        { raw: config, tenantId: ctx.tenantId, linkId: ctx.linkId },
+      );
+      Logger.error({
+        module: MODULE,
+        context: CONTEXT,
+        message: appErr.userMessage,
+        err: appErr,
+      });
+      return { passed: false, detail: { error: appErr.userMessage } };
+    }
 
+    const { table, filter, threshold = 1 } = parsed.data;
+    const { schema, name } = parseTable(table);
+
+    try {
       const jsFilter = computeJsFilter(filter);
 
       if (jsFilter) {
-        // Size conditions require fetching rows then filtering in JS
         const query = buildDynamicQuery(ctx.supabase, schema, name).eq(
           "link_id",
           ctx.linkId,
         );
         const { query: filtered } = applyFilter(query, filter);
         const { data, error } = await filtered;
-        if (error) return { passed: false, detail: { error: error.message } };
+        if (error) {
+          const appErr = toAppError(
+            error,
+            `Query failed (jsFilter): ${error.message}`,
+            { table, schema, name },
+          );
+          Logger.error({
+            module: MODULE,
+            context: CONTEXT,
+            message: appErr.userMessage,
+            err: appErr,
+          });
+          return { passed: false, detail: { error: appErr.userMessage } };
+        }
+
         const rows = jsFilter(data ?? []);
         const passed = rows.length >= threshold;
         if (!passed && filter?.conditions?.length) {
@@ -62,14 +100,27 @@ export class PolicyExistsEvaluator implements CheckEvaluator {
         return { passed, detail: { count: rows.length, threshold } };
       }
 
-      // No size conditions — use efficient head query
       const query = buildDynamicQuery(ctx.supabase, schema, name, "*", {
         count: "exact",
         head: true,
       }).eq("link_id", ctx.linkId);
       const { query: filtered } = applyFilter(query, filter);
       const { count, error } = await filtered;
-      if (error) return { passed: false, detail: { error: error.message } };
+      if (error) {
+        const appErr = toAppError(
+          error,
+          `Query failed (dynamicFilter): ${error.message}`,
+          { table, schema, name },
+        );
+        Logger.error({
+          module: MODULE,
+          context: CONTEXT,
+          message: appErr.userMessage,
+          err: appErr,
+        });
+        return { passed: false, detail: { error: appErr.userMessage } };
+      }
+
       const passed = (count ?? 0) >= threshold;
       if (!passed && filter?.conditions?.length) {
         const rowQuery = buildDynamicQuery(ctx.supabase, schema, name).eq(
@@ -88,7 +139,18 @@ export class PolicyExistsEvaluator implements CheckEvaluator {
       }
       return { passed, detail: { count: count ?? 0, threshold } };
     } catch (err) {
-      return { passed: false, detail: { error: String(err) } };
+      const appErr = toAppError(err, undefined, {
+        table,
+        tenantId: ctx.tenantId,
+        linkId: ctx.linkId,
+      });
+      Logger.error({
+        module: MODULE,
+        context: CONTEXT,
+        message: appErr.userMessage,
+        err: appErr,
+      });
+      return { passed: false, detail: { error: appErr.userMessage } };
     }
   }
 }

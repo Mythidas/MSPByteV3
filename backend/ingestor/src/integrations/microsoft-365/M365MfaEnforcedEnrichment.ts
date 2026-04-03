@@ -73,14 +73,17 @@ export class M365MfaEnforcedEnrichment implements EnrichmentContract {
     const mfaPolicies = (policyRows ?? [])
       .filter((r) => {
         if (r.policy_state !== "enabled") return false;
-        const grantControls = M365PoliciesGrantConrolsSchema.parse(
+        const grantControls = M365PoliciesGrantConrolsSchema.safeParse(
           r.grant_controls,
         );
-        if (!grantControls?.builtInControls?.includes("mfa")) return false;
-        const conditions = M365PoliciesConditionsSchema.parse(r.conditions);
+        if (!grantControls.success) return false;
+
+        if (!grantControls.data?.builtInControls?.includes("mfa")) return false;
+        const conditions = M365PoliciesConditionsSchema.safeParse(r.conditions);
         return (
-          conditions?.applications?.includeApplications?.includes("All") ??
-          false
+          conditions?.data?.applications?.includeApplications?.includes(
+            "All",
+          ) ?? false
         );
       })
       .map((r) => M365PoliciesConditionsSchema.parse(r.conditions));

@@ -18,6 +18,8 @@ export interface LogInfo {
   context: string;
   message: string;
   meta?: Record<string, unknown>;
+  /** Attach the original error to include its stack trace in console output. */
+  err?: unknown;
 }
 
 const LEVEL_ORDER: Record<LogLevel, number> = {
@@ -31,6 +33,11 @@ const LEVEL_ORDER: Record<LogLevel, number> = {
 function format(level: LogLevel, info: LogInfo): string {
   const time = new Date().toLocaleTimeString();
   return `[${time}][${level.toUpperCase()}][${info.module}][${info.context}] ${info.message}`;
+}
+
+function extractStack(err: unknown): string | undefined {
+  if (err instanceof Error && err.stack) return err.stack;
+  return undefined;
 }
 
 export class Logger {
@@ -53,7 +60,8 @@ export class Logger {
 
   static error(info: LogInfo): { error: APIError } {
     if (LEVEL_ORDER["error"] >= LEVEL_ORDER[Logger.level]) {
-      console.error(format("error", info));
+      const stack = extractStack(info.err);
+      console.error(format("error", info), stack ? `\n${stack}` : "");
     }
     return {
       error: {
@@ -67,7 +75,8 @@ export class Logger {
 
   static fatal(info: LogInfo): { error: APIError } {
     if (LEVEL_ORDER["fatal"] >= LEVEL_ORDER[Logger.level]) {
-      console.error(format("fatal", info));
+      const stack = extractStack(info.err);
+      console.error(format("fatal", info), stack ? `\n${stack}` : "");
     }
     return {
       error: {

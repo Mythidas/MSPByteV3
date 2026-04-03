@@ -11,6 +11,11 @@ import {
   evalFieldOp,
   CheckConfigSchema,
 } from "../utils/apply-filter";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError, toAppError, formatZodError } from "@workspace/shared/lib/errors";
+
+const MODULE = "compliance";
+const CONTEXT = "FieldCompareEvaluator";
 
 function parseTable(table: string): { schema: string; name: string } {
   const parts = table.split(".");
@@ -20,18 +25,27 @@ function parseTable(table: string): { schema: string; name: string } {
 
 export class FieldCompareEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
+    const parsed = CheckConfigSchema.safeParse(config);
+    if (!parsed.success) {
+      const appErr = new ConfigError(
+        `Invalid check config: ${formatZodError(parsed.error)}`,
+        { raw: config, tenantId: ctx.tenantId, linkId: ctx.linkId },
+      );
+      Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+      return { passed: false, detail: { error: appErr.userMessage } };
+    }
+
+    const { table, filter, field, value } = parsed.data;
+    const op: ConditionOperator = parsed.data.op ?? "eq";
+
+    if (!field) {
+      return {
+        passed: false,
+        detail: { error: "check_config.field is required" },
+      };
+    }
+
     try {
-      const parsed = CheckConfigSchema.parse(config);
-      const { table, filter, field, value } = parsed;
-      const op: ConditionOperator = parsed.op ?? "eq";
-
-      if (!field) {
-        return {
-          passed: false,
-          detail: { error: "check_config.field is required" },
-        };
-      }
-
       const { schema, name } = parseTable(table);
       const query = buildDynamicQuery(ctx.supabase, schema, name).eq(
         "link_id",
@@ -43,7 +57,11 @@ export class FieldCompareEvaluator implements CheckEvaluator {
         .limit(jsFilter ? 1000 : 1)
         .maybeSingle();
 
-      if (error) return { passed: false, detail: { error: error.message } };
+      if (error) {
+        const appErr = toAppError(error, `Query failed: ${error.message}`, { table, field, op });
+        Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+        return { passed: false, detail: { error: appErr.userMessage } };
+      }
 
       const row = jsFilter
         ? data !== null
@@ -60,7 +78,15 @@ export class FieldCompareEvaluator implements CheckEvaluator {
 
       return { passed, detail: { field, op, expected: value, actual } };
     } catch (err) {
-      return { passed: false, detail: { error: String(err) } };
+      const appErr = toAppError(err, undefined, {
+        table,
+        field,
+        op,
+        tenantId: ctx.tenantId,
+        linkId: ctx.linkId,
+      });
+      Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+      return { passed: false, detail: { error: appErr.userMessage } };
     }
   }
 }
