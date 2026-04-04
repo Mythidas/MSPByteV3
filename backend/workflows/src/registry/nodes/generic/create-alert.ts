@@ -7,6 +7,7 @@ import { getSupabase } from "../../../supabase.js";
 import { TablesInsert } from "@workspace/shared/types/database.js";
 import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
 import { isJson, isRecord } from "@workspace/shared/lib/utils/validators.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 registerNode({
   ref: "Generic.CreateAlert",
@@ -57,7 +58,7 @@ registerNode({
       );
     }
 
-    if (!entityType || !(entityType in getTypeMap())) {
+    if (!entityType || !getTypeMap().has(entityType as IngestType)) {
       throw new ExecutorError(
         `Generic.CreateAlert: unknown or missing _entityType "${entityType}"`,
       );

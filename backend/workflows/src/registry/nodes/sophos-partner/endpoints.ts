@@ -3,6 +3,7 @@ import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { registerNode } from "../../registry.js";
 import type { RunContext } from "../../../types.js";
 import { SeedSchema } from "../../../config.js";
+import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 registerNode({
   ref: "Sophos.Endpoints.Query",
@@ -74,7 +75,7 @@ registerNode({
 
     const tagged = entities.map((e) => ({
       ...e,
-      _entityType: "sophos_endpoint",
+      _entityType: IngestType.SophosEndpoints,
     }));
 
     Logger.info({
