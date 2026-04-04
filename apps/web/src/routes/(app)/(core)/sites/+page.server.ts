@@ -39,7 +39,10 @@ async function getDattoResources(locals: App.Locals): Promise<ExternalResource[]
   const apiSecretKey = await decryptSecret(config.apiSecretKey);
   if (!apiSecretKey) return [];
   const [sites, mapped] = await Promise.all([
-    new DattoRMMConnector({ url: config.url, apiKey: config.apiKey, apiSecretKey }).account.sites
+    new DattoRMMConnector(
+      { url: config.url, apiKey: config.apiKey, apiSecretKey },
+      locals.tenant!.id
+    ).account.sites
       .list()
       .catch(() => []),
     getMappedExternalIds(locals, 'dattormm'),
@@ -62,12 +65,15 @@ async function getCoveResources(locals: App.Locals): Promise<ExternalResource[]>
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
   const [customers, mapped] = await Promise.all([
-    new CoveConnector({
-      server: config.server,
-      partnerId: config.partnerId,
-      clientId: config.clientId,
-      clientSecret,
-    }).partner.children
+    new CoveConnector(
+      {
+        server: config.server,
+        partnerId: config.partnerId,
+        clientId: config.clientId,
+        clientSecret,
+      },
+      locals.tenant!.id
+    ).partner.children
       .list()
       .catch(() => []),
     getMappedExternalIds(locals, 'cove'),
@@ -90,7 +96,10 @@ async function getSophosResources(locals: App.Locals): Promise<ExternalResource[
   if (!config?.clientId || !config?.clientSecret) return [];
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret });
+  const connector = new SophosPartnerConnector(
+    { clientId: config.clientId, clientSecret },
+    locals.tenant!.id
+  );
   const [tenants, mapped] = await Promise.all([
     connector.partner.tenants.list().catch(() => []),
     getMappedExternalIds(locals, 'sophos-partner'),
@@ -112,7 +121,10 @@ async function getHaloResources(locals: App.Locals): Promise<ExternalResource[]>
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
   const [sites, mapped] = await Promise.all([
-    new HaloPSAConnector({ url: config.url, clientId: config.clientId, clientSecret }).site
+    new HaloPSAConnector(
+      { url: config.url, clientId: config.clientId, clientSecret },
+      locals.tenant!.id
+    ).site
       .list()
       .catch(() => []),
     getMappedExternalIds(locals, 'halopsa'),

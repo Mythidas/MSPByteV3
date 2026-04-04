@@ -21,7 +21,10 @@ async function getTenants(locals: App.Locals): Promise<SophosPartnerTenant[]> {
 
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const connector = new SophosPartnerConnector({ clientId: config.clientId, clientSecret }, locals.tenant!.id);
+  const connector = new SophosPartnerConnector(
+    { clientId: config.clientId, clientSecret },
+    locals.tenant!.id
+  );
   try {
     return await connector.partner.tenants.list();
   } catch {
@@ -61,7 +64,7 @@ export const actions = {
       }
       encryptedSecret = existingSecret;
     } else {
-      const connector = new SophosPartnerConnector({ clientId, clientSecret });
+      const connector = new SophosPartnerConnector({ clientId, clientSecret }, locals.tenant!.id);
       const healthy = await connector.checkHealth();
       if (!healthy) {
         return fail(400, { error: 'Connection failed' });
@@ -87,7 +90,7 @@ export const actions = {
     return { success: true };
   },
 
-  testConnection: async ({ request }) => {
+  testConnection: async ({ request, locals }) => {
     const formData = await request.formData();
     const clientId = formData.get('clientId');
     const clientSecret = formData.get('clientSecret');
@@ -96,7 +99,7 @@ export const actions = {
       return fail(400, { error: 'Client ID and Client Secret are required' });
     }
 
-    const connector = new SophosPartnerConnector({ clientId, clientSecret });
+    const connector = new SophosPartnerConnector({ clientId, clientSecret }, locals.tenant!.id);
     const healthy = await connector.checkHealth();
     if (!healthy) {
       return fail(400, { error: 'Connection failed' });

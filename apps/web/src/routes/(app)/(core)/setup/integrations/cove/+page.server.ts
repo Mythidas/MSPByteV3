@@ -10,26 +10,30 @@ import type { CoveChildPartner } from '@workspace/shared/types/integrations/cove
 import { isString } from '@workspace/shared/lib/utils/validators';
 
 type PageParent = Parameters<PageServerLoad>[0]['parent'];
-async function getCustomers(parent: PageParent): Promise<CoveChildPartner[]> {
+async function getCustomers(parent: PageParent, tenantId: string): Promise<CoveChildPartner[]> {
   const { getIntegration } = await parent();
   const integration = await getIntegration;
   if (!integration) return [];
   const config = CoveConnectorConfigSchema.parse(integration.config);
-  if (!config?.server || !config?.clientId || !config?.clientSecret || config?.partnerId == null) return [];
+  if (!config?.server || !config?.clientId || !config?.clientSecret || config?.partnerId == null)
+    return [];
   const clientSecret = await decryptSecret(config.clientSecret);
   if (!clientSecret) return [];
-  const connector = new CoveConnector({
-    server: config.server,
-    partnerId: config.partnerId,
-    clientId: config.clientId,
-    clientSecret,
-  });
+  const connector = new CoveConnector(
+    {
+      server: config.server,
+      partnerId: config.partnerId,
+      clientId: config.clientId,
+      clientSecret,
+    },
+    tenantId
+  );
   const data = await connector.partner.children.list().catch(() => []);
   return data;
 }
 
-export const load: PageServerLoad = ({ parent }) => {
-  return { getCustomers: getCustomers(parent) };
+export const load: PageServerLoad = ({ parent, locals }) => {
+  return { getCustomers: getCustomers(parent, locals.tenant!.id) };
 };
 
 export const actions = {
@@ -66,7 +70,10 @@ export const actions = {
       }
       encryptedSecret = existingConfig.data.clientSecret;
     } else {
-      const connector = new CoveConnector({ server, partnerId, clientId, clientSecret });
+      const connector = new CoveConnector(
+        { server, partnerId, clientId, clientSecret },
+        locals.tenant!.id
+      );
       const healthy = await connector.checkHealth();
       if (!healthy) {
         return fail(400, { error: 'Connection failed: unable to authenticate with Cove' });
@@ -76,25 +83,43 @@ export const actions = {
 
     const credentialExpirationRaw = formData.get('credentialExpiration');
     const credentialExpiration = isString(credentialExpirationRaw) ? credentialExpirationRaw : null;
-    const config: CoveConnectorConfig = { server, partnerId, clientId, clientSecret: encryptedSecret };
+    const config: CoveConnectorConfig = {
+      server,
+      partnerId,
+      clientId,
+      clientSecret: encryptedSecret,
+    };
 
-    const { error } = await locals.supabase.from('integrations').upsert(
-      { id: 'cove', tenant_id: locals.tenant!.id, config, deleted_at: null, credential_expiration: credentialExpiration },
-      { onConflict: 'id,tenant_id' },
-    );
+    const { error } = await locals.supabase
+      .from('integrations')
+      .upsert(
+        {
+          id: 'cove',
+          tenant_id: locals.tenant!.id,
+          config,
+          deleted_at: null,
+          credential_expiration: credentialExpiration,
+        },
+        { onConflict: 'id,tenant_id' }
+      );
 
     if (error) return fail(500, { error: error.message });
     return { success: true };
   },
 
-  testConnection: async ({ request }) => {
+  testConnection: async ({ request, locals }) => {
     const formData = await request.formData();
     const server = formData.get('server');
     const partnerIdRaw = formData.get('partnerId');
     const clientId = formData.get('clientId');
     const clientSecret = formData.get('clientSecret');
 
-    if (!isString(server) || !isString(partnerIdRaw) || !isString(clientId) || !isString(clientSecret)) {
+    if (
+      !isString(server) ||
+      !isString(partnerIdRaw) ||
+      !isString(clientId) ||
+      !isString(clientSecret)
+    ) {
       return fail(400, { error: 'All fields are required for connection test' });
     }
 
@@ -103,7 +128,10 @@ export const actions = {
       return fail(400, { error: 'Partner ID must be a valid number' });
     }
 
-    const connector = new CoveConnector({ server, partnerId, clientId, clientSecret });
+    const connector = new CoveConnector(
+      { server, partnerId, clientId, clientSecret },
+      locals.tenant!.id
+    );
     const healthy = await connector.checkHealth();
     if (!healthy) {
       return fail(400, { error: 'Connection failed: unable to authenticate with Cove' });

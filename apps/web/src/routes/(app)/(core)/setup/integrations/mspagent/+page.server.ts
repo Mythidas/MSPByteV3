@@ -37,11 +37,14 @@ async function getDattoConnector(locals: App.Locals) {
   if (!apiSecretKey) return { error: 'Failed to decrypt DattoRMM credentials' };
 
   return {
-    connector: new DattoRMMConnector({
-      url: dattoConfig.url,
-      apiKey: dattoConfig.apiKey,
-      apiSecretKey,
-    }),
+    connector: new DattoRMMConnector(
+      {
+        url: dattoConfig.url,
+        apiKey: dattoConfig.apiKey,
+        apiSecretKey,
+      },
+      locals.tenant!.id
+    ),
   };
 }
 

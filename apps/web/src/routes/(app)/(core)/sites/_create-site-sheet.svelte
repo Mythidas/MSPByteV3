@@ -43,40 +43,31 @@
 
   $effect(() => {
     if (open) {
+      console.log('test');
+
       name = '';
       dattoSelected = undefined;
       coveSelected = undefined;
       sophosSelected = undefined;
       haloSelected = undefined;
+
+      dattoResources.then((r) => {
+        dattoOptions = r;
+        dattoLoading = false;
+      });
+      coveResources.then((r) => {
+        coveOptions = r;
+        coveLoading = false;
+      });
+      sophosResources.then((r) => {
+        sophosOptions = r;
+        sophosLoading = false;
+      });
+      haloResources.then((r) => {
+        haloOptions = r;
+        haloLoading = false;
+      });
     }
-  });
-
-  $effect(() => {
-    dattoResources.then((r) => {
-      dattoOptions = r;
-      dattoLoading = false;
-    });
-  });
-
-  $effect(() => {
-    coveResources.then((r) => {
-      coveOptions = r;
-      coveLoading = false;
-    });
-  });
-
-  $effect(() => {
-    sophosResources.then((r) => {
-      sophosOptions = r;
-      sophosLoading = false;
-    });
-  });
-
-  $effect(() => {
-    haloResources.then((r) => {
-      haloOptions = r;
-      haloLoading = false;
-    });
   });
 
   const hasIntegrations = $derived(
@@ -87,7 +78,7 @@
       sophosLoading ||
       sophosOptions.length > 0 ||
       haloLoading ||
-      haloOptions.length > 0,
+      haloOptions.length > 0
   );
 
   async function handleSubmit() {
@@ -134,7 +125,9 @@
   <Sheet.Content side="right" class="sm:max-w-md flex flex-col overflow-y-hidden max-h-screen">
     <Sheet.Header>
       <Sheet.Title>Create Site</Sheet.Title>
-      <Sheet.Description>Add a new site and optionally link it to your integrations.</Sheet.Description>
+      <Sheet.Description
+        >Add a new site and optionally link it to your integrations.</Sheet.Description
+      >
     </Sheet.Header>
 
     <div class="flex flex-col gap-4 px-4 py-4 flex-1 overflow-y-auto">

@@ -13,30 +13,29 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 
   const tenantId = locals.tenant.id;
 
-  const [{ data: activeIntegrations }, { data: syncIssues }, { data: expiringCreds }] =
-    await Promise.all([
-      locals.supabase
-        .from('integrations')
-        .select('id')
-        .is('deleted_at', null)
-        .eq('tenant_id', tenantId),
-      locals.supabase
-        .from('ingest_sync_states')
-        .select('integration_id, last_error_class, last_error_message, consecutive_failures')
-        .eq('tenant_id', tenantId)
-        .eq('last_status', 'failed'),
-      locals.supabase
-        .from('integrations')
-        .select('id, credential_expiration')
-        .eq('tenant_id', tenantId)
-        .is('deleted_at', null)
-        .not('credential_expiration', 'is', null)
-        .lt('credential_expiration', new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString()),
-    ]);
+  const [{ data: activeIntegrations }, { data: syncIssues }] = await Promise.all([
+    locals.supabase
+      .from('integrations')
+      .select('id, credential_expiration')
+      .is('deleted_at', null)
+      .eq('tenant_id', tenantId),
+    locals.supabase
+      .from('ingest_sync_states')
+      .select('integration_id, last_error_class, last_error_message, consecutive_failures')
+      .eq('tenant_id', tenantId)
+      .eq('last_status', 'failed'),
+  ]);
 
   const notifications = [
     ...deriveNotificationsFromHealth(syncIssues ?? []),
-    ...deriveNotificationsFromExpiry(expiringCreds ?? []),
+    ...deriveNotificationsFromExpiry(
+      activeIntegrations?.filter(
+        (ai) =>
+          ai.credential_expiration &&
+          new Date(ai.credential_expiration).getTime() <
+            new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).getTime()
+      ) ?? []
+    ),
   ];
 
   return {
