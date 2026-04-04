@@ -22,13 +22,25 @@ export type SophosPartnerFirewall = {
   externalIpv4Addresses?: string[];
   firmwareVersion: string | null;
   model: string | null;
-  status: {
-    managing: "approved" | "approvalPending" | "rejected";
-    reporting: "approved" | "approvalPending" | "rejected";
-    connected: boolean;
-    suspended: boolean;
+  status?: {
+    managingStatus?:
+      | "approvedByCustomer"
+      | "approvalPending"
+      | "rejectedByCustomer"
+      | "revokedByCustomer"
+      | "revokedByPartner"
+      | "requestNotSent"
+      | "claimed"
+      | "unclaimed"
+      | "waitingForDeployment";
+    reportingStatus?:
+      | "approvedByCustomer"
+      | "approvalPending"
+      | "requestNotSent";
+    connected?: boolean;
+    suspended?: boolean;
   };
-  stateChangedAt: string; // ISO 8601 date string
+  stateChangedAt?: string; // ISO 8601 date string
   capabilities: string[];
   geoLocation: {
     latitude: string;
@@ -50,7 +62,6 @@ export type SophosPartnerFirewall = {
     accountType: "tenant" | "partner";
     accountId: string;
   };
-  firmware?: SophosPartnerFirewallFirmware;
 };
 
 export type SophosPartnerFirewallFirmware = {
@@ -58,7 +69,11 @@ export type SophosPartnerFirewallFirmware = {
   serialNumber?: string;
   firmwareVersion?: string;
   upgradeToVersion: string[];
-  newestFirmware: string;
+};
+
+export type SophosPartnerFirewallFirmwareVersions = {
+  size: string;
+  version: string;
 };
 
 export type SophosPartnerFirewallLicense = {

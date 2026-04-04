@@ -11,6 +11,7 @@ export enum IngestType {
 
   // Sophos
   SophosEndpoints = "sophos-endpoints",
+  SophosFirewalls = "sophos-firewalls",
 
   // HaloPSA
 

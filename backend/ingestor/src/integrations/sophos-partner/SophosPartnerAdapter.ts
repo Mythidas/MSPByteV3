@@ -8,6 +8,12 @@ import {
 import { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { getSupabase } from "../../supabase.js";
+import { isString } from "@workspace/shared/lib/utils/validators.js";
+import { TablesInsert } from "@workspace/shared/types/database.js";
+import {
+  SophosPartnerFirewallFirmware,
+  SophosPartnerFirewallFirmwareVersions,
+} from "@workspace/shared/types/integrations/sophos/firewall.js";
 
 const MAX_PREVIOUS_CODES = 10;
 
@@ -32,25 +38,25 @@ export class SophosPartnerAdapter implements AdapterContract {
       tenantId,
     );
 
+    if (!ctx.linkId) {
+      throw new Error("SophosPartnerAdapter: endpoints job requires link_id");
+    }
+
+    const sophosApiHost =
+      ctx.metadata?.apiHost && isString(ctx.metadata?.apiHost)
+        ? ctx.metadata?.apiHost
+        : undefined;
+    const sophosTenantId =
+      ctx.metadata?.externalId && isString(ctx.metadata?.externalId)
+        ? ctx.metadata?.externalId
+        : undefined;
+    if (!sophosTenantId || !sophosApiHost) {
+      throw new Error(
+        `SophosPartnerAdapter: link ${ctx.linkId} has no external_id or apiHost`,
+      );
+    }
+
     if (ingestType === IT.SophosEndpoints) {
-      if (!ctx.linkId) {
-        throw new Error("SophosPartnerAdapter: endpoints job requires link_id");
-      }
-
-      const sophosApiHost =
-        ctx.metadata?.apiHost && typeof ctx.metadata?.apiHost === "string"
-          ? ctx.metadata?.apiHost
-          : undefined;
-      const sophosTenantId =
-        ctx.metadata?.externalId && typeof ctx.metadata?.externalId === "string"
-          ? ctx.metadata?.externalId
-          : undefined;
-      if (!sophosTenantId || !sophosApiHost) {
-        throw new Error(
-          `SophosPartnerAdapter: link ${ctx.linkId} has no external_id or apiHost`,
-        );
-      }
-
       return this.fetchEndpoints(
         connector,
         sophosTenantId,
@@ -58,7 +64,15 @@ export class SophosPartnerAdapter implements AdapterContract {
         ctx.linkId,
         ctx.siteId ?? null,
         tenantId,
-        now,
+      );
+    } else if (ingestType === IT.SophosFirewalls) {
+      return this.fetchFirewalls(
+        connector,
+        sophosTenantId,
+        sophosApiHost,
+        ctx.linkId,
+        ctx.siteId ?? null,
+        tenantId,
       );
     } else {
       throw new Error(
@@ -74,8 +88,8 @@ export class SophosPartnerAdapter implements AdapterContract {
     linkId: string,
     siteId: string | null,
     tenantId: string,
-    now: string,
   ): Promise<UpsertPayload[]> {
+    const now = new Date().toISOString();
     const existingQuery = getSupabase()
       .schema("vendors")
       .from("sophos_endpoints")
@@ -149,7 +163,7 @@ export class SophosPartnerAdapter implements AdapterContract {
         last_heartbeat_at: ep.lastSeenAt ?? null,
         current_code: newCurrent,
         previous_codes: previousCodes,
-      };
+      } satisfies TablesInsert<"vendors", "sophos_endpoints">;
     }
 
     rows.push(
@@ -166,6 +180,71 @@ export class SophosPartnerAdapter implements AdapterContract {
       {
         table: "sophos_endpoints",
         rows,
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
+  }
+
+  private async fetchFirewalls(
+    connector: SophosPartnerConnector,
+    sophosTenantId: string,
+    sophosApiHost: string,
+    linkId: string,
+    siteId: string | null,
+    tenantId: string,
+  ): Promise<UpsertPayload[]> {
+    const now = new Date().toISOString();
+    const firewalls = await connector.firewall.firewalls.list({
+      apiHost: sophosApiHost,
+      tenantId: sophosTenantId,
+    });
+
+    const fwFirmwares: Map<string, SophosPartnerFirewallFirmware> = new Map();
+    if (firewalls.length > 0) {
+      const result = await connector.firewall.firewalls.firmwareUpgradeCheck(
+        {
+          apiHost: sophosApiHost,
+          tenantId: sophosTenantId,
+        },
+        firewalls.map((fw) => fw.id),
+      );
+      for (let i = 0; i < result.firewalls.length; i++) {
+        const fw = firewalls.find((f) => f.id === result.firewalls?.[i].id);
+        if (fw) fwFirmwares.set(fw.id, result.firewalls![i]);
+      }
+    }
+
+    return [
+      {
+        table: "sophos_firewalls",
+        rows: firewalls.map(
+          (fw) =>
+            ({
+              tenant_id: tenantId,
+              link_id: linkId,
+              site_id: siteId,
+              external_id: fw.id,
+
+              name: fw.name,
+              hostname: fw.hostname,
+              serial_number: fw.serialNumber,
+              external_ip: fw.externalIpv4Addresses?.[0] ?? "",
+              firmware_version: fw.firmwareVersion ?? "",
+              model: fw.model ?? "",
+              upgrade_to_version:
+                fwFirmwares.get(fw.id)?.upgradeToVersion[0] ?? null,
+
+              managing: fw.status?.managingStatus ?? "unknown",
+              reporting: fw.status?.reportingStatus ?? "unknown",
+              connected: fw.status?.connected ?? false,
+              suspended: fw.status?.suspended ?? false,
+              last_change_at: fw.stateChangedAt ?? new Date(0).toISOString(),
+
+              created_at: now,
+              updated_at: now,
+              last_seen_at: now,
+            }) satisfies TablesInsert<"vendors", "sophos_firewalls">,
+        ),
         onConflict: "tenant_id,link_id,external_id",
       },
     ];

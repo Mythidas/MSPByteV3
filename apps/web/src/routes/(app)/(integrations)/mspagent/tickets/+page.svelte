@@ -3,8 +3,12 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { dateColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import TicketSheet from './_ticket-sheet.svelte';
 
   type Ticket = Tables<'views', 'd_agent_tickets_view'>;
+
+  let sheetOpen = $state(false);
+  let selectedTicket = $state<Ticket | null>(null);
 
   const columns: DataTableColumn<Ticket>[] = $derived.by(() => {
     const siteSelected = !!scopeStore.currentSite;
@@ -42,5 +46,11 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => {
+      selectedTicket = row;
+      sheetOpen = true;
+    }}
   />
 </div>
+
+<TicketSheet bind:open={sheetOpen} bind:ticket={selectedTicket} />

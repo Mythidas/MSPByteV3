@@ -3,8 +3,12 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { dateColumn, textColumn } from '$lib/components/data-table/column-defs.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
+  import AgentSheet from './_agent-sheet.svelte';
 
   type Agent = Tables<'views', 'd_agents_view'>;
+
+  let sheetOpen = $state(false);
+  let selectedAgent = $state<Agent | null>(null);
 
   const columns: DataTableColumn<Agent>[] = $derived.by(() => {
     const siteSelected = !!scopeStore.currentSite;
@@ -12,9 +16,9 @@
       textColumn<Agent>('hostname', 'Hostname'),
       textColumn<Agent>('site_name', 'Site', undefined, { hidden: siteSelected }),
       textColumn<Agent>('platform', 'Platform'),
-      textColumn<Agent>('ip_address', 'IP'),
+      textColumn<Agent>('ip_address', 'IP', undefined, { defaultHidden: true }),
       textColumn<Agent>('version', 'Version'),
-      dateColumn<Agent>('registered_at', 'Registered'),
+      dateColumn<Agent>('registered_at', 'Registered', { defaultHidden: true }),
       dateColumn<Agent>('updated_at', 'Last Seen'),
     ];
   });
@@ -44,5 +48,11 @@
     enableColumnToggle={true}
     enableExport={true}
     enableURLState={true}
+    onrowclick={(row) => {
+      selectedAgent = row;
+      sheetOpen = true;
+    }}
   />
 </div>
+
+<AgentSheet bind:open={sheetOpen} bind:agent={selectedAgent} />

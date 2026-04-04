@@ -11,6 +11,8 @@ import type {
 } from "@workspace/shared/types/integrations/sophos/endpoints";
 import type {
   SophosPartnerFirewall,
+  SophosPartnerFirewallFirmware,
+  SophosPartnerFirewallFirmwareVersions,
   SophosPartnerFirewallLicense,
 } from "@workspace/shared/types/integrations/sophos/firewall";
 import type { SophosPartnerLicense } from "@workspace/shared/types/integrations/sophos/licenses";
@@ -48,7 +50,10 @@ export class SophosPartnerConnector {
       firmwareUpgradeCheck(
         tenantConfig: SophosTenantConfig,
         firewallIds: string[],
-      ): Promise<{ firewalls: { id: string; upgradeToVersion: string[] }[] }>;
+      ): Promise<{
+        firewalls: SophosPartnerFirewallFirmware[];
+        firmewareVersions: SophosPartnerFirewallFirmwareVersions[];
+      }>;
     };
   };
 
@@ -125,34 +130,15 @@ export class SophosPartnerConnector {
       ) {
         const headers = await client.tenantHeaders(tenantConfig.tenantId);
         const url = `${tenantConfig.apiHost}/firewall/v1/firewalls?pageTotal=true&pageSize=${params?.pageSize ?? 100}`;
-        const firewalls = await client.fetchAllPages<SophosPartnerFirewall>(
-          url,
-          headers,
-        );
-
-        if (firewalls.length > 0) {
-          const result = await firewallMethods.firmwareUpgradeCheck(
-            tenantConfig,
-            firewalls.map((fw) => fw.id),
-          );
-          for (const check of result.firewalls ?? []) {
-            const fw = firewalls.find((f) => f.id === check.id);
-            if (fw) {
-              fw.firmware = {
-                id: check.id,
-                upgradeToVersion: check.upgradeToVersion,
-                newestFirmware: check.upgradeToVersion[0] ?? "",
-              };
-            }
-          }
-        }
-
-        return firewalls;
+        return await client.fetchAllPages<SophosPartnerFirewall>(url, headers);
       },
       async firmwareUpgradeCheck(
         tenantConfig: SophosTenantConfig,
         firewallIds: string[],
-      ): Promise<{ firewalls: { id: string; upgradeToVersion: string[] }[] }> {
+      ): Promise<{
+        firewalls: SophosPartnerFirewallFirmware[];
+        firmewareVersions: SophosPartnerFirewallFirmwareVersions[];
+      }> {
         const headers = await client.tenantHeaders(tenantConfig.tenantId);
         return client.post(
           `${tenantConfig.apiHost}/firewall/v1/firewalls/actions/firmware-upgrade-check`,

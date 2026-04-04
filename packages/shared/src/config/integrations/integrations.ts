@@ -1,9 +1,10 @@
 import { M365_INTEGRATION_CONFIG } from "@workspace/shared/config/integrations/microsoft-365";
-import type {
-  IntegrationId,
-  Integration,
-  DbRoute,
-  IngestTypeConfig,
+import {
+  type IntegrationId,
+  type Integration,
+  type DbRoute,
+  type IngestTypeConfig,
+  IntegrationRefreshIntervalMinutes,
 } from "@workspace/shared/types/integrations";
 import { IngestType } from "@workspace/shared/types/jobs/ingest";
 
@@ -18,19 +19,33 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
     supportedTypes: [
       {
         type: IngestType.SophosEndpoints,
-        freshnessMinutes: DAILY_MINUTES,
-        priority: 3,
-        workerConcurrency: 2,
+        freshnessMinutes: IntegrationRefreshIntervalMinutes["4-Hours"],
+        priority: 5,
+        workerConcurrency: 1,
         scopeLevel: "link",
-        hasLinker: true,
         db: {
           schema: "vendors",
           table: "sophos_endpoints",
           shape: {},
         },
       },
+      {
+        type: IngestType.SophosFirewalls,
+        freshnessMinutes: IntegrationRefreshIntervalMinutes["24-Hours"],
+        priority: 3,
+        workerConcurrency: 1,
+        scopeLevel: "link",
+        db: {
+          schema: "vendors",
+          table: "sophos_firewalls",
+          shape: {},
+        },
+      },
     ],
-    navigation: [{ label: "Endpoints", route: "/endpoints", isNullable: true }],
+    navigation: [
+      { label: "Endpoints", route: "/endpoints", isNullable: true },
+      { label: "Firewalls", route: "/firewalls", isNullable: true },
+    ],
   },
 
   dattormm: {

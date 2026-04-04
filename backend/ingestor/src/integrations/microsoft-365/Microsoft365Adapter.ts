@@ -11,8 +11,9 @@ import { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { SkuCatalogService } from "@workspace/shared/lib/integrations/microsoft-365/sku-catalog-service.js";
 import { PowerShellRunnerService } from "@workspace/shared/lib/integrations/microsoft-365/powershell-runner-service.js";
-import { isRecord } from "@workspace/shared/lib/utils/validators.js";
+import { isJson, isRecord } from "@workspace/shared/lib/utils/validators.js";
 import z from "zod";
+import { TablesInsert } from "@workspace/shared/types/database.js";
 
 const MSCapabilitiesSchema = z
   .object({
@@ -78,11 +79,14 @@ export class Microsoft365Adapter implements AdapterContract {
         ? ctx.metadata?.defaultDomain
         : "";
 
-    const baseConnector = new Microsoft365Connector({
-      tenantId: mspTenantId,
-      clientId,
-      clientSecret,
-    }, tenantId);
+    const baseConnector = new Microsoft365Connector(
+      {
+        tenantId: mspTenantId,
+        clientId,
+        clientSecret,
+      },
+      tenantId,
+    );
 
     const connector = baseConnector.forTenant(gdapTenantId);
 
@@ -204,7 +208,7 @@ export class Microsoft365Adapter implements AdapterContract {
         last_non_interactive_sign_in_at:
           u.signInActivity?.lastNonInteractiveSignInDateTime ?? null,
         assigned_licenses: (u.assignedLicenses ?? []).map((l) => l.skuId),
-      };
+      } satisfies TablesInsert<"vendors", "m365_identities">;
     });
 
     return [
@@ -230,18 +234,21 @@ export class Microsoft365Adapter implements AdapterContract {
       message: `Fetched ${groups.length} groups`,
     });
 
-    const rows = groups.map((g) => ({
-      tenant_id: tenantId,
-      external_id: g.id,
-      link_id: linkId,
-      last_seen_at: now,
-      created_at: now,
-      updated_at: now,
-      name: g.displayName ?? null,
-      description: g.description ?? null,
-      mail_enabled: g.mailEnabled ?? null,
-      security_enabled: g.securityEnabled ?? null,
-    }));
+    const rows = groups.map(
+      (g) =>
+        ({
+          tenant_id: tenantId,
+          external_id: g.id,
+          link_id: linkId,
+          last_seen_at: now,
+          created_at: now,
+          updated_at: now,
+          name: g.displayName ?? null,
+          description: g.description ?? null,
+          mail_enabled: g.mailEnabled ?? null,
+          security_enabled: g.securityEnabled ?? null,
+        }) satisfies TablesInsert<"vendors", "m365_groups">,
+    );
 
     return [
       {
@@ -288,9 +295,9 @@ export class Microsoft365Adapter implements AdapterContract {
         name: p.displayName ?? null,
         policy_state: p.state ?? null,
         grant_controls: p.grantControls ?? null,
-        session_controls: p.sessionControls ?? null,
+        session_controls: isJson(p.sessionControls) ? p.sessionControls : null,
         conditions: p.conditions ?? null,
-      };
+      } satisfies TablesInsert<"vendors", "m365_policies">;
     });
 
     return [
@@ -339,7 +346,7 @@ export class Microsoft365Adapter implements AdapterContract {
         service_plan_names: (sku.servicePlans ?? []).map(
           (s) => s.servicePlanName,
         ),
-      };
+      } satisfies TablesInsert<"vendors", "m365_licenses">;
     });
 
     return [
@@ -405,7 +412,7 @@ export class Microsoft365Adapter implements AdapterContract {
             created_at: now,
             updated_at: now,
             reject_direct_send: exchangeConfig.RejectDirectSend,
-          },
+          } satisfies TablesInsert<"vendors", "m365_exchange_configs">,
         ],
         onConflict: "tenant_id,link_id,external_id",
       },

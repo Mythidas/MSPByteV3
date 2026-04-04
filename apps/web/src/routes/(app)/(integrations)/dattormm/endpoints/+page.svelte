@@ -8,8 +8,12 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { Badge } from '$lib/components/ui/badge';
+  import EndpointSheet from './_endpoint-sheet.svelte';
 
   type Endpoint = Tables<'views', 'datto_endpoints_view'>;
+
+  let sheetOpen = $state(false);
+  let selectedEndpoint = $state<Endpoint | null>(null);
 
   const columns: DataTableColumn<Endpoint>[] = $derived.by(() => {
     const siteSelected = !!scopeStore.currentSite;
@@ -25,9 +29,9 @@
         cell: onlineCell,
         sortable: true,
       },
-      textColumn<Endpoint>('ip_address', 'IP Address'),
-      textColumn<Endpoint>('ext_address', 'External IP'),
-      relativeDateColumn<Endpoint>('last_reboot_at', 'Last Reboot'),
+      textColumn<Endpoint>('ip_address', 'IP Address', undefined, { defaultHidden: true }),
+      textColumn<Endpoint>('ext_address', 'External IP', undefined, { defaultHidden: true }),
+      relativeDateColumn<Endpoint>('last_reboot_at', 'Last Reboot', { defaultHidden: true }),
       relativeDateColumn<Endpoint>('last_heartbeat_at', 'Last Heartbeat'),
     ];
   });
@@ -77,5 +81,11 @@
     enableExport={true}
     enableURLState={true}
     {views}
+    onrowclick={(row) => {
+      selectedEndpoint = row;
+      sheetOpen = true;
+    }}
   />
 </div>
+
+<EndpointSheet bind:open={sheetOpen} bind:endpoint={selectedEndpoint} />

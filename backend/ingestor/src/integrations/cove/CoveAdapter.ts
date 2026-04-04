@@ -7,6 +7,7 @@ import {
 import { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { isString } from "@workspace/shared/lib/utils/validators.js";
+import { TablesInsert } from "@workspace/shared/types/database";
 
 export class CoveAdapter implements AdapterContract {
   readonly integrationId = "cove";
@@ -106,7 +107,7 @@ export class CoveAdapter implements AdapterContract {
         last_success_at: s.lastSuccessfulSession
           ? new Date(parseInt(s.lastSuccessfulSession) * 1000).toISOString()
           : null,
-      };
+      } satisfies TablesInsert<"vendors", "cove_endpoints">;
     });
 
     return [

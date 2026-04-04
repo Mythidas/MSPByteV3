@@ -6,6 +6,7 @@ import {
 } from "@workspace/shared/types/jobs/contracts/adapter.js";
 import { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
+import { TablesInsert } from "@workspace/shared/types/database";
 
 export class DattoRMMAdapter implements AdapterContract {
   readonly integrationId = "dattormm";
@@ -70,26 +71,29 @@ export class DattoRMMAdapter implements AdapterContract {
       message: `Fetched ${data.length} devices for site uid ${siteUid}`,
     });
 
-    const rows: Record<string, unknown>[] = data.map((device) => ({
-      tenant_id: tenantId,
-      external_id: device.uid,
-      link_id: linkId,
-      last_seen_at: now,
-      created_at: now,
-      updated_at: now,
-      site_id: siteId,
-      hostname: device.hostname,
-      online: device.online,
-      category: device.deviceType.category,
-      os: device.operatingSystem || "",
-      ip_address: device.intIpAddress,
-      ext_address: device.extIpAddress || "",
-      last_reboot_at: new Date(device.lastReboot || 0).toISOString(),
-      last_heartbeat_at: device.lastSeen
-        ? new Date(device.lastSeen).toISOString()
-        : null,
-      udfs: device.udf,
-    }));
+    const rows: Record<string, unknown>[] = data.map(
+      (device) =>
+        ({
+          tenant_id: tenantId,
+          external_id: device.uid,
+          link_id: linkId,
+          last_seen_at: now,
+          created_at: now,
+          updated_at: now,
+          site_id: siteId,
+          hostname: device.hostname,
+          online: device.online,
+          category: device.deviceType.category,
+          os: device.operatingSystem || "",
+          ip_address: device.intIpAddress,
+          ext_address: device.extIpAddress || "",
+          last_reboot_at: new Date(device.lastReboot || 0).toISOString(),
+          last_heartbeat_at: device.lastSeen
+            ? new Date(device.lastSeen).toISOString()
+            : null,
+          udfs: device.udf,
+        }) satisfies TablesInsert<"vendors", "datto_endpoints">,
+    );
 
     return [
       {

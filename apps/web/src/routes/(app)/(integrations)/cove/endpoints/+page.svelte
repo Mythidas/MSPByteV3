@@ -9,8 +9,12 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { formatBytes } from '$lib/utils/format.js';
   import { Badge } from '$lib/components/ui/badge';
+  import EndpointSheet from './_endpoint-sheet.svelte';
 
   type Endpoint = Tables<'views', 'cove_endpoints_view'>;
+
+  let sheetOpen = $state(false);
+  let selectedEndpoint = $state<Endpoint | null>(null);
 
   const BACKUP_STATUS_COLORS: Record<string, string> = {
     '5': 'bg-green-500',
@@ -39,12 +43,12 @@
     return [
       stateColumn<Endpoint>(),
       textColumn<Endpoint>('endpoint_name', 'Name'),
-      textColumn<Endpoint>('hostname', 'Hostname'),
+      textColumn<Endpoint>('hostname', 'Hostname', undefined, { defaultHidden: true }),
       textColumn<Endpoint>('site_name', 'Site', undefined, { hidden: siteSelected }),
       textColumn<Endpoint>('type', 'Type'),
       textColumn<Endpoint>('status', 'Status'),
-      textColumn<Endpoint>('profile', 'Profile'),
-      textColumn<Endpoint>('retention_policy', 'Retention Policy'),
+      textColumn<Endpoint>('profile', 'Profile', undefined, { defaultHidden: true }),
+      textColumn<Endpoint>('retention_policy', 'Retention Policy', undefined, { defaultHidden: true }),
       {
         key: 'used_storage',
         title: 'Storage Used',
@@ -58,6 +62,7 @@
         cell: storageCell,
         exportValue: ({ value }) => formatBytes((value as number) ?? 0),
         sortable: true,
+        defaultHidden: true,
       },
       {
         key: 'errors',
@@ -142,5 +147,11 @@
     enableExport={true}
     enableURLState={true}
     {views}
+    onrowclick={(row) => {
+      selectedEndpoint = row;
+      sheetOpen = true;
+    }}
   />
 </div>
+
+<EndpointSheet bind:open={sheetOpen} bind:endpoint={selectedEndpoint} />

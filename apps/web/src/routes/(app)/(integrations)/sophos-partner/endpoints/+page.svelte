@@ -9,8 +9,12 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { Badge } from '$lib/components/ui/badge';
+  import EndpointSheet from './_endpoint-sheet.svelte';
 
   type Endpoint = Tables<'views', 'sophos_endpoints_view'>;
+
+  let sheetOpen = $state(false);
+  let selectedEndpoint = $state<Endpoint | null>(null);
 
   const columns: DataTableColumn<Endpoint>[] = $derived.by(() => {
     const siteSelected = !!scopeStore.currentSite;
@@ -19,8 +23,8 @@
       textColumn<Endpoint>('hostname', 'Name'),
       textColumn<Endpoint>('site_name', 'Site', undefined, { hidden: siteSelected }),
       textColumn<Endpoint>('platform', 'Platform'),
-      textColumn<Endpoint>('os_name', 'OS'),
-      textColumn<Endpoint>('type', 'Type'),
+      textColumn<Endpoint>('os_name', 'OS', undefined, { defaultHidden: true }),
+      textColumn<Endpoint>('type', 'Type', undefined, { defaultHidden: true }),
       textColumn<Endpoint>('health', 'Health'),
       {
         key: 'online',
@@ -34,7 +38,7 @@
         cell: needsUpgradeCell,
         sortable: true,
       },
-      boolBadgeColumn<Endpoint>('has_mdr', 'MDR'),
+      boolBadgeColumn<Endpoint>('has_mdr', 'MDR', undefined, { defaultHidden: true }),
       boolBadgeColumn<Endpoint>('tamper_protection_enabled', 'Tamper Protection', {
         falseVariant: 'destructive',
       }),
@@ -110,5 +114,11 @@
     enableExport={true}
     enableURLState={true}
     {views}
+    onrowclick={(row) => {
+      selectedEndpoint = row;
+      sheetOpen = true;
+    }}
   />
 </div>
+
+<EndpointSheet bind:open={sheetOpen} bind:endpoint={selectedEndpoint} />

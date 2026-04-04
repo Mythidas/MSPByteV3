@@ -1536,84 +1536,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cove_site_endpoints: {
-        Row: {
-          created_at: string
-          endpoint_id: string
-          last_seen_at: string
-          link_id: string
-          site_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          endpoint_id: string
-          last_seen_at?: string
-          link_id: string
-          site_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          endpoint_id?: string
-          last_seen_at?: string
-          link_id?: string
-          site_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cove_site_endpoints_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "cove_endpoints"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cove_site_endpoints_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "cove_sites"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      cove_sites: {
-        Row: {
-          created_at: string
-          external_id: string
-          id: string
-          last_seen_at: string
-          name: string
-          site_id: string | null
-          tenant_id: string
-          uid: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          external_id: string
-          id?: string
-          last_seen_at?: string
-          name: string
-          site_id?: string | null
-          tenant_id: string
-          uid: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string
-          id?: string
-          last_seen_at?: string
-          name?: string
-          site_id?: string | null
-          tenant_id?: string
-          uid?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       datto_endpoints: {
         Row: {
           category: string
@@ -1670,90 +1592,6 @@ export type Database = {
           site_id?: string | null
           tenant_id?: string
           udfs?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      datto_site_endpoints: {
-        Row: {
-          created_at: string
-          endpoint_id: string
-          last_seen_at: string
-          link_id: string
-          site_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          endpoint_id: string
-          last_seen_at?: string
-          link_id: string
-          site_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          endpoint_id?: string
-          last_seen_at?: string
-          link_id?: string
-          site_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "datto_site_endpoints_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "datto_endpoints"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "datto_site_endpoints_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "datto_sites"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      datto_sites: {
-        Row: {
-          created_at: string
-          external_id: string
-          id: string
-          last_seen_at: string
-          name: string
-          site_id: string | null
-          site_variables: Json
-          status: string
-          tenant_id: string
-          uid: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          external_id: string
-          id?: string
-          last_seen_at?: string
-          name: string
-          site_id?: string | null
-          site_variables: Json
-          status: string
-          tenant_id: string
-          uid: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          external_id?: string
-          id?: string
-          last_seen_at?: string
-          name?: string
-          site_id?: string | null
-          site_variables?: Json
-          status?: string
-          tenant_id?: string
-          uid?: string
           updated_at?: string
         }
         Relationships: []
@@ -2275,87 +2113,72 @@ export type Database = {
         }
         Relationships: []
       }
-      sophos_site_endpoints: {
+      sophos_firewalls: {
         Row: {
-          created_at: string
-          endpoint_id: string
-          last_seen_at: string
-          link_id: string
-          site_id: string
-          tenant_id: string
-        }
-        Insert: {
-          created_at?: string
-          endpoint_id: string
-          last_seen_at?: string
-          link_id: string
-          site_id: string
-          tenant_id: string
-        }
-        Update: {
-          created_at?: string
-          endpoint_id?: string
-          last_seen_at?: string
-          link_id?: string
-          site_id?: string
-          tenant_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sophos_site_endpoints_endpoint_id_fkey"
-            columns: ["endpoint_id"]
-            isOneToOne: false
-            referencedRelation: "sophos_endpoints"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "sophos_site_endpoints_site_id_fkey"
-            columns: ["site_id"]
-            isOneToOne: false
-            referencedRelation: "sophos_sites"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      sophos_sites: {
-        Row: {
-          api_host: string
+          connected: boolean
           created_at: string
           external_id: string
+          external_ip: string
+          firmware_version: string
+          hostname: string
           id: string
+          last_change_at: string
           last_seen_at: string
+          link_id: string
+          managing: string
+          model: string
           name: string
-          products: string[]
-          show_as_name: string
-          status: string
+          reporting: string
+          serial_number: string
+          site_id: string | null
+          suspended: boolean
           tenant_id: string
           updated_at: string
+          upgrade_to_version: string | null
         }
         Insert: {
-          api_host: string
+          connected: boolean
           created_at?: string
           external_id: string
+          external_ip: string
+          firmware_version: string
+          hostname: string
           id?: string
+          last_change_at: string
           last_seen_at?: string
+          link_id: string
+          managing: string
+          model: string
           name: string
-          products: string[]
-          show_as_name: string
-          status: string
+          reporting: string
+          serial_number: string
+          site_id?: string | null
+          suspended: boolean
           tenant_id: string
           updated_at?: string
+          upgrade_to_version?: string | null
         }
         Update: {
-          api_host?: string
+          connected?: boolean
           created_at?: string
           external_id?: string
+          external_ip?: string
+          firmware_version?: string
+          hostname?: string
           id?: string
+          last_change_at?: string
           last_seen_at?: string
+          link_id?: string
+          managing?: string
+          model?: string
           name?: string
-          products?: string[]
-          show_as_name?: string
-          status?: string
+          reporting?: string
+          serial_number?: string
+          site_id?: string | null
+          suspended?: boolean
           tenant_id?: string
           updated_at?: string
+          upgrade_to_version?: string | null
         }
         Relationships: []
       }
