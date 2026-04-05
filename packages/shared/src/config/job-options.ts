@@ -29,4 +29,12 @@ export const JobOptions = {
     backoff: { type: "exponential", delay: 15000 },
     removeOnComplete: { age: 60 * 60 * 24 * 14 },
   },
+
+  // Evaluations run — platform check runs, same retry profile as compliance
+  evaluationsRun: {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 15000 },
+    removeOnComplete: { age: 60 * 60 * 24 * 14 },
+    removeOnFail: { age: 60 * 60 * 24 * 30 },
+  },
 } satisfies Record<string, JobsOptions>;

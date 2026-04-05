@@ -12,6 +12,9 @@ export const CoreQueueNames = {
   // Workflow queues
   WorkflowRun: "workflow-run", // node graph execution
   WorkflowAction: "workflow-action", // outbound actions (set config, ticket)
+
+  // Evaluations queue
+  EvaluationsRun: "evaluations-run", // platform-defined check runs
 } as const;
 
 export type QueueName = (typeof CoreQueueNames)[keyof typeof CoreQueueNames];
