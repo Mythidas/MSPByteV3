@@ -1,10 +1,11 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError } from "@workspace/shared/lib/errors.js";
 import { DattoRMMConnector } from "@workspace/shared/lib/integrations/dattormm/connector";
 import {
   AdapterContract,
   UpsertPayload,
 } from "@workspace/shared/types/jobs/contracts/adapter.js";
-import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import type { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { TablesInsert } from "@workspace/shared/types/database";
 
@@ -20,8 +21,9 @@ export class DattoRMMAdapter implements AdapterContract {
     const apiSecretKey = ctx.credentials?.apiSecretKey;
 
     if (!url || !apiKey || !apiSecretKey) {
-      throw new Error(
+      throw new ConfigError(
         "DattoRMMAdapter: url, apiKey, and apiSecretKey are required",
+        { integrationId: this.integrationId, tenantId: ctx.tenantId },
       );
     }
 
@@ -32,13 +34,16 @@ export class DattoRMMAdapter implements AdapterContract {
 
     if (ingestType === IT.DattoEndpoints) {
       if (!ctx.linkId) {
-        throw new Error("DattoRMMAdapter: endpoints job requires link_id");
+        throw new ConfigError("DattoRMMAdapter: endpoints job requires link_id", {
+          integrationId: this.integrationId, tenantId: ctx.tenantId,
+        });
       }
 
       const siteUid = String(ctx.metadata?.externalId);
       if (!ctx.metadata?.externalId) {
-        throw new Error(
+        throw new ConfigError(
           `DattoRMMAdapter: link ${ctx.linkId} has no external_id (Datto site UID)`,
+          { integrationId: this.integrationId, tenantId: ctx.tenantId, linkId: ctx.linkId },
         );
       }
 
@@ -49,9 +54,12 @@ export class DattoRMMAdapter implements AdapterContract {
         ctx.siteId ?? null,
         tenantId,
         now,
+        ctx.trackSpan,
       );
     } else {
-      throw new Error(`DattoRMMAdapter: unknown ingestType "${ingestType}"`);
+      throw new ConfigError(`DattoRMMAdapter: unknown ingestType "${ingestType}"`, {
+        integrationId: this.integrationId, tenantId: ctx.tenantId, ingestType,
+      });
     }
   }
 
@@ -62,8 +70,10 @@ export class DattoRMMAdapter implements AdapterContract {
     siteId: string | null,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
-    const data = await connector.site.devices.list(siteUid);
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const data = await span("datto:list_endpoints", () => connector.site.devices.list(siteUid));
 
     Logger.info({
       module: "DattoRMMAdapter",

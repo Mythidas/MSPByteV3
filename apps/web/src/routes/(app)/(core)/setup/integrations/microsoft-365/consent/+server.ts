@@ -7,7 +7,6 @@ import {
 } from '@workspace/shared/config/integrations/microsoft-365';
 import { Microsoft365RoleManagerService } from '@workspace/shared/lib/integrations/microsoft-365/role-manager-service';
 import { Logger } from '@workspace/shared/lib/utils/logger';
-import { writeAuditLog, writeDiagnosticLog } from '@workspace/shared/lib/utils/audit';
 import { probeCapabilities } from '../_capabilities';
 import type { RequestHandler } from './$types';
 import { withRetry } from '@workspace/shared/lib/utils/fetch-with-retry';
@@ -39,11 +38,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     .parse(JSON.parse(stateRaw));
 
   // Build connectors. For GDAP tenant consent, scope the connector to that tenant.
-  const partnerConnector = new Microsoft365Connector({
-    tenantId: msTenantId,
-    clientId: MICROSOFT_CLIENT_ID,
-    clientSecret: MICROSOFT_CLIENT_SECRET,
-  });
+  const partnerConnector = new Microsoft365Connector(
+    {
+      tenantId: msTenantId,
+      clientId: MICROSOFT_CLIENT_ID,
+      clientSecret: MICROSOFT_CLIENT_SECRET,
+    },
+    locals.tenant?.created_at ?? ''
+  );
   const tenantConnector = gdapTenantId
     ? partnerConnector.forTenant(gdapTenantId)
     : partnerConnector;
@@ -88,7 +90,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       context: 'ensureDirectoryRoles',
       message: `Failed to assign roles [${failed.join(', ')}] to ${logTarget}`,
     });
-    await writeDiagnosticLog(locals.supabase, {
+    await Logger.writeDiagnosticLog(locals.supabase, {
       tenant_id: mspbyteTenantId!,
       level: 'warn',
       module: 'consent',
@@ -98,7 +100,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     });
   }
 
-  await writeAuditLog(locals.supabase, {
+  await Logger.writeAuditLog(locals.supabase, {
     tenant_id: mspbyteTenantId!,
     actor: 'system',
     action: 'role_assigned',

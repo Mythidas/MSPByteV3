@@ -21,6 +21,9 @@ export type JobContext = {
   // State from last successful run — used for delta fetching
   lastSyncedAt?: Date;
   metadata?: Record<string, unknown>; // cursor, deltaToken, pageState etc.
+
+  // Performance instrumentation — populated by SyncWorker before adapter call
+  trackSpan?: <T>(name: string, fn: () => Promise<T>) => Promise<T>;
 };
 
 export type JobResult = {

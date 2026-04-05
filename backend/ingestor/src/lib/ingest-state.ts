@@ -1,6 +1,7 @@
 import { isJson } from "@workspace/shared/lib/utils/validators.js";
 import { getSupabase } from "../supabase.js";
 import { classifyError } from "./error-classifier.js";
+import { AppError } from "@workspace/shared/lib/errors.js";
 
 export type IngestJobRecord = {
   id: string;
@@ -96,12 +97,13 @@ export async function completeIngestJob(
 
 export async function failIngestJob(
   jobId: string,
-  opts: { error: unknown; metrics?: Record<string, unknown> },
+  opts: { error: unknown; metrics?: Record<string, unknown>; failedSpan?: string },
 ): Promise<void> {
   const supabase = getSupabase();
   const now = new Date().toISOString();
 
   const classified = classifyError(opts.error);
+  const errorContext = opts.error instanceof AppError ? opts.error.context : undefined;
 
   const { data: job, error: fetchError } = await supabase
     .from("ingest_jobs")
@@ -163,6 +165,8 @@ export async function failIngestJob(
       last_failed_at: now,
       last_error_class: classified.errorClass,
       last_error_message: classified.userMessage,
+      last_error_context: isJson(errorContext) ? errorContext : null,
+      last_failed_span: opts.failedSpan ?? null,
       consecutive_failures: currentFailures + 1,
     },
     { onConflict: "tenant_id,link_id,integration_id,ingest_type" },

@@ -9,6 +9,11 @@ import {
   CheckConfigSchema,
   computeJsFilter,
 } from "../utils/apply-filter";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError, toAppError, formatZodError } from "@workspace/shared/lib/errors";
+
+const MODULE = "compliance";
+const CONTEXT = "PolicyCountGteEvaluator";
 
 function parseTable(table: string): { schema: string; name: string } {
   const parts = table.split(".");
@@ -18,10 +23,20 @@ function parseTable(table: string): { schema: string; name: string } {
 
 export class PolicyCountGteEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
-    try {
-      const { table, filter, threshold = 1 } = CheckConfigSchema.parse(config);
-      const { schema, name } = parseTable(table);
+    const parsed = CheckConfigSchema.safeParse(config);
+    if (!parsed.success) {
+      const appErr = new ConfigError(
+        `Invalid check config: ${formatZodError(parsed.error)}`,
+        { raw: config, tenantId: ctx.tenantId, linkId: ctx.linkId },
+      );
+      Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+      return { passed: false, detail: { error: appErr.userMessage } };
+    }
 
+    const { table, filter, threshold = 1 } = parsed.data;
+    const { schema, name } = parseTable(table);
+
+    try {
       const jsFilter = computeJsFilter(filter);
 
       if (jsFilter) {
@@ -31,7 +46,11 @@ export class PolicyCountGteEvaluator implements CheckEvaluator {
         );
         const { query: filtered } = applyFilter(query, filter);
         const { data, error } = await filtered;
-        if (error) return { passed: false, detail: { error: error.message } };
+        if (error) {
+          const appErr = toAppError(error, `Query failed (jsFilter): ${error.message}`, { table, schema, name });
+          Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+          return { passed: false, detail: { error: appErr.userMessage } };
+        }
         const rows = jsFilter(data ?? []);
         const passed = rows.length >= threshold;
         return { passed, detail: { count: rows.length, threshold } };
@@ -43,11 +62,21 @@ export class PolicyCountGteEvaluator implements CheckEvaluator {
       }).eq("link_id", ctx.linkId);
       const { query: filtered } = applyFilter(query, filter);
       const { count, error } = await filtered;
-      if (error) return { passed: false, detail: { error: error.message } };
+      if (error) {
+        const appErr = toAppError(error, `Query failed (dynamicFilter): ${error.message}`, { table, schema, name });
+        Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+        return { passed: false, detail: { error: appErr.userMessage } };
+      }
       const passed = (count ?? 0) >= threshold;
       return { passed, detail: { count: count ?? 0, threshold } };
     } catch (err) {
-      return { passed: false, detail: { error: String(err) } };
+      const appErr = toAppError(err, undefined, {
+        table,
+        tenantId: ctx.tenantId,
+        linkId: ctx.linkId,
+      });
+      Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+      return { passed: false, detail: { error: appErr.userMessage } };
     }
   }
 }

@@ -44,7 +44,6 @@ function computeFailedConditions(
 
 export class PolicyExistsEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
-    // TODO: Spread error logging structure to rest of the codebase
     const parsed = CheckConfigSchema.safeParse(config);
     if (!parsed.success) {
       const appErr = new ConfigError(

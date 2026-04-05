@@ -770,8 +770,10 @@ export type Database = {
           ingest_type: string
           integration_id: string
           last_error_class: string | null
+          last_error_context: Json | null
           last_error_message: string | null
           last_failed_at: string | null
+          last_failed_span: string | null
           last_job_id: string | null
           last_status: string | null
           last_synced_at: string
@@ -786,8 +788,10 @@ export type Database = {
           ingest_type: string
           integration_id: string
           last_error_class?: string | null
+          last_error_context?: Json | null
           last_error_message?: string | null
           last_failed_at?: string | null
+          last_failed_span?: string | null
           last_job_id?: string | null
           last_status?: string | null
           last_synced_at: string
@@ -802,8 +806,10 @@ export type Database = {
           ingest_type?: string
           integration_id?: string
           last_error_class?: string | null
+          last_error_context?: Json | null
           last_error_message?: string | null
           last_failed_at?: string | null
+          last_failed_span?: string | null
           last_job_id?: string | null
           last_status?: string | null
           last_synced_at?: string

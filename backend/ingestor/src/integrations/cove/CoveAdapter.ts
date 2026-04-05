@@ -1,10 +1,11 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError } from "@workspace/shared/lib/errors.js";
 import { CoveConnector } from "@workspace/shared/lib/integrations/cove/connector";
 import {
   AdapterContract,
   UpsertPayload,
 } from "@workspace/shared/types/jobs/contracts/adapter.js";
-import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import type { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { isString } from "@workspace/shared/lib/utils/validators.js";
 import { TablesInsert } from "@workspace/shared/types/database";
@@ -25,8 +26,9 @@ export class CoveAdapter implements AdapterContract {
     const clientSecret = ctx.credentials?.clientSecret;
 
     if (!server || !clientId || !clientSecret || !partnerId) {
-      throw new Error(
+      throw new ConfigError(
         "CoveAdapter: server, clientId, clientSecret, and partnerId are required",
+        { integrationId: this.integrationId, tenantId: ctx.tenantId },
       );
     }
 
@@ -42,13 +44,16 @@ export class CoveAdapter implements AdapterContract {
 
     if (ingestType === IT.CoveEndpoints) {
       if (!ctx.linkId) {
-        throw new Error("CoveAdapter: endpoints job requires link_id");
+        throw new ConfigError("CoveAdapter: endpoints job requires link_id", {
+          integrationId: this.integrationId, tenantId: ctx.tenantId,
+        });
       }
 
       const externalId = String(ctx.metadata?.externalId);
       if (!ctx.metadata?.externalId) {
-        throw new Error(
+        throw new ConfigError(
           `CoveAdapter: link ${ctx.linkId} has no external_id (Cove partner ID)`,
+          { integrationId: this.integrationId, tenantId: ctx.tenantId, linkId: ctx.linkId },
         );
       }
 
@@ -59,9 +64,12 @@ export class CoveAdapter implements AdapterContract {
         ctx.siteId ?? null,
         tenantId,
         now,
+        ctx.trackSpan,
       );
     } else {
-      throw new Error(`CoveAdapter: unknown ingestType "${ingestType}"`);
+      throw new ConfigError(`CoveAdapter: unknown ingestType "${ingestType}"`, {
+        integrationId: this.integrationId, tenantId: ctx.tenantId, ingestType,
+      });
     }
   }
 
@@ -72,8 +80,10 @@ export class CoveAdapter implements AdapterContract {
     siteId: string | null,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
-    const stats = await connector.account.statistics.list();
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const stats = await span("cove:list_endpoints", () => connector.account.statistics.list());
     const partnerId = parseInt(externalId, 10);
     const filtered = stats.filter((s) => s.PartnerId === partnerId);
 

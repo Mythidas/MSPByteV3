@@ -135,6 +135,7 @@ export class SyncWorker {
         trigger: IngestTrigger.Scheduled,
         credentials,
         metadata: { externalId: linkExternalId, ...linkMeta },
+        trackSpan: (name, fn) => tracker.trackSpan(name, fn),
       };
 
       // 5. Fetch via adapter — returns UpsertPayload[]
@@ -242,9 +243,11 @@ export class SyncWorker {
       }
       try {
         const json = tracker.toJSON();
+        const failedSpan = json.spans.find((s) => s.status === "error")?.name;
         await failIngestJob(jobId, {
           error,
           metrics: isRecord(json) ? json : {},
+          failedSpan,
         });
       } catch (updateError) {
         Logger.error({

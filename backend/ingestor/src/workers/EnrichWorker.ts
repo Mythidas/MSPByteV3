@@ -69,9 +69,11 @@ export class EnrichWorker {
         tracker.trackError(err);
       }
       const json = tracker.toJSON();
+      const failedSpan = json.spans.find((s) => s.status === "error")?.name;
       await failIngestJob(dbJob.id, {
         error: err,
         metrics: isRecord(json) ? json : {},
+        failedSpan,
       });
       throw err;
     }

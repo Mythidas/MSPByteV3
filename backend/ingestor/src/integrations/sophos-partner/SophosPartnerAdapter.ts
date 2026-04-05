@@ -1,11 +1,12 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError } from "@workspace/shared/lib/errors.js";
 import { SophosPartnerConnector } from "@workspace/shared/lib/integrations/sophos-partner/connector";
 import { batchAll } from "@workspace/shared/lib/utils/async.js";
 import {
   AdapterContract,
   UpsertPayload,
 } from "@workspace/shared/types/jobs/contracts/adapter.js";
-import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import type { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { getSupabase } from "../../supabase.js";
 import { isString } from "@workspace/shared/lib/utils/validators.js";
@@ -24,8 +25,9 @@ export class SophosPartnerAdapter implements AdapterContract {
     const clientSecret = ctx.credentials?.clientSecret;
 
     if (!clientId || !clientSecret) {
-      throw new Error(
+      throw new ConfigError(
         "SophosPartnerAdapter: clientId and clientSecret are required",
+        { integrationId: this.integrationId, tenantId: ctx.tenantId },
       );
     }
 
@@ -35,7 +37,9 @@ export class SophosPartnerAdapter implements AdapterContract {
     );
 
     if (!ctx.linkId) {
-      throw new Error("SophosPartnerAdapter: endpoints job requires link_id");
+      throw new ConfigError("SophosPartnerAdapter: endpoints job requires link_id", {
+        integrationId: this.integrationId, tenantId: ctx.tenantId,
+      });
     }
 
     const sophosApiHost =
@@ -47,8 +51,9 @@ export class SophosPartnerAdapter implements AdapterContract {
         ? ctx.metadata?.externalId
         : undefined;
     if (!sophosTenantId || !sophosApiHost) {
-      throw new Error(
+      throw new ConfigError(
         `SophosPartnerAdapter: link ${ctx.linkId} has no external_id or apiHost`,
+        { integrationId: this.integrationId, tenantId: ctx.tenantId, linkId: ctx.linkId },
       );
     }
 
@@ -60,6 +65,7 @@ export class SophosPartnerAdapter implements AdapterContract {
         ctx.linkId,
         ctx.siteId ?? null,
         tenantId,
+        ctx.trackSpan,
       );
     } else if (ingestType === IT.SophosFirewalls) {
       return this.fetchFirewalls(
@@ -69,10 +75,12 @@ export class SophosPartnerAdapter implements AdapterContract {
         ctx.linkId,
         ctx.siteId ?? null,
         tenantId,
+        ctx.trackSpan,
       );
     } else {
-      throw new Error(
+      throw new ConfigError(
         `SophosPartnerAdapter: unknown ingestType "${ingestType}"`,
+        { integrationId: this.integrationId, tenantId: ctx.tenantId, ingestType },
       );
     }
   }
@@ -84,8 +92,10 @@ export class SophosPartnerAdapter implements AdapterContract {
     linkId: string,
     siteId: string | null,
     tenantId: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
     const now = new Date().toISOString();
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
     const existingQuery = getSupabase()
       .schema("vendors")
       .from("sophos_endpoints")
@@ -94,10 +104,12 @@ export class SophosPartnerAdapter implements AdapterContract {
       .eq("link_id", linkId);
 
     const [data, existingRows] = await Promise.all([
-      connector.endpoint.endpoints.list({
-        apiHost: sophosApiHost,
-        tenantId: sophosTenantId,
-      }),
+      span("sophos:list_endpoints", () =>
+        connector.endpoint.endpoints.list({
+          apiHost: sophosApiHost,
+          tenantId: sophosTenantId,
+        }),
+      ),
       existingQuery,
     ]);
 
@@ -163,13 +175,15 @@ export class SophosPartnerAdapter implements AdapterContract {
     }
 
     rows.push(
-      ...(await batchAll(data, TAMPER_BATCH_SIZE, async (ep) => {
-        const codes = await connector.endpoint.endpoints.tamper_protection.get(
-          { apiHost: sophosApiHost, tenantId: sophosTenantId },
-          ep.id,
-        );
-        return buildRow(ep, codes);
-      })),
+      ...(await span("sophos:tamper_protection", () =>
+        batchAll(data, TAMPER_BATCH_SIZE, async (ep) => {
+          const codes = await connector.endpoint.endpoints.tamper_protection.get(
+            { apiHost: sophosApiHost, tenantId: sophosTenantId },
+            ep.id,
+          );
+          return buildRow(ep, codes);
+        }),
+      )),
     );
 
     return [
@@ -188,21 +202,27 @@ export class SophosPartnerAdapter implements AdapterContract {
     linkId: string,
     siteId: string | null,
     tenantId: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
     const now = new Date().toISOString();
-    const firewalls = await connector.firewall.firewalls.list({
-      apiHost: sophosApiHost,
-      tenantId: sophosTenantId,
-    });
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const firewalls = await span("sophos:list_firewalls", () =>
+      connector.firewall.firewalls.list({
+        apiHost: sophosApiHost,
+        tenantId: sophosTenantId,
+      }),
+    );
 
     const fwFirmwares: Map<string, SophosPartnerFirewallFirmware> = new Map();
     if (firewalls.length > 0) {
-      const result = await connector.firewall.firewalls.firmwareUpgradeCheck(
-        {
-          apiHost: sophosApiHost,
-          tenantId: sophosTenantId,
-        },
-        firewalls.map((fw) => fw.id),
+      const result = await span("sophos:firmware_check", () =>
+        connector.firewall.firewalls.firmwareUpgradeCheck(
+          {
+            apiHost: sophosApiHost,
+            tenantId: sophosTenantId,
+          },
+          firewalls.map((fw) => fw.id),
+        ),
       );
       for (let i = 0; i < result.firewalls.length; i++) {
         const fw = firewalls.find((f) => f.id === result.firewalls?.[i].id);

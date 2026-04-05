@@ -9,6 +9,11 @@ import {
   CheckConfigSchema,
   computeJsFilter,
 } from "../utils/apply-filter";
+import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError, toAppError, formatZodError } from "@workspace/shared/lib/errors";
+
+const MODULE = "compliance";
+const CONTEXT = "PolicyNotExistsEvaluator";
 
 function parseTable(table: string): { schema: string; name: string } {
   const parts = table.split(".");
@@ -18,10 +23,20 @@ function parseTable(table: string): { schema: string; name: string } {
 
 export class PolicyNotExistsEvaluator implements CheckEvaluator {
   async evaluate(config: unknown, ctx: EvalContext): Promise<EvalResult> {
-    try {
-      const { table, filter } = CheckConfigSchema.parse(config);
-      const { schema, name } = parseTable(table);
+    const parsed = CheckConfigSchema.safeParse(config);
+    if (!parsed.success) {
+      const appErr = new ConfigError(
+        `Invalid check config: ${formatZodError(parsed.error)}`,
+        { raw: config, tenantId: ctx.tenantId, linkId: ctx.linkId },
+      );
+      Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+      return { passed: false, detail: { error: appErr.userMessage } };
+    }
 
+    const { table, filter } = parsed.data;
+    const { schema, name } = parseTable(table);
+
+    try {
       const jsFilter = computeJsFilter(filter);
 
       if (jsFilter) {
@@ -31,7 +46,11 @@ export class PolicyNotExistsEvaluator implements CheckEvaluator {
         );
         const { query: filtered } = applyFilter(query, filter);
         const { data, error } = await filtered;
-        if (error) return { passed: false, detail: { error: error.message } };
+        if (error) {
+          const appErr = toAppError(error, `Query failed (jsFilter): ${error.message}`, { table, schema, name });
+          Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+          return { passed: false, detail: { error: appErr.userMessage } };
+        }
         const rows = jsFilter(data ?? []);
         return { passed: rows.length === 0, detail: { count: rows.length } };
       }
@@ -42,10 +61,20 @@ export class PolicyNotExistsEvaluator implements CheckEvaluator {
       }).eq("link_id", ctx.linkId);
       const { query: filtered } = applyFilter(query, filter);
       const { count, error } = await filtered;
-      if (error) return { passed: false, detail: { error: error.message } };
+      if (error) {
+        const appErr = toAppError(error, `Query failed (dynamicFilter): ${error.message}`, { table, schema, name });
+        Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+        return { passed: false, detail: { error: appErr.userMessage } };
+      }
       return { passed: (count ?? 0) === 0, detail: { count: count ?? 0 } };
     } catch (err) {
-      return { passed: false, detail: { error: String(err) } };
+      const appErr = toAppError(err, undefined, {
+        table,
+        tenantId: ctx.tenantId,
+        linkId: ctx.linkId,
+      });
+      Logger.error({ module: MODULE, context: CONTEXT, message: appErr.userMessage, err: appErr });
+      return { passed: false, detail: { error: appErr.userMessage } };
     }
   }
 }

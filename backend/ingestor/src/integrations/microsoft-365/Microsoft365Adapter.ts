@@ -1,5 +1,6 @@
 import { getSupabase } from "../../supabase.js";
 import { Logger } from "@workspace/shared/lib/utils/logger";
+import { ConfigError } from "@workspace/shared/lib/errors.js";
 import { Microsoft365Connector } from "@workspace/shared/lib/integrations/microsoft-365/connector";
 import type { MSCapabilities } from "@workspace/shared/types/integrations/microsoft/capabilities.js";
 import type { MSGraphIdentity } from "@workspace/shared/types/integrations/microsoft/identity.js";
@@ -7,7 +8,7 @@ import {
   AdapterContract,
   UpsertPayload,
 } from "@workspace/shared/types/jobs/contracts/adapter.js";
-import { JobContext } from "@workspace/shared/types/jobs/job.js";
+import type { JobContext } from "@workspace/shared/types/jobs/job.js";
 import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { SkuCatalogService } from "@workspace/shared/lib/integrations/microsoft-365/sku-catalog-service.js";
 import { PowerShellRunnerService } from "@workspace/shared/lib/integrations/microsoft-365/powershell-runner-service.js";
@@ -27,8 +28,9 @@ export class Microsoft365Adapter implements AdapterContract {
 
   async fetch(ctx: JobContext): Promise<UpsertPayload[]> {
     if (!ctx.linkId) {
-      throw new Error(
+      throw new ConfigError(
         "M365 Adapter requires Job to include link_id to tenant information",
+        { integrationId: this.integrationId, tenantId: ctx.tenantId },
       );
     }
 
@@ -62,8 +64,9 @@ export class Microsoft365Adapter implements AdapterContract {
       : undefined;
 
     if (!clientId || !clientSecret) {
-      throw new Error(
+      throw new ConfigError(
         "Microsoft365Adapter: MICROSOFT_CLIENT_ID and MICROSOFT_CLIENT_SECRET are required",
+        { integrationId: this.integrationId, tenantId: ctx.tenantId, linkId: ctx.linkId },
       );
     }
 
@@ -100,10 +103,11 @@ export class Microsoft365Adapter implements AdapterContract {
           capabilities,
           tenantId,
           now,
+          ctx.trackSpan,
         );
 
       case IT.M365Groups:
-        return this.fetchGroups(connector, linkId, tenantId, now);
+        return this.fetchGroups(connector, linkId, tenantId, now, ctx.trackSpan);
 
       case IT.M365Policies:
         return this.fetchPolicies(
@@ -112,10 +116,11 @@ export class Microsoft365Adapter implements AdapterContract {
           capabilities,
           tenantId,
           now,
+          ctx.trackSpan,
         );
 
       case IT.M365Licenses:
-        return this.fetchLicenses(connector, linkId, tenantId, now);
+        return this.fetchLicenses(connector, linkId, tenantId, now, ctx.trackSpan);
 
       case IT.M365ExchangeConfig: {
         const roles = Array.isArray(ctx.metadata?.roles)
@@ -138,11 +143,13 @@ export class Microsoft365Adapter implements AdapterContract {
           linkId,
           tenantId,
           now,
+          ctx.trackSpan,
         );
       }
       default:
-        throw new Error(
+        throw new ConfigError(
           `Microsoft365Adapter: unknown ingestType "${ingestType}"`,
+          { integrationId: this.integrationId, tenantId: ctx.tenantId, ingestType },
         );
     }
   }
@@ -155,6 +162,7 @@ export class Microsoft365Adapter implements AdapterContract {
     capabilities: MSCapabilities,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
     const selectFields: (keyof MSGraphIdentity)[] = [
       "id",
@@ -179,9 +187,10 @@ export class Microsoft365Adapter implements AdapterContract {
       });
     }
 
-    const identities = await connector.users.listAll({
-      $select: selectFields.join(","),
-    });
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const identities = await span("m365:list_identities", () =>
+      connector.users.listAll({ $select: selectFields.join(",") }),
+    );
 
     Logger.info({
       module: "Microsoft365Adapter",
@@ -225,8 +234,10 @@ export class Microsoft365Adapter implements AdapterContract {
     linkId: string,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
-    const groups = await connector.groups.listAll();
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const groups = await span("m365:list_groups", () => connector.groups.listAll());
 
     Logger.info({
       module: "Microsoft365Adapter",
@@ -265,6 +276,7 @@ export class Microsoft365Adapter implements AdapterContract {
     capabilities: MSCapabilities,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
     if (!capabilities.conditionalAccess) {
       Logger.warn({
@@ -275,8 +287,10 @@ export class Microsoft365Adapter implements AdapterContract {
       return [];
     }
 
-    const policies =
-      await connector.identity.conditionalAccess.policies.listAll();
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const policies = await span("m365:list_policies", () =>
+      connector.identity.conditionalAccess.policies.listAll(),
+    );
 
     Logger.info({
       module: "Microsoft365Adapter",
@@ -314,8 +328,10 @@ export class Microsoft365Adapter implements AdapterContract {
     linkId: string,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
-    const skus = await connector.subscribedSkus.listAll();
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const skus = await span("m365:list_licenses", () => connector.subscribedSkus.listAll());
     const skuNames = await SkuCatalogService.resolve();
 
     Logger.info({
@@ -365,6 +381,7 @@ export class Microsoft365Adapter implements AdapterContract {
     linkId: string,
     tenantId: string,
     now: string,
+    trackSpan?: JobContext["trackSpan"],
   ): Promise<UpsertPayload[]> {
     if (!certPem) {
       Logger.warn({
@@ -377,16 +394,20 @@ export class Microsoft365Adapter implements AdapterContract {
 
     const clientId = process.env.MICROSOFT_CLIENT_ID;
     if (!clientId) {
-      throw new Error(
+      throw new ConfigError(
         "Microsoft365Adapter: MICROSOFT_CLIENT_ID required for exchange-config",
+        { integrationId: this.integrationId, tenantId, linkId },
       );
     }
 
-    const orgConfig = await PowerShellRunnerService.runExchangeOnline(
-      clientId,
-      certPem,
-      defaultDomain || gdapTenantId,
-      "Get-OrganizationConfig",
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const orgConfig = await span("m365:exchange_config", () =>
+      PowerShellRunnerService.runExchangeOnline(
+        clientId,
+        certPem,
+        defaultDomain || gdapTenantId,
+        "Get-OrganizationConfig",
+      ),
     );
 
     Logger.info({
