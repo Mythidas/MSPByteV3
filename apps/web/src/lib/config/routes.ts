@@ -45,6 +45,7 @@ const ROUTES: Route[] = [
   },
 ];
 
+// TODO: Ensure Hook.ts is filtering All routes for permissions
 export function buildRouteMap(): Map<string, Route[]> {
   const routeMap = new Map<string, Route[]>();
   routeMap.set('top', []);

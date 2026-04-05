@@ -7,7 +7,6 @@ import { getSupabase } from "../../../supabase.js";
 import { TablesInsert } from "@workspace/shared/types/database.js";
 import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
 import { isJson, isRecord } from "@workspace/shared/lib/utils/validators.js";
-import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 registerNode({
   ref: "Generic.CreateAlert",
@@ -48,7 +47,7 @@ registerNode({
     const { data: alertDefinition } = await getSupabase()
       .schema("public")
       .from("alert_definitions")
-      .select("*")
+      .select("message_template,severity")
       .eq("id", alertDefinitionId)
       .single();
 
@@ -58,7 +57,7 @@ registerNode({
       );
     }
 
-    if (!entityType || !getTypeMap().has(entityType as IngestType)) {
+    if (!entityType || !getTypeMap().has(entityType)) {
       throw new ExecutorError(
         `Generic.CreateAlert: unknown or missing _entityType "${entityType}"`,
       );
@@ -110,6 +109,7 @@ registerNode({
               isRecord(ent) ? ent : {},
             ),
             status: "active",
+            severity: alertDefinition.severity,
             entity_id: id,
             entity_type: entityType,
             last_seen_at: now,

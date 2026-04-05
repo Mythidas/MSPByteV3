@@ -241,7 +241,8 @@ export type Database = {
           integration_id: string
           message_template: string
           name: string
-          severity: string
+          severity: number
+          source: string
           tenant_id: string | null
           updated_at: string
         }
@@ -252,7 +253,8 @@ export type Database = {
           integration_id: string
           message_template: string
           name: string
-          severity?: string
+          severity: number
+          source?: string
           tenant_id?: string | null
           updated_at?: string
         }
@@ -263,7 +265,8 @@ export type Database = {
           integration_id?: string
           message_template?: string
           name?: string
-          severity?: string
+          severity?: number
+          source?: string
           tenant_id?: string | null
           updated_at?: string
         }
@@ -289,6 +292,7 @@ export type Database = {
           message: string
           metadata: Json | null
           resolved_at: string | null
+          severity: number
           site_id: string | null
           status: string
           suppressed_at: string | null
@@ -308,6 +312,7 @@ export type Database = {
           message: string
           metadata?: Json | null
           resolved_at?: string | null
+          severity: number
           site_id?: string | null
           status?: string
           suppressed_at?: string | null
@@ -327,6 +332,7 @@ export type Database = {
           message?: string
           metadata?: Json | null
           resolved_at?: string | null
+          severity?: number
           site_id?: string | null
           status?: string
           suppressed_at?: string | null
@@ -2310,7 +2316,7 @@ export type Database = {
           metadata: Json | null
           name: string | null
           resolved_at: string | null
-          severity: string | null
+          severity: number | null
           site_id: string | null
           site_name: string | null
           status: string | null

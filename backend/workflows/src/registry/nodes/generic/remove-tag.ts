@@ -5,7 +5,6 @@ import { ExecutorError } from "../../../errors.js";
 import { getSupabase } from "../../../supabase.js";
 import { isRecord } from "@workspace/shared/lib/utils/validators.js";
 import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
-import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 registerNode({
   ref: "Generic.RemoveTag",
@@ -42,7 +41,7 @@ registerNode({
       throw new ExecutorError(`Generic.RemoveTag: missing tag_definition_id`);
     }
 
-    if (!entityType || !getTypeMap().has(entityType as IngestType)) {
+    if (!entityType || !getTypeMap().has(entityType)) {
       throw new ExecutorError(
         `Generic.RemoveTag: unknown or missing _entityType "${entityType}"`,
       );

@@ -7,12 +7,10 @@
   import type { Tables } from '@workspace/shared/types/database';
   import { toast } from 'svelte-sonner';
   import { formatDate, formatStringProper } from '$lib/utils/format.js';
-  import { severityClass, alertStatusClass, ALERT_TYPE_GUIDANCE } from './_alert-config.js';
   import InfoIcon from '@lucide/svelte/icons/info';
   import ShieldOffIcon from '@lucide/svelte/icons/shield-off';
   import ShieldIcon from '@lucide/svelte/icons/shield';
-  import { deserialize } from '$app/forms';
-  import { Description } from 'formsnap';
+  import { alertStatusClass, SEVERITY_LABELS, severityClass } from '$lib/config/alerts.js';
 
   type EntityAlert = Tables<'views', 'd_alerts_view'>;
 
@@ -31,8 +29,6 @@
   } = $props();
 
   let suppressing = $state(false);
-
-  let guidance = $derived(alert ? ALERT_TYPE_GUIDANCE[alert.definition_id!] : null);
 
   let metadataEntries = $derived.by(() => {
     if (!alert?.metadata || typeof alert.metadata !== 'object' || Array.isArray(alert.metadata)) {
@@ -101,7 +97,7 @@
         <Sheet.Description>{alert.message}</Sheet.Description>
         <div class="flex gap-2">
           <Badge variant="outline" class={severityClass(alert.severity!)}>
-            {formatStringProper(alert.severity)}
+            {formatStringProper(SEVERITY_LABELS[alert.severity ?? 0])}
           </Badge>
           <Badge variant="outline" class={alertStatusClass(alert.status!)}>
             {formatStringProper(alert.status)}

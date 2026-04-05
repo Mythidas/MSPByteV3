@@ -1,6 +1,15 @@
 import { Logger } from "@workspace/shared/lib/utils/logger";
 
 const DEFAULT_RETRY_MS = 5_000;
+class RetryError extends Error {
+  constructor(
+    public message: string,
+    public response: Response,
+    public status: number,
+  ) {
+    super(message);
+  }
+}
 
 export async function fetchWithRetry(
   url: string,
@@ -26,9 +35,11 @@ export async function fetchWithRetry(
         const response = await fetch(url, init);
 
         if (response.status === 429) {
-          const error: any = new Error(`Rate limited (429)`);
-          error.response = response;
-          error.status = 429;
+          const error: RetryError = new RetryError(
+            `Rate limited (429)`,
+            response,
+            429,
+          );
           throw error;
         }
 
@@ -42,15 +53,17 @@ export async function fetchWithRetry(
         respectRetryAfter,
       },
     );
-  } catch (err: any) {
-    // Final failure after all retries
-    if (err?.status === 429 && err.response) {
-      Logger.warn({
-        module,
-        context,
-        message: `429 persisted after ${maxRetries} retries`,
-      });
-      return err.response;
+  } catch (err: unknown) {
+    if (err instanceof RetryError) {
+      // Final failure after all retries
+      if (err?.status === 429 && err.response) {
+        Logger.warn({
+          module,
+          context,
+          message: `429 persisted after ${maxRetries} retries`,
+        });
+        return err.response;
+      }
     }
 
     throw err;
@@ -83,25 +96,27 @@ export async function withRetry<T>(
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
-    } catch (err: any) {
+    } catch (err) {
       lastErr = err;
 
       if (attempt === maxRetries) break;
 
       let waitMs = baseDelayMs * 2 ** attempt;
 
-      // Respect Retry-After if enabled and present
-      if (respectRetryAfter && err?.response?.headers) {
-        const retryAfter = err.response.headers.get("Retry-After");
-        if (retryAfter) {
-          const parsed = parseInt(retryAfter, 10);
-          if (!isNaN(parsed)) {
-            waitMs = parsed * 1000;
-            Logger.info({
-              module,
-              context,
-              message: `Using Retry-After header: ${waitMs}ms`,
-            });
+      if (err instanceof RetryError) {
+        // Respect Retry-After if enabled and present
+        if (respectRetryAfter && err?.response?.headers) {
+          const retryAfter = err.response.headers.get("Retry-After");
+          if (retryAfter) {
+            const parsed = parseInt(retryAfter, 10);
+            if (!isNaN(parsed)) {
+              waitMs = parsed * 1000;
+              Logger.info({
+                module,
+                context,
+                message: `Using Retry-After header: ${waitMs}ms`,
+              });
+            }
           }
         }
       }

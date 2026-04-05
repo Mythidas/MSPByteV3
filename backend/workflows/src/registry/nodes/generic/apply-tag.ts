@@ -6,7 +6,6 @@ import { TablesInsert } from "@workspace/shared/types/database.js";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { isRecord } from "@workspace/shared/lib/utils/validators.js";
 import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
-import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 registerNode({
   ref: "Generic.ApplyTag",
@@ -43,7 +42,7 @@ registerNode({
       throw new ExecutorError(`Generic.ApplyTag: missing tag_definition_id`);
     }
 
-    if (!entityType || !getTypeMap().has(entityType as IngestType)) {
+    if (!entityType || !getTypeMap().has(entityType)) {
       throw new ExecutorError(
         `Generic.ApplyTag: unknown or missing _entityType "${entityType}"`,
       );

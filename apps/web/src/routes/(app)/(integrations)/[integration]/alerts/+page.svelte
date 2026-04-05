@@ -6,10 +6,10 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
   import { formatStringProper } from '$lib/utils/format.js';
-  import { severityClass, alertStatusClass } from './_alert-config.js';
   import AlertSheet from './_alert-sheet.svelte';
   import type { TableView } from '$lib/components/data-table/types.js';
   import { authStore } from '$lib/stores/auth.svelte.js';
+  import { severityClass, alertStatusClass, SEVERITY_LABELS } from '$lib/config/alerts.js';
 
   type Alert = Tables<'views', 'd_alerts_view'>;
 
@@ -92,9 +92,9 @@
   });
 </script>
 
-{#snippet severityCell({ value }: { row: Alert; value: string })}
+{#snippet severityCell({ value }: { row: Alert; value: number })}
   <Badge variant="outline" class={severityClass(value)}>
-    {formatStringProper(value)}
+    {formatStringProper(SEVERITY_LABELS[value])}
   </Badge>
 {/snippet}
 

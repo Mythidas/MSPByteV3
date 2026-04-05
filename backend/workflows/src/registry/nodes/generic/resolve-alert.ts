@@ -4,7 +4,6 @@ import { ExecutorError } from "../../../errors.js";
 import { supabaseHelper } from "../../../lib/supabase-helper.js";
 import { getTypeMap } from "@workspace/shared/config/integrations/integrations.js";
 import { isRecord } from "@workspace/shared/lib/utils/validators.js";
-import { IngestType } from "@workspace/shared/types/jobs/ingest.js";
 
 registerNode({
   ref: "Generic.ResolveAlert",
@@ -43,7 +42,7 @@ registerNode({
     const alertDefinitionId = String(input.alert_definition_id);
     const entityType = String(entities[0]._entityType);
 
-    if (!entityType || !getTypeMap().has(entityType as IngestType)) {
+    if (!entityType || !getTypeMap().has(entityType)) {
       throw new ExecutorError(
         `Generic.ResolveAlert: unknown or missing _entityType "${entityType}"`,
       );

@@ -139,7 +139,7 @@ export function getAllDbRoutedTypes(): {
 
 export function getTypeMap() {
   const map = new Map<
-    IngestType,
+    string,
     {
       integration: string;
       schema: string;

@@ -10,10 +10,7 @@ import { IngestType as IT } from "@workspace/shared/types/jobs/ingest.js";
 import { getSupabase } from "../../supabase.js";
 import { isString } from "@workspace/shared/lib/utils/validators.js";
 import { TablesInsert } from "@workspace/shared/types/database.js";
-import {
-  SophosPartnerFirewallFirmware,
-  SophosPartnerFirewallFirmwareVersions,
-} from "@workspace/shared/types/integrations/sophos/firewall.js";
+import { SophosPartnerFirewallFirmware } from "@workspace/shared/types/integrations/sophos/firewall.js";
 
 const MAX_PREVIOUS_CODES = 10;
 
@@ -22,7 +19,6 @@ export class SophosPartnerAdapter implements AdapterContract {
 
   async fetch(ctx: JobContext): Promise<UpsertPayload[]> {
     const { tenantId, ingestType } = ctx;
-    const now = new Date().toISOString();
 
     const clientId = ctx.credentials?.clientId;
     const clientSecret = ctx.credentials?.clientSecret;
@@ -210,7 +206,7 @@ export class SophosPartnerAdapter implements AdapterContract {
       );
       for (let i = 0; i < result.firewalls.length; i++) {
         const fw = firewalls.find((f) => f.id === result.firewalls?.[i].id);
-        if (fw) fwFirmwares.set(fw.id, result.firewalls![i]);
+        if (fw) fwFirmwares.set(fw.id, result.firewalls[i]);
       }
     }
 
