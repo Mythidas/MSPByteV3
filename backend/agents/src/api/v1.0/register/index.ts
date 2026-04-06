@@ -48,8 +48,7 @@ export default function (fastify: FastifyInstance) {
             error: {
               module: "v1.0/register",
               context: "POST",
-              message:
-                "Site, Hostname, Platform and Version are required for registration",
+              message: `Site, Hostname, Platform and Version are required for registration (SiteID: ${site_id}, Hostname: ${hostname})`,
             },
           },
           400,
