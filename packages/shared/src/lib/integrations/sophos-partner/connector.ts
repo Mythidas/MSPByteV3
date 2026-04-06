@@ -58,9 +58,7 @@ export class SophosPartnerConnector {
   };
 
   readonly licenses: {
-    licenses: {
-      get(tenantConfig: SophosTenantConfig): Promise<SophosPartnerLicense>;
-    };
+    get(tenantConfig: SophosTenantConfig): Promise<SophosPartnerLicense>;
     firewalls: {
       list(scope: SophosScope): Promise<SophosPartnerFirewallLicense[]>;
     };
@@ -153,14 +151,12 @@ export class SophosPartnerConnector {
   private buildLicensesNamespace(): SophosPartnerConnector["licenses"] {
     const client = this.client;
     return {
-      licenses: {
-        async get(tenantConfig) {
-          const headers = await client.tenantHeaders(tenantConfig.tenantId);
-          return client.get<SophosPartnerLicense>(
-            "https://api.central.sophos.com/licenses/v1/licenses",
-            { ...headers, Accept: "application/json" },
-          );
-        },
+      async get(tenantConfig) {
+        const headers = await client.tenantHeaders(tenantConfig.tenantId);
+        return client.get<SophosPartnerLicense>(
+          "https://api.central.sophos.com/licenses/v1/licenses",
+          { ...headers, Accept: "application/json" },
+        );
       },
       firewalls: {
         async list(scope) {

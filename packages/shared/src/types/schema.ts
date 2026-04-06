@@ -2206,6 +2206,69 @@ export type Database = {
         }
         Relationships: []
       }
+      sophos_licenses: {
+        Row: {
+          code: string
+          created_at: string
+          ends_at: string | null
+          external_id: string
+          id: string
+          last_seen_at: string
+          license_id: string
+          link_id: string
+          name: string
+          perpetual: boolean
+          quantity: number | null
+          site_id: string | null
+          started_at: string
+          tenant_id: string
+          type: string
+          unlimited: boolean
+          updated_at: string
+          usage_count: number | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ends_at?: string | null
+          external_id: string
+          id?: string
+          last_seen_at?: string
+          license_id: string
+          link_id: string
+          name: string
+          perpetual: boolean
+          quantity?: number | null
+          site_id?: string | null
+          started_at: string
+          tenant_id: string
+          type: string
+          unlimited: boolean
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ends_at?: string | null
+          external_id?: string
+          id?: string
+          last_seen_at?: string
+          license_id?: string
+          link_id?: string
+          name?: string
+          perpetual?: boolean
+          quantity?: number | null
+          site_id?: string | null
+          started_at?: string
+          tenant_id?: string
+          type?: string
+          unlimited?: boolean
+          updated_at?: string
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

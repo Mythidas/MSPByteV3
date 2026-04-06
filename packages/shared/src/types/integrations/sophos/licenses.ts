@@ -24,7 +24,7 @@ export type SophosLicense = {
   unlimited: boolean;
   usage?: {
     current: {
-      [key: string]: number | string | boolean | null; // structure unspecified
+      count: number;
     };
   };
 };

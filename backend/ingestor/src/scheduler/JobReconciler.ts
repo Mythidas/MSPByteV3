@@ -44,6 +44,7 @@ export class JobReconciler {
           (t) => !t.linkerDependencies || t.linkerDependencies.length === 0,
         );
         if (types.length === 0) continue;
+        if (def.integrationId !== "sophos-partner") continue;
 
         const { data: links, error } = await supabase
           .from("integration_links")
@@ -61,6 +62,8 @@ export class JobReconciler {
         }
 
         for (const typeConfig of types) {
+          if (typeConfig.type !== IngestType.SophosLicenses) continue;
+
           if (typeConfig.scopeLevel === "tenant") {
             const tenantIds = [
               ...new Set((links ?? []).map((l) => l.tenant_id)),

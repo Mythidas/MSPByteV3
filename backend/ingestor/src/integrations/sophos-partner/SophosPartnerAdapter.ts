@@ -37,9 +37,13 @@ export class SophosPartnerAdapter implements AdapterContract {
     );
 
     if (!ctx.linkId) {
-      throw new ConfigError("SophosPartnerAdapter: endpoints job requires link_id", {
-        integrationId: this.integrationId, tenantId: ctx.tenantId,
-      });
+      throw new ConfigError(
+        "SophosPartnerAdapter: endpoints job requires link_id",
+        {
+          integrationId: this.integrationId,
+          tenantId: ctx.tenantId,
+        },
+      );
     }
 
     const sophosApiHost =
@@ -53,7 +57,11 @@ export class SophosPartnerAdapter implements AdapterContract {
     if (!sophosTenantId || !sophosApiHost) {
       throw new ConfigError(
         `SophosPartnerAdapter: link ${ctx.linkId} has no external_id or apiHost`,
-        { integrationId: this.integrationId, tenantId: ctx.tenantId, linkId: ctx.linkId },
+        {
+          integrationId: this.integrationId,
+          tenantId: ctx.tenantId,
+          linkId: ctx.linkId,
+        },
       );
     }
 
@@ -77,10 +85,24 @@ export class SophosPartnerAdapter implements AdapterContract {
         tenantId,
         ctx.trackSpan,
       );
+    } else if (ingestType === IT.SophosLicenses) {
+      return this.fetchLicenses(
+        connector,
+        sophosTenantId,
+        sophosApiHost,
+        ctx.linkId,
+        ctx.siteId ?? null,
+        tenantId,
+        ctx.trackSpan,
+      );
     } else {
       throw new ConfigError(
         `SophosPartnerAdapter: unknown ingestType "${ingestType}"`,
-        { integrationId: this.integrationId, tenantId: ctx.tenantId, ingestType },
+        {
+          integrationId: this.integrationId,
+          tenantId: ctx.tenantId,
+          ingestType,
+        },
       );
     }
   }
@@ -177,10 +199,11 @@ export class SophosPartnerAdapter implements AdapterContract {
     rows.push(
       ...(await span("sophos:tamper_protection", () =>
         batchAll(data, TAMPER_BATCH_SIZE, async (ep) => {
-          const codes = await connector.endpoint.endpoints.tamper_protection.get(
-            { apiHost: sophosApiHost, tenantId: sophosTenantId },
-            ep.id,
-          );
+          const codes =
+            await connector.endpoint.endpoints.tamper_protection.get(
+              { apiHost: sophosApiHost, tenantId: sophosTenantId },
+              ep.id,
+            );
           return buildRow(ep, codes);
         }),
       )),
@@ -260,6 +283,57 @@ export class SophosPartnerAdapter implements AdapterContract {
               updated_at: now,
               last_seen_at: now,
             }) satisfies TablesInsert<"vendors", "sophos_firewalls">,
+        ),
+        onConflict: "tenant_id,link_id,external_id",
+      },
+    ];
+  }
+
+  private async fetchLicenses(
+    connector: SophosPartnerConnector,
+    sophosTenantId: string,
+    sophosApiHost: string,
+    linkId: string,
+    siteId: string | null,
+    tenantId: string,
+    trackSpan?: JobContext["trackSpan"],
+  ): Promise<UpsertPayload[]> {
+    const now = new Date().toISOString();
+    const span = trackSpan ?? (<T>(_n: string, f: () => Promise<T>) => f());
+    const data = await span("sophos:list_licenses", () =>
+      connector.licenses.get({
+        apiHost: sophosApiHost,
+        tenantId: sophosTenantId,
+      }),
+    );
+
+    return [
+      {
+        table: "sophos_licenses",
+        rows: data.licenses.map(
+          (lic) =>
+            ({
+              tenant_id: tenantId,
+              site_id: siteId,
+              link_id: linkId,
+
+              external_id: lic.id,
+              license_id: lic.licenseIdentifier,
+
+              name: lic.product.name ?? "unknown",
+              code: lic.product.code ?? "unknown",
+              type: lic.type,
+              perpetual: lic.perpetual,
+              unlimited: lic.unlimited,
+              quantity: lic.quantity ?? 0,
+              usage_count: lic.usage?.current.count ?? 0,
+              started_at: lic.startDate,
+              ends_at: lic.endDate,
+
+              created_at: now,
+              updated_at: now,
+              last_seen_at: now,
+            }) satisfies TablesInsert<"vendors", "sophos_licenses">,
         ),
         onConflict: "tenant_id,link_id,external_id",
       },

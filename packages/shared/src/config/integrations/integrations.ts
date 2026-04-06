@@ -41,10 +41,23 @@ export const INTEGRATIONS: Record<IntegrationId, Integration> = {
           shape: {},
         },
       },
+      {
+        type: IngestType.SophosLicenses,
+        freshnessMinutes: IntegrationRefreshIntervalMinutes["24-Hours"],
+        priority: 3,
+        workerConcurrency: 2,
+        scopeLevel: "link",
+        db: {
+          schema: "vendors",
+          table: "sophos_licenses",
+          shape: {},
+        },
+      },
     ],
     navigation: [
       { label: "Endpoints", route: "/endpoints", isNullable: true },
       { label: "Firewalls", route: "/firewalls", isNullable: true },
+      { label: "Licenses", route: "/licenses", isNullable: true },
     ],
   },
 
