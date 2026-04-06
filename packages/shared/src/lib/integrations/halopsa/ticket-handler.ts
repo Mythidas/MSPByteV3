@@ -58,7 +58,6 @@ export class HaloPSATicketHandler {
       assets: ticket.assets.map((id) => ({ id })),
     };
 
-    console.log(body);
     return this.connector.tickets.create(body);
   }
 }
