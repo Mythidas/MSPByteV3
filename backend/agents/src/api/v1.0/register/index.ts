@@ -4,32 +4,35 @@ import { Logger } from "@workspace/shared/lib/utils/logger";
 import { randomUUID } from "node:crypto";
 import z from "zod";
 
-const ResBodySchema = z
-  .object({
-    site_id: z.string(),
-    device_id: z.string(),
-    hostname: z.string(),
-    version: z.string(),
-    guid: z.string().optional(),
-    platform: z.string(),
-    mac: z.string(),
-    ip_address: z.string(),
-    ext_address: z.string(),
-  })
-  .catch({
-    site_id: "",
-    device_id: "",
-    hostname: "",
-    version: "",
-    platform: "",
-    mac: "",
-    ip_address: "",
-    ext_address: "",
-  });
+const ResBodySchema = z.object({
+  site_id: z.string().optional(),
+  device_id: z.string().optional(),
+  hostname: z.string().optional(),
+  version: z.string().optional(),
+  guid: z.string().optional(),
+  platform: z.string().optional(),
+  mac: z.string().optional(),
+  ip_address: z.string(),
+  ext_address: z.string(),
+});
 
 export default function (fastify: FastifyInstance) {
   fastify.post("/", async (req) => {
     try {
+      const resBody = ResBodySchema.safeParse(req.body);
+      if (!resBody.data) {
+        return Logger.response(
+          {
+            error: {
+              module: "v1.0/register",
+              context: "POST",
+              message: `Failed to parse body`,
+            },
+          },
+          400,
+        );
+      }
+
       const {
         site_id,
         device_id,
@@ -40,7 +43,7 @@ export default function (fastify: FastifyInstance) {
         platform,
         ip_address,
         ext_address,
-      } = ResBodySchema.parse(typeof req.body === "string" ? req.body : "");
+      } = resBody.data;
 
       if (!site_id || !hostname || !version || !platform) {
         return Logger.response(
