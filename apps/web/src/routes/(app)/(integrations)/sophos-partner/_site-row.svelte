@@ -3,7 +3,7 @@
   import { scopeStore } from '$lib/stores/scope.svelte.js';
   import { INTEGRATIONS } from '@workspace/shared/config/integrations/integrations';
   import { cn } from '$lib/utils';
-  import type { SophosLinkGridRow } from '$lib/hooks/sophos/useSophosLinkGrid.svelte.js';
+  import type { SophosLinkGridRow, Tier } from '$lib/hooks/sophos/useSophosLinkGrid.svelte.js';
 
   const { tenantId, link }: { tenantId: string; link: SophosLinkGridRow } = $props();
 
@@ -55,9 +55,33 @@
   }
 </script>
 
+{#snippet tierBadge(tier: Tier | null)}
+  {#if tier === 'MDR'}
+    <span
+      class="inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium bg-primary/15 text-primary border-primary/30 w-fit"
+    >
+      MDR
+    </span>
+  {:else if tier === 'XDR'}
+    <span
+      class="inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium bg-warning/15 text-warning border-warning/30 w-fit"
+    >
+      XDR
+    </span>
+  {:else if tier === 'Endpoint'}
+    <span
+      class="inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-medium bg-success/15 text-success border-success/30 w-fit"
+    >
+      Endpoint
+    </span>
+  {:else}
+    <span class="text-muted-foreground">—</span>
+  {/if}
+{/snippet}
+
 <div
   class={cn(
-    'grid grid-cols-[2fr_120px_60px_60px_80px_110px_1fr] items-center gap-4 px-3 py-2.5 rounded border bg-card/70 text-sm',
+    'grid grid-cols-[2fr_120px_90px_90px_110px_1fr] items-center gap-4 px-3 py-2.5 rounded border bg-card/70 text-sm',
     isDispositioned
       ? 'opacity-60 cursor-default'
       : 'cursor-pointer hover:bg-muted/40 hover:border-border transition-colors'
@@ -84,14 +108,11 @@
     </span>
   {/if}
 
-  <!-- MDR placeholder -->
-  <span class="text-muted-foreground">—</span>
+  <!-- Server tier -->
+  {@render tierBadge(link.serverTier)}
 
-  <!-- XDR placeholder -->
-  <span class="text-muted-foreground">—</span>
-
-  <!-- Endpoint placeholder -->
-  <span class="text-muted-foreground">—</span>
+  <!-- User tier -->
+  {@render tierBadge(link.userTier)}
 
   <!-- Alerts -->
   {#if alertLoading}

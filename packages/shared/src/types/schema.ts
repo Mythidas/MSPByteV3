@@ -1479,6 +1479,19 @@ export type Database = {
     Functions: {
       current_tenant_id: { Args: never; Returns: string }
       current_user_has_permission: { Args: { perm: string }; Returns: boolean }
+      rls_drop_all: {
+        Args: { p_schema: string; p_table: string }
+        Returns: undefined
+      }
+      rls_setup: {
+        Args: {
+          p_operations?: string[]
+          p_perm_base: string
+          p_schema: string
+          p_table: string
+        }
+        Returns: undefined
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
@@ -2274,7 +2287,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      rls_setup: {
+        Args: {
+          p_operations?: string[]
+          p_perm_base: string
+          p_schema: string
+          p_table: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
@@ -2649,6 +2670,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sophos_endpoints_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "d_sites_view"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sophos_license_tiers: {
+        Row: {
+          link_id: string | null
+          server_tier: string | null
+          tenant_id: string | null
+          user_tier: string | null
+        }
+        Relationships: []
+      }
+      sophos_licenses_view: {
+        Row: {
+          code: string | null
+          created_at: string | null
+          ends_at: string | null
+          external_id: string | null
+          id: string | null
+          last_seen_at: string | null
+          license_id: string | null
+          link_id: string | null
+          name: string | null
+          perpetual: boolean | null
+          quantity: number | null
+          site_id: string | null
+          site_name: string | null
+          started_at: string | null
+          state: string | null
+          tenant_id: string | null
+          type: string | null
+          unlimited: boolean | null
+          updated_at: string | null
+          usage_count: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sophos_licenses_site_id_fkey"
             columns: ["site_id"]
             isOneToOne: false
             referencedRelation: "d_sites_view"

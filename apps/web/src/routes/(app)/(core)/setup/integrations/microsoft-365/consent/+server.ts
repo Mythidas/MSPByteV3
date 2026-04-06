@@ -90,7 +90,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
       context: 'ensureDirectoryRoles',
       message: `Failed to assign roles [${failed.join(', ')}] to ${logTarget}`,
     });
-    await Logger.writeDiagnosticLog(locals.supabase, {
+    await Logger.diagnosticLog(locals.supabase, {
       tenant_id: mspbyteTenantId!,
       level: 'warn',
       module: 'consent',
@@ -100,7 +100,7 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     });
   }
 
-  await Logger.writeAuditLog(locals.supabase, {
+  await Logger.auditLog(locals.supabase, {
     tenant_id: mspbyteTenantId!,
     actor: 'system',
     action: 'role_assigned',

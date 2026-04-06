@@ -117,3 +117,23 @@ export function textColumn<T>(
     ...overrides,
   };
 }
+
+export function numberColumn<T>(
+  key: string,
+  title: string,
+  placeholder?: string,
+  overrides?: Partial<DataTableColumn<T>>
+): DataTableColumn<T> {
+  return {
+    key,
+    title,
+    sortable: true,
+    searchable: true,
+    filter: {
+      type: 'number',
+      operators: ['eq', 'lt', 'gt', 'lte', 'gte'],
+      placeholder: placeholder ?? `Filter ${title}...`,
+    },
+    ...overrides,
+  };
+}
