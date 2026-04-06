@@ -43,4 +43,3 @@ export const load: LayoutServerLoad = ({ locals, url }) => {
     getSites: getSites({ locals }),
   };
 };
-

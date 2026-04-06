@@ -10,7 +10,7 @@
 
   const d = $derived(hook.data);
   const passRate = $derived(
-    (d?.total ?? 0) > 0 ? Math.round(((d?.pass ?? 0) / (d?.total ?? 1)) * 100) : 0,
+    (d?.total ?? 0) > 0 ? Math.round(((d?.pass ?? 0) / (d?.total ?? 1)) * 100) : 0
   );
 
   const rateTint = $derived(
@@ -18,10 +18,10 @@
       ? 'bg-destructive/5 border-destructive/20'
       : passRate < 80
         ? 'bg-warning/5 border-warning/20'
-        : 'bg-success/5 border-success/20',
+        : 'bg-success/5 border-success/20'
   );
   const rateTextTint = $derived(
-    passRate < 50 ? 'text-destructive' : passRate < 80 ? 'text-warning' : 'text-success',
+    passRate < 50 ? 'text-destructive' : passRate < 80 ? 'text-warning' : 'text-success'
   );
 
   const SEVERITY_CLASSES: Record<string, string> = {
@@ -62,9 +62,7 @@
     <h2 class="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Compliance</h2>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <a href="/microsoft-365/compliance">
-        <Card.Root
-          class="p-4 hover:border-primary/50 cursor-pointer transition-colors {rateTint}"
-        >
+        <Card.Root class="p-4 hover:border-primary/50 cursor-pointer transition-colors {rateTint}">
           <div class="flex flex-col gap-1">
             <span class="text-xs text-muted-foreground">Pass Rate</span>
             <span class="text-2xl font-bold {rateTextTint}">{passRate}%</span>
@@ -98,8 +96,8 @@
     </div>
 
     {#if d.topFailing.length > 0}
-      <Card.Root class="overflow-hidden">
-        <div class="px-4 py-3 border-b">
+      <div class="overflow-hidden bg-card rounded border">
+        <div class="px-4 py-2 border-b">
           <span class="text-xs font-semibold text-muted-foreground uppercase tracking-wide"
             >Top Failing Checks</span
           >
@@ -120,7 +118,7 @@
             <ChevronRight class="size-4 text-muted-foreground shrink-0" />
           </a>
         {/each}
-      </Card.Root>
+      </div>
     {/if}
   </section>
 {/if}

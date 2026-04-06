@@ -852,11 +852,15 @@ export type Database = {
       integration_links: {
         Row: {
           created_at: string
-          external_id: string
+          disposition:
+            | Database["public"]["Enums"]["IntegrationLinkDispositions"]
+            | null
+          external_id: string | null
           id: string
           integration_id: string
           meta: Json | null
           name: string | null
+          note: string | null
           site_id: string | null
           status: string | null
           tenant_id: string
@@ -864,11 +868,15 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          external_id: string
+          disposition?:
+            | Database["public"]["Enums"]["IntegrationLinkDispositions"]
+            | null
+          external_id?: string | null
           id?: string
           integration_id: string
           meta?: Json | null
           name?: string | null
+          note?: string | null
           site_id?: string | null
           status?: string | null
           tenant_id: string
@@ -876,11 +884,15 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          external_id?: string
+          disposition?:
+            | Database["public"]["Enums"]["IntegrationLinkDispositions"]
+            | null
+          external_id?: string | null
           id?: string
           integration_id?: string
           meta?: Json | null
           name?: string | null
+          note?: string | null
           site_id?: string | null
           status?: string | null
           tenant_id?: string
@@ -1471,7 +1483,7 @@ export type Database = {
       show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
-      [_ in never]: never
+      IntegrationLinkDispositions: "third_party" | "not_managed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2716,7 +2728,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      IntegrationLinkDispositions: ["third_party", "not_managed"],
+    },
   },
   vendors: {
     Enums: {},

@@ -2,16 +2,17 @@
   import FadeIn from '$lib/components/transition/fade-in.svelte';
   import { authStore } from '$lib/stores/auth.svelte.js';
   import { scopeStore } from '$lib/stores/scope.svelte.js';
-  import TenantCard from './_tenant-card.svelte';
+  import TenantRow from './_tenant-row.svelte';
   import HealthBanner from './_health-banner.svelte';
   import IdentitySection from './_identity-section.svelte';
   import LicenseSection from './_license-section.svelte';
   import ComplianceSection from './_compliance-section.svelte';
   import DirectorySection from './_directory-section.svelte';
   import Input from '$lib/components/ui/input/input.svelte';
-  import * as Card from '$lib/components/ui/card/index.js';
   import { Search } from '@lucide/svelte';
   import { createM365TenantGrid } from '$lib/hooks/m365/useM365TenantGrid.svelte.js';
+
+  const GRID_SIZE = 'grid-cols-[0.75fr_240px_230px_230px_110px]';
 
   let search = $state('');
 
@@ -24,7 +25,7 @@
   const filteredLinks = $derived(
     grid.links
       .filter((l) => l.name?.toLowerCase().includes(search?.trim()?.toLowerCase()))
-      .sort((a, b) => a.name?.localeCompare(b.name)),
+      .sort((a, b) => a.name?.localeCompare(b.name))
   );
 </script>
 
@@ -55,22 +56,28 @@
         </div>
       </div>
 
-      <!-- Scrollable grid -->
-      <div class="flex-1 overflow-y-auto">
+      <!-- Scrollable rows (column header is sticky inside so scrollbar affects both equally) -->
+      <div class="flex-1 overflow-y-auto flex flex-col gap-2 pr-2">
+        <div
+          class="grid {GRID_SIZE} sticky top-0 z-10 items-center gap-6 px-3 py-2 text-xs font-medium text-muted-foreground bg-card rounded border shadow shrink-0"
+        >
+          <span>Tenant</span>
+          <span>Identities</span>
+          <span>Licenses</span>
+          <span>Compliance</span>
+          <span>Alerts</span>
+        </div>
+
         {#if grid.loading}
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-1">
+          <div class="flex flex-col gap-2">
             {#each Array(4) as _}
-              <Card.Root class="p-4">
-                <div class="flex items-center justify-between mb-4">
-                  <span class="h-4 w-32 rounded bg-muted-foreground/20"></span>
-                  <span class="h-4 w-20 rounded bg-muted-foreground/20"></span>
-                </div>
-                <div class="flex flex-col gap-3">
-                  {#each Array(3) as _}
-                    <div class="h-3 w-full rounded bg-muted-foreground/10"></div>
-                  {/each}
-                </div>
-              </Card.Root>
+              <div class="grid {GRID_SIZE} items-center border bg-card gap-4 px-3 py-2.5">
+                <span class="h-4 w-36 rounded bg-muted-foreground/15"></span>
+                <span class="h-4 w-24 rounded bg-muted-foreground/10"></span>
+                <span class="h-4 w-28 rounded bg-muted-foreground/10"></span>
+                <span class="h-4 w-28 rounded bg-muted-foreground/10"></span>
+                <span class="h-4 w-16 rounded bg-muted-foreground/10"></span>
+              </div>
             {/each}
           </div>
         {:else if filteredLinks.length === 0}
@@ -82,12 +89,10 @@
             >
           </div>
         {:else}
-          <FadeIn>
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 p-1">
-              {#each filteredLinks as link (link.id)}
-                <TenantCard {tenantId} {link} />
-              {/each}
-            </div>
+          <FadeIn class="flex flex-col gap-2">
+            {#each filteredLinks as link (link.id)}
+              <TenantRow {tenantId} {link} />
+            {/each}
           </FadeIn>
         {/if}
       </div>

@@ -24,26 +24,19 @@
 
       loading = true;
 
-      if (currentScope === 'site') {
-        const { data: sites } = await supabase
-          .from('sites')
-          .select('id,name')
-          .eq('tenant_id', authStore.currentTenant?.id ?? '')
-          .order('name');
+      const { data: links } = await supabase
+        .from('integration_links')
+        .select('id,name,external_id,site_id')
+        .eq('tenant_id', authStore.currentTenant?.id ?? '')
+        .eq('integration_id', scopeStore.currentIntegration as string)
+        .eq('status', 'active')
+        .order('name');
 
-        options = sites?.map((s) => ({ label: s.name, value: s.id })) ?? [];
-      } else if (currentScope === 'link') {
-        const { data: links } = await supabase
-          .from('integration_links')
-          .select('id,name,external_id')
-          .eq('tenant_id', authStore.currentTenant?.id ?? '')
-          .eq('integration_id', scopeStore.currentIntegration as string)
-          .eq('status', 'active')
-          .is('site_id', null)
-          .order('name');
-
-        options = links?.map((l) => ({ label: l.name ?? l.external_id, value: l.id })) ?? [];
-      }
+      options =
+        links?.map((l) => ({
+          label: l.name ?? l.external_id ?? 'unknown',
+          value: currentScope === 'link' ? l.id : (l.site_id ?? ''),
+        })) ?? [];
 
       loading = false;
     };
