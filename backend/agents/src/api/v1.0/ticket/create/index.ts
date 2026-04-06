@@ -43,6 +43,7 @@ export default function (fastify: FastifyInstance) {
     const perf = new PerformanceTracker();
     let statusCode = 500;
     let ticketID: string | null = null;
+    let parsedBody: z.infer<typeof BodySchema> | null = null;
 
     try {
       const siteID = String(req.headers["x-site-id"]);
@@ -181,14 +182,22 @@ export default function (fastify: FastifyInstance) {
             };
           }
 
-          return BodySchema.parse(formData);
+          return BodySchema.safeParse(formData).data;
         }
 
         // Handle JSON (legacy support)
-        return BodySchema.parse(typeof req.body === "string" ? req.body : "");
+        return BodySchema.safeParse(
+          typeof req.body === "string" ? req.body : "",
+        ).data;
       });
 
+      if (!body) {
+        statusCode = 500;
+        throw new Error(`Failed to parse body content`);
+      }
+
       // Fetch assets from PSA using the site mapping external_id
+      parsedBody = body;
       const psaSiteId = psaSiteMapping?.external_id;
       const assets = await perf.trackSpan("psa_fetch_assets", async () => {
         if (!body.rmm_id || !psaSiteId) return [];
@@ -385,7 +394,10 @@ export default function (fastify: FastifyInstance) {
               {
                 statusCode,
                 errorMessage,
-                requestMetadata: {},
+                requestMetadata: {
+                  ...parsedBody,
+                  screenshot: null,
+                },
               },
               perf,
             );
