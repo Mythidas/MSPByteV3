@@ -1,8 +1,8 @@
-import type { HaloPSAConnector } from './connector';
+import type { HaloPSAConnector } from "./connector";
 import type {
   HaloPSANewTicket,
   HaloPSATicketBody,
-} from '@workspace/shared/types/integrations/halopsa/tickets';
+} from "@workspace/shared/types/integrations/halopsa/tickets";
 
 /**
  * Builds and submits HaloPSA tickets. Contains the business logic for
@@ -14,21 +14,24 @@ export class HaloPSATicketHandler {
 
   async createTicket(ticket: HaloPSANewTicket): Promise<string> {
     const images = ticket.images
-      .map((src) => `<img src="${src}" class="fr-fil fr-dib" width="720" height="374">`)
-      .join('<br>');
+      .map(
+        (src) =>
+          `<img src="${src}" class="fr-fil fr-dib" width="720" height="374">`,
+      )
+      .join("<br>");
 
     const lines: string[] = [];
-    lines.push('[User Submitted Request]');
+    lines.push("[User Submitted Request]");
     lines.push(`Summary: ${ticket.summary}`);
-    lines.push('');
+    lines.push("");
     lines.push(`Name: ${ticket.user.name}`);
     lines.push(`Email: ${ticket.user.email}`);
     lines.push(`Phone: ${ticket.user.phone}`);
     lines.push(`Details: ${ticket.details}`);
-    lines.push('');
+    lines.push("");
     if (ticket.assets.length === 0) lines.push(`Device: ${ticket.deviceName}`);
 
-    const details_html = `<p>${lines.join('<br>')}<br>${images}</p>`;
+    const details_html = `<p>${lines.join("<br>")}<br>${images}</p>`;
 
     const body: HaloPSATicketBody = {
       site_id: ticket.siteId,
@@ -39,22 +42,23 @@ export class HaloPSATicketHandler {
       reportedby: ticket.user.email,
       tickettype_id: 3,
       timerinuse: false,
-      itil_tickettype_id: '-1',
-      tickettype_group_id: '-1',
+      itil_tickettype_id: "-1",
+      tickettype_group_id: "-1",
       summary: ticket.summary,
       details_html,
-      category_1: '',
+      category_1: "Standard - Incident",
       impact: String(ticket.impact),
       urgency: String(ticket.urgency),
       donotapplytemplateintheapi: true,
-      utcoffset: 360,
-      form_id: 'newticket-1',
+      utcoffset: 300,
+      form_id: "newticket622a2b46-24eb-46b5-b5d1-4b1e6ed66834",
       dont_do_rules: true,
       return_this: false,
       phonenumber: ticket.user.phone,
       assets: ticket.assets.map((id) => ({ id })),
     };
 
+    console.log(body);
     return this.connector.tickets.create(body);
   }
 }
